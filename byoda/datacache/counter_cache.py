@@ -8,6 +8,7 @@ the pod from forwarding loops; executing and forwarding the same query twice
 '''
 
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -28,7 +29,7 @@ Member = TypeVar('Member')
 
 
 class CounterCache:
-    def __init__(self, member: Member, cache_tech: CacheTech):
+    def __init__(self, member: Member, cache_tech: CacheTech) -> None:
         self.member: Member = member
         self.cache_tech: CacheTech = cache_tech
 
@@ -42,6 +43,8 @@ class CounterCache:
                     paths.MEMBER_COUNTER_CACHE_FILE, member_id=member.member_id
                 )
             )
+        elif cache_tech == CacheTech.POSTGRES:
+            raise NotImplementedError('Postgres not yet supported for cache')
         else:
             raise NotImplementedError(
                 'CounterCache only implemented for Sqlite'
@@ -50,7 +53,7 @@ class CounterCache:
         self.backend: KVCache | None = None
 
     @staticmethod
-    async def create(member: Member, cache_tech=CacheTech.SQLITE):
+    async def create(member: Member, cache_tech=CacheTech.SQLITE) -> Self:
         '''
         Factory for QueryCache
 
@@ -62,27 +65,27 @@ class CounterCache:
 
         cache = CounterCache(member, cache_tech=cache_tech)
 
-        _LOGGER.debug(f'Creating counter cache using {cache.filepath}')
+        _LOGGER.debug(f'Creating counter cache using {cache_tech.value}')
         cache.backend = await KVCache.create(
             cache.filepath, cache_tech=cache_tech, cache_type=CacheType.COUNTER
         )
 
         return cache
 
-    async def close(self):
+    async def close(self) -> None:
         await self.backend.close()
 
     @staticmethod
     def get_key_name(class_name: str,
-                     counter_filter: CounterFilter | None = None):
+                     counter_filter: CounterFilter | None = None) -> str:
         '''
         Gets the key name for the counter cache, including the field_names
         and values if provided.
         '''
 
-        key = class_name
+        key: str = class_name
 
-        specifiers = []
+        specifiers: list = []
         if counter_filter:
             for field_name, value in counter_filter.items():
                 specifiers.append(f'{field_name}={str(value)}')
@@ -117,12 +120,12 @@ class CounterCache:
         cache
         '''
 
-        key = self.get_key_name(class_name, counter_filter)
+        key: str = self.get_key_name(class_name, counter_filter)
 
-        counter = await self.backend.get(key)
+        counter: any = await self.backend.get(key)
 
         if counter is None and table:
-            counter = await table.count(counter_filter)
+            counter: any = await table.count(counter_filter)
             await self.set(key, counter)
 
         return counter
@@ -140,7 +143,7 @@ class CounterCache:
         :returns: The value of the updated counter
         '''
 
-        counter = await self.incr(key, delta)
+        counter: int = await self.incr(key, delta)
         if counter is None:
             counter = await table.count(counter_filter)
             await self.set(key, counter)
@@ -178,7 +181,7 @@ class CounterCache:
         :returns: True if the query_id was deleted, False if it did not exist
         '''
 
-        key = CounterCache.get_key_name(class_name, field_name, value)
+        key: any = CounterCache.get_key_name(class_name, field_name, value)
 
         return await self.backend.delete(key)
 

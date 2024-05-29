@@ -399,13 +399,14 @@ class Secret:
         self.cert = cert_chain.signed_cert
         self.cert_chain = cert_chain.cert_chain
 
-    def validate(self, root_ca: CaSecret, with_openssl: bool = False) -> None:
+    def validate(self, root_ca: CaSecret, with_openssl: bool = True) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
         This function does not check certificate recovation or OCSP
 
         :param Secret root_ca: the self-signed root CA to validate against
-        :param with_openssl: also use the openssl binary to validate the cert
+        :param with_openssl: [deprecated] also use the openssl binary to
+        validate the cert
         :returns: (none)
         :raises: ValueError if the certchain is invalid
         '''

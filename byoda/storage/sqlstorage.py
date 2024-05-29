@@ -10,18 +10,22 @@ implementations should derive from this class
 
 from uuid import UUID
 from typing import TypeVar
+from datetime import UTC
+from datetime import datetime
 from logging import getLogger
 from byoda.util.logger import Logger
-
-import aiosqlite
 
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
+from byoda.datamodel.dataclass import SchemaDataArray
+from byoda.datamodel.dataclass import SchemaDataObject
+
+from byoda.datatypes import MemberInfo
+from byoda.datatypes import MemberStatus
 
 from byoda.datatypes import IdType
-from byoda.datatypes import AnyScalarType
 
 Member = TypeVar('Member')
 Schema = TypeVar('Schema')
@@ -37,6 +41,10 @@ class Sql:
     def __init__(self) -> None:
         self.account_db_file: str = None
         self.member_db_files: dict[str, str] = {}
+        self.connection_string: str | None = None
+
+        self.account_sql_table: SqlTable | None = None
+        self.member_sql_tables: dict[UUID, dict[str, SqlTable]] = {}
 
     def database_filepath(self, member_id: UUID = None) -> str:
         if not member_id:
@@ -55,84 +63,36 @@ class Sql:
 
         return filepath
 
-    async def execute(self, command: str, member_id: UUID = None,
-                      data: dict[str, AnyScalarType] = None,
-                      autocommit: bool = True, fetchall: bool = False
-                      ) -> aiosqlite.cursor.Cursor | list[aiosqlite.Row]:
-        '''
-        Executes the SQL command.
-
-        :param command: SQL command to execute
-        :parm member_id: member_id for the member DB to execute the command on
-        :param data: data to use for the named placeholders in the SQL command
-        :param autocommit: whether to commit the transaction after executing
-        :param fetchall: should rows be fetched and returned
-        :returns: if 'fetchall' is False, the Cursor to the result, otherwise
-        a list of rows returned by the query
-        '''
-
-        datafile: str = self.database_filepath(member_id)
-
-        if member_id:
-            _LOGGER.debug(
-                f'Executing SQL for member {member_id}: {command} using '
-                f'SQL data file {self.member_db_files[member_id]} and '
-                f'values {data}'
-            )
-        else:
-            _LOGGER.debug(
-                f'Executing SQL for account: {command} using '
-                f'SQL data file {self.account_db_file} and values {data}'
-            )
-
-        async with aiosqlite.connect(datafile) as db_conn:
-            db_conn.row_factory = aiosqlite.Row
-            await db_conn.execute('PRAGMA synchronous = normal')
-            await db_conn.execute('PRAGMA busy_timeout = 5000')
-            await db_conn.execute('PRAGMA read_uncommitted = true')
-
-            tries: int = 0
-            while tries < 3:
-                try:
-                    if not fetchall:
-                        result: aiosqlite.cursor.Cursor = \
-                            await db_conn.execute(command, data)
-                    else:
-                        result: list[aiosqlite.Row] = \
-                            await db_conn.execute_fetchall(command, data)
-
-                    if autocommit:
-                        _LOGGER.debug(
-                            f'Committing transaction SQL command: {command}'
-                        )
-                        await db_conn.commit()
-
-                    return result
-                except aiosqlite.Error as exc:
-                    tries += 1
-                    _LOGGER.error(
-                        f'Error executing SQL {command}, '
-                        f'attempt #{tries}: {exc}'
-                    )
-
-            await db_conn.rollback()
-
-            raise RuntimeError(
-                f'Failed {tries} attempts to execute SQL {command}'
-            )
-
     def get_table(self, member_id: UUID, class_name: str) -> Table:
         '''
-        Returns the table for the class of the member_id
+        Returns the SQL table for the class of the member_id
         '''
+
+        if member_id not in self.member_sql_tables:
+            _LOGGER.error(f'No tables found for member {member_id}')
+            raise ValueError(f'No tables found for member {member_id}')
 
         if class_name not in self.member_sql_tables[member_id]:
             _LOGGER.error(
                 f'Table {class_name} not found for member {member_id}. '
                 f'Known tables: {", ".join(self.member_sql_tables[member_id])}'
             )
+            raise ValueError(f'No table available for {class_name}')
 
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
+        return sql_table
+
+    def get_sql_table(self, member_id: UUID, class_name: str
+                      ) -> SqlTable | None:
+        '''
+        Returns the SQL table for the membership if it exists
+        '''
+
+        if 'member_id' not in self.member_sql_tables:
+            return None
+
+        sql_table: SqlTable = self.member_sql_tables[member_id].get(class_name)
+
         return sql_table
 
     def get_tables(self, member_id) -> list[Table]:
@@ -141,6 +101,172 @@ class Sql:
         '''
 
         return list(self.member_sql_tables[member_id].values())
+
+    def add_sql_table(self, member_id: UUID, class_name: str,
+                      sql_table: SqlTable) -> None:
+        '''
+        Adds the SQL table to the list of tables we have created for the
+        membership
+        '''
+
+        _LOGGER.debug(f'Adding table {class_name} for member {member_id}')
+        if member_id not in self.member_sql_tables:
+            self.member_sql_tables[member_id] = {}
+
+        _LOGGER.debug(f'Adding table {class_name} for member {member_id}')
+        self.member_sql_tables[member_id][class_name] = sql_table
+
+    async def create_table(self, member_id,
+                           data_class: SchemaDataArray | SchemaDataObject,
+                           ) -> SqlTable:
+        '''
+        Creates a table for a data class in the schema of a membership in
+        the Sqlite3 database for the membership
+
+        :param member_id:
+        :param data_class: data class to create the table for
+        :param data_classes: list of data classes in the schema of the service
+        :returns: the created table
+        '''
+
+        sql_table: SqlTable = await SqlTable.setup(data_class, self, member_id)
+
+        return sql_table
+
+    async def _create_account_db(self) -> None:
+        '''
+        Creates the Account DB file
+        '''
+
+        await self.execute('''
+            CREATE TABLE IF NOT EXISTS memberships(
+                member_id TEXT,
+                service_id BIGINT,
+                timestamp REAL,
+                status TEXT
+            )
+        ''')    # noqa: E501
+
+        _LOGGER.debug(f'Created Account DB {self.account_db_file}')
+
+    async def setup_member_db(self, member_id: UUID, service_id: int) -> None:
+        await self.set_membership_status(
+            member_id, service_id, MemberStatus.ACTIVE
+        )
+
+    async def get_memberships(self, status: MemberStatus = MemberStatus.ACTIVE
+                              ) -> dict[UUID, MemberInfo]:
+        '''
+        Get the latest status of all memberships
+
+        :param status: The status of the membership to return. If its value is
+        'None' the latest membership status for all memberships will be. If the
+        status parameter has a value, only the memberships with that status are
+        returned
+        :returns: a dict with the latest membership status for each membership,
+        keyed with the member ID
+        '''
+
+        query = (
+            'SELECT member_id, service_id, status, timestamp '
+            'FROM memberships '
+        )
+        if status and status.value:
+            query += f"WHERE status = '{status.value}'"
+
+        rows: list[dict] = await self.execute(query, fetchall=True)
+
+        memberships: dict[str, object] = {}
+        for row in rows:
+            try:
+                member_id = UUID(row['member_id'])
+                membership = MemberInfo(
+                    member_id=member_id,
+                    service_id=int(row['service_id']),
+                    status=MemberStatus(row['status']),
+                    timestamp=float(row['timestamp']),
+                )
+                if status or member_id not in memberships:
+                    memberships[member_id] = membership
+                else:
+                    existing_membership: MemberInfo = memberships[member_id]
+                    existing_timestamp = existing_membership.timestamp
+                    if membership.timestamp >= existing_timestamp:
+                        memberships[member_id] = membership
+            except ValueError as exc:
+                _LOGGER.warning(
+                    f'Row with invalid data in account DB: {exc}'
+                )
+
+        memberships_for_status: dict[str, MemberInfo] = {
+            key: value for key, value in memberships.items()
+            if status is None or value.status == status
+        }
+
+        _LOGGER.debug(
+            f'Found {len(memberships_for_status)} memberships '
+            'in Sqlite Account DB'
+        )
+
+        return memberships_for_status
+
+    async def set_membership_status(self, member_id: UUID, service_id: int,
+                                    status: MemberStatus) -> None:
+        '''
+        Sets the status of a membership
+        '''
+
+        if not isinstance(member_id, UUID):
+            try:
+                member_id = UUID(member_id)
+            except ValueError as exc:
+                _LOGGER.warning(f'Invalid member_id {member_id}: {exc}')
+                raise
+
+        # Can't use data dict parameter with 'member_id' key as the
+        # SqlTable.execute() method will try to update the SQL tables for
+        # the membership if a member_id parameter is specified.
+        stmt: str = (f'''
+                SELECT member_id, service_id, status, timestamp
+                FROM memberships
+                WHERE member_id = '{member_id}'
+                ORDER BY timestamp DESC
+                LIMIT 1
+        ''')
+
+        rows: list = await self.execute(stmt, fetchall=True)
+
+        if len(rows) and rows[0]['status'] == status.value:
+            _LOGGER.debug('No need to change membership status')
+            return
+
+        if len(rows) == 0:
+            _LOGGER.debug(f'No membership info found for service {service_id}')
+        else:
+            db_status: str = rows[0]['status']
+            _LOGGER.debug(
+                f'Existing status of membership for service {service_id}: '
+                f'{db_status}'
+            )
+
+        stmt = (f'''
+            INSERT INTO memberships (member_id, service_id, status, timestamp)
+            VALUES (
+                '{member_id}',
+                {self.get_named_placeholder('service_id')},
+                {self.get_named_placeholder('status')},
+                {self.get_named_placeholder('timestamp')}
+            )
+        ''')
+
+        await self.execute(
+           stmt,
+           data={
+                'service_id': service_id,
+                'status': status.value,
+                'timestamp': int(datetime.now(tz=UTC).timestamp())
+            }
+        )
 
     async def query(self, member_id: UUID, class_name: str,
                     filters: DataFilterSet = None,
@@ -186,6 +312,12 @@ class Sql:
         :returns: the number of mutated rows in the table
         '''
 
+        if member_id not in self.member_sql_tables:
+            raise ValueError(f'No tables found for member {member_id}')
+
+        if class_name not in self.member_sql_tables[member_id]:
+            raise ValueError(f'No table available for {class_name}')
+
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
         return await sql_table.mutate(
             data, cursor, origin_id=origin_id, origin_id_type=origin_id_type,
@@ -207,6 +339,12 @@ class Sql:
         :returns: the number of rows added to the table
         '''
 
+        if member_id not in self.member_sql_tables:
+            raise ValueError(f'No tables found for member {member_id}')
+
+        if class_name not in self.member_sql_tables[member_id]:
+            raise ValueError(f'No table available for {class_name}')
+
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
 
         if cursor is None:
@@ -225,7 +363,9 @@ class Sql:
         '''
 
         sql_table: SqlTable = self.member_sql_tables[member_id][class_name]
-        return await sql_table.delete(data_filter_set)
+        return await sql_table.delete(
+            data_filter_set, sql_table.sql_store.get_named_placeholder
+        )
 
     async def read(self, member: Member, class_name: str,
                    filters: DataFilterSet) -> list[QueryResult]:

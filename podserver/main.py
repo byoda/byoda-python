@@ -64,7 +64,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     network_data: dict[str, str | int | bool | None] = get_environment_vars()
 
     server: PodServer = PodServer(
-        bootstrapping=bool(network_data.get('bootstrap'))
+        bootstrapping=bool(network_data.get('bootstrap')),
+        db_connection_string=network_data.get('db_connection')
     )
 
     config.server = server
@@ -85,7 +86,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     logfile: str = network_data.get('logdir', '/var/log/byoda') + '/pod.log'
     global _LOGGER
     _LOGGER = Logger.getLogger(
-        sys.argv[0], json_out=config.debug, debug=config.debug,
+        sys.argv[0], json_out=True, debug=config.debug,
         loglevel=network_data['loglevel'], logfile=logfile
     )
 
@@ -121,10 +122,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     server.account = account
 
     await server.set_data_store(
-        DataStoreType.SQLITE, account.data_secret
+        DataStoreType.POSTGRES, account.data_secret
     )
 
-    await server.set_cache_store(CacheStoreType.SQLITE)
+    await server.set_cache_store(CacheStoreType.POSTGRES)
 
     await server.get_registered_services()
 

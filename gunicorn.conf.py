@@ -72,8 +72,8 @@ keep_alive: int = 3600
 
 # max_requests - the number of requests processed by a worker
 # after which the worker will restart to avoid memory leaks
-max_requests: int = 1024
-max_requests_jitter: int = 64
+max_requests: int = 2048
+max_requests_jitter: int = 256
 
 # ===============================================
 #           Security
@@ -191,7 +191,7 @@ tmp_upload_dir: str = None
 # front-end proxy uses to indicate HTTPS requests. These tell gunicorn to set
 # wsgi.url_scheme to “https”, so your application can tell that the request is
 # secure.
-secure_scheme_headers = {
+secure_scheme_headers: dict[str, str] = {
     'X-FORWARDED-PROTOCOL': 'ssl',
     'X-FORWARDED-PROTO': 'https',
     'X-FORWARDED-SSL': 'on',

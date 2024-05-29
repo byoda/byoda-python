@@ -202,6 +202,7 @@ class CloudType(Enum):
 class CacheTech(Enum):
     REDIS       = 1
     SQLITE      = 2
+    POSTGRES    = 3
 
 class CacheType(Enum):
     QUERY_ID     = 'query'

@@ -1,11 +1,14 @@
+#!/usr/bin/env python3
+
 '''
-Test cases for Sqlite storage
+Check bootstrapping of greenfield postgres DB
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
-:license    : GPLv3
+:copyright  : Copyright 2024
+:license
 '''
 
+# flake8: noqa=E402
 import os
 import sys
 import time
@@ -14,10 +17,14 @@ import unittest
 from uuid import UUID
 from typing import Self
 from copy import deepcopy
-from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
+from logging import getLogger
+from dataclasses import dataclass
+
+# os.environ['PSYCOPG_IMPL'] = 'binary'
+from psycopg_pool import AsyncConnectionPool
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
@@ -37,7 +44,13 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
+from byoda.datamodel.sqltable import SqlTable
+
+from byoda.storage.postgres import PostgresStorage
+
 from byoda.util.logger import Logger
+
+from byoda import config
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
@@ -47,10 +60,18 @@ from tests.lib.util import get_test_uuid
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
+_LOGGER: Logger = getLogger(__name__)
+
+PSQL: PostgresStorage | None = None
+
 NETWORK: str = config.DEFAULT_NETWORK
 SCHEMA = 'tests/collateral/addressbook.json'
 
-TEST_DIR = '/tmp/byoda-tests/sqlite'
+TEST_DIR = '/tmp/byoda-tests/postgres'
+
+POSTGRES_CONNECTION_FILE: str = 'tests/collateral/local/test_postgres_db'
+
+CONNECTION_POOL: AsyncConnectionPool = None
 
 
 @dataclass(slots=True)
@@ -77,13 +98,25 @@ class NetworkInvite:
         )
 
 
-class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
+
+    '''
+    Test the Postgres DB driver
+    '''
+
     async def asyncSetUp(self) -> None:
+        with open(POSTGRES_CONNECTION_FILE) as file_desc:
+            connection_string: str = file_desc.read().strip()
+
+        config.test_case = True
+        PostgresStorage._destroy_database(connection_string)
+
+        os.environ['DB_CONNECTION'] = connection_string
+
         mock_environment_vars(TEST_DIR)
-        os.environ['DB_CONNECTION'] = ''
         network_data: dict[str, str] = await setup_network()
         account: Account = await setup_account(
-            network_data, store_type=DataStoreType.SQLITE
+            network_data, store_type=DataStoreType.POSTGRES
         )
 
         config.test_case = "TEST_CLIENT"
@@ -101,6 +134,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             await data_store.setup_member_db(
                 member.member_id, member.service_id, schema
             )
+
+    async def asyncTearDown(self) -> None:
+        pass
 
     async def test_object(self) -> None:
         server: PodServer = config.server
@@ -149,6 +185,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data, _ = result[0]
         self.assertEqual(data['member_id'], uuid)
         self.assertEqual(data['joined'], now)
+
+        await server.data_store.close()
 
     async def test_array(self) -> None:
         server: PodServer = config.server
@@ -366,7 +404,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             {
                 'text': 'updated text'
             }, '', data_filters, None, None, None,
-            placeholder_function=SqliteStorage.get_named_placeholder
+            placeholder_function=PostgresStorage.get_named_placeholder
         )
         filters = {
             'created_timestamp': {
@@ -391,10 +429,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             '_created_timestamp': 1671989969.329426,
             '_relation': 'family',
         }
-        stmt = (
-            'SELECT * FROM _network_invites '
-            'WHERE _created_timestamp >= :_created_timestamp '
-            'AND _relation = :_relation'
+        stmt: str = (
+            f'SELECT * FROM {network_invites_table.storage_table_name} '
+            'WHERE _created_timestamp >= %(_created_timestamp)s '
+            'AND _relation = %(_relation)s'
         )
         data = await network_invites_table.sql_store.execute(
             stmt, member_id=network_invites_table.member_id, data=data,
@@ -403,7 +441,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         results = []
         for row in data:
-            result: dict = {}
+            result = {}
             for column_name in row.keys():
                 if not column_name.startswith('_'):
                     continue
@@ -427,7 +465,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data_filters = DataFilterSet(filters)
         data = await network_invites_table.delete(
             data_filters=data_filters,
-            placeholder_function=SqliteStorage.get_named_placeholder
+            placeholder_function=PostgresStorage.get_named_placeholder
         )
 
         data: list[QueryResult] = await network_invites_table.query(
@@ -450,42 +488,48 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         data = await network_invites_table.delete(
             data_filters=data_filter,
-            placeholder_function=SqliteStorage.get_named_placeholder
+            placeholder_function=PostgresStorage.get_named_placeholder
         )
 
         data = await network_invites_table.query()
         self.assertIsNone(data)
 
+        await server.data_store.close()
+
     async def test_member_db(self) -> None:
         config.test_case = "TEST_CLIENT"
         account: Account = config.server.account
+        server: PodServer = config.server
 
         # BUG: async unittest.asyncsetup did not run??
-        os.remove(
-            '/tmp/byoda-tests/sqlite'
-            '/private/network-byoda.net/account-pod/data/account.db'
-        )
+        try:
+            os.remove(
+                '/tmp/byoda-tests/sqlite'
+                '/private/network-byoda.net/account-pod/data/account.db'
+            )
+        except FileNotFoundError:
+            pass
+
         schema = await Schema.get_schema(
             'addressbook.json', config.server.network.paths.storage_driver,
             None, None, verify_contract_signatures=False
         )
         schema.get_data_classes()
 
-        uuid: UUID = get_test_uuid()
+        member: Member = await account.get_membership(ADDRESSBOOK_SERVICE_ID)
 
         # '/tmp/byoda-tests/sqlite/private/network-byoda.net/account-pod/data/account.db'
-        sql: SqliteStorage = await SqliteStorage.setup(
-            config.server, account.data_secret
+        sql: PostgresStorage = await PostgresStorage.setup(
+            config.server.db_connection_string, server
         )
-        await sql.setup_member_db(uuid, schema.service_id)
         await sql.set_membership_status(
-            uuid, schema.service_id, MemberStatus.ACTIVE
+            member.member_id, schema.service_id, MemberStatus.ACTIVE
         )
-        memberships: dict[UUID, Member] = await sql.get_memberships()
+        memberships: dict[UUID, Member]  = await sql.get_memberships()
         self.assertEqual(len(memberships), 1)
 
         await sql.set_membership_status(
-            uuid, schema.service_id, MemberStatus.PAUSED
+            member.member_id, schema.service_id, MemberStatus.PAUSED
         )
         memberships = await sql.get_memberships()
         self.assertEqual(len(memberships), 1)
@@ -494,7 +538,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(memberships), 1)
 
         await sql.set_membership_status(
-            uuid, schema.service_id, MemberStatus.ACTIVE
+            member.member_id, schema.service_id, MemberStatus.ACTIVE
         )
         memberships = await sql.get_memberships(status=MemberStatus.PAUSED)
         self.assertEqual(len(memberships), 1)
@@ -505,6 +549,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         memberships = await sql.get_memberships()
         self.assertEqual(len(memberships), 1)
 
+        await sql.close()
 
 def compare_network_invite(data: list[QueryResult],
                            network_invites: list[NetworkInvite]) -> int:
@@ -512,12 +557,21 @@ def compare_network_invite(data: list[QueryResult],
     Check how often a '''
     found = 0
     for value, _ in data:
-        invite = NetworkInvite.from_dict(value)
+        invite: NetworkInvite = NetworkInvite.from_dict(value)
         if invite in network_invites:
             found += 1
 
     return found
 
+async def create_data(pool, table_name: str) -> None:
+    stmt: str = f'''
+        CREATE TABLE {table_name} (
+            id SERIAL PRIMARY KEY,
+            data JSONB NOT NULL
+        );
+    '''
+    async with pool.connection() as conn:
+        await conn.execute(stmt)
 
 if __name__ == '__main__':
     Logger.getLogger(sys.argv[0], debug=True, json_out=False)

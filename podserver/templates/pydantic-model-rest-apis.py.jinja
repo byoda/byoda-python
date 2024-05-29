@@ -315,7 +315,7 @@ async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_clas
     except ConnectionClosedError as exc:
         _LOGGER.debug(f'Websocket connection closed: {exc}')
         return
-    except WebSocketException:
+    except WebSocketException as exc:
         _LOGGER.debug(f'Websocket exception: {exc}')
         return
     except Exception as exc:

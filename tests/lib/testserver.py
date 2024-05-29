@@ -118,7 +118,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
 
     server: PodServer = PodServer(
-        bootstrapping=bool(data.get('bootstrap'))
+        bootstrapping=bool(data.get('bootstrap')),
+        db_connection_string=data.get('db_connection')
     )
 
     config.server = server
@@ -139,7 +140,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ### Test change     # noqa: E266
     ###
     global LOG_FILE
-    LOG_FILE = os.environ.get('LOGFILE', data['root_dir'] + '/pod.log')
+    LOG_FILE: str = os.environ.get('LOGDIR', data['root_dir']) + '/pod.log'
     ###
     ###
     ###
@@ -198,10 +199,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     server.account = account
 
     await server.set_data_store(
-        DataStoreType.SQLITE, account.data_secret
+        DataStoreType.POSTGRES, account.data_secret
     )
 
-    await server.set_cache_store(CacheStoreType.SQLITE)
+    await server.set_cache_store(CacheStoreType.POSTGRES)
 
     await server.get_registered_services()
 

@@ -138,7 +138,7 @@ class JWT:
         )
         jwt.encode()
 
-        _LOGGER.debug('Generated JWT with audience: jwt.audience')
+        _LOGGER.debug(f'Generated JWT with audience: {jwt.audience}')
         return jwt
 
     @staticmethod

@@ -13,6 +13,7 @@ currently only supports Sqlite3.
 from enum import Enum
 from uuid import UUID
 from logging import getLogger
+from typing import Self
 from typing import TypeVar
 from datetime import datetime
 from datetime import timezone
@@ -28,6 +29,8 @@ from byoda.datamodel.memberdata import MemberData
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.sqltable import SqlTable
+
 from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
 
@@ -41,6 +44,7 @@ from byoda.datatypes import DataFilterType
 
 from byoda.secrets.secret import Secret
 
+from byoda.storage.postgres import PostgresStorage
 from byoda.storage.sqlite import SqliteStorage
 
 from byoda.util.api_client.data_api_client import DataApiClient
@@ -64,16 +68,18 @@ REFRESH_THRESHOLD: int = 14400
 
 
 class CacheStoreType(Enum):
-    SQLITE              = 'sqlite'          # noqa=E221
+    # flake8: noqa=E221
+    SQLITE              = 'sqlite'
+    POSTGRES            = 'postgres'
 
 
 class CacheStore:
-    def __init__(self):
+    def __init__(self) -> None:
         self.backend: SqliteStorage = None
         self.store_type: CacheStoreType = None
 
     @staticmethod
-    async def get_cache_store(server: PodServer, storage_type: CacheStoreType):
+    async def get_cache_store(server: PodServer, storage_type: CacheStoreType) -> Self:
         '''
         Factory for initiating a document store
         '''
@@ -83,7 +89,11 @@ class CacheStore:
         cache_store = CacheStore()
         if storage_type == CacheStoreType.SQLITE:
             cache_store.backend = await SqliteStorage.setup(
-                server, None
+               server, None
+            )
+        elif storage_type == CacheStoreType.POSTGRES:
+            cache_store.backend = await PostgresStorage.setup(
+                server.db_connection_string, server
             )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')
@@ -159,7 +169,7 @@ class CacheStore:
         if data_class.is_scalar:
             raise ValueError('We do not create tables for scalar data classes')
 
-        sql_table = await self.backend.create_table(member_id, data_class)
+        sql_table: SqlTable = await self.backend.create_table(member_id, data_class)
         self.backend.add_sql_table(member_id, data_class.name, sql_table)
 
         return 1
@@ -234,7 +244,7 @@ class CacheStore:
         :returns: the number of rows added to the table
         '''
 
-        result = await self.backend.append(
+        result: int = await self.backend.append(
             member_id, data_class.name, data, cursor, origin_id,
             origin_id_type, origin_class_name
         )
@@ -248,7 +258,7 @@ class CacheStore:
             member_id, class_name, data_filter_set
         )
 
-    async def close(self):
+    async def close(self) -> None:
         await self.backend.close()
 
     @TRACER.start_as_current_span('CacheStore.refresh_table')
@@ -392,7 +402,7 @@ class CacheStore:
                     filter_items, data_class=data_class
                 )
 
-                result = await self.mutate(
+                result: int = await self.mutate(
                     member_id, data_class.name, renewed_data, cursor,
                     origin_id=origin_id, origin_id_type=origin_id_type,
                     origin_class_name=origin_class_name,

@@ -18,9 +18,6 @@ from pythonjsonlogger import jsonlogger
 from starlette_context import context
 
 
-LOGFILE: str = '/var/tmp/byoda.log'
-
-
 class Logger(logging.Logger):
     '''
     Enables settings for logging, reducing the amount of

@@ -173,9 +173,12 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         data: dict[str, dict[str, str | UUID | datetime]] = resp.json()
         self.assertEqual(data, 1)
 
+        sql_class_name: str = '_' + sql_table.sql_store.get_table_name(
+            'incoming_assets', service_id
+        )
         stmt: str = (
             'SELECT expires, id, id_type, origin_class_name '
-            'FROM _incoming_assets'
+            f'FROM {sql_class_name}'
         )
         result = await sql_table.sql_store.execute(
             stmt, member_id=member.member_id, fetchall=True,
@@ -209,7 +212,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(edges[0]['node']['asset_id'], str(asset_id))
 
         result = await sql_table.sql_store.execute(
-            f'SELECT expires FROM _{class_name}',
+            f'SELECT expires FROM {sql_class_name}',
             member_id=member.member_id, fetchall=True,
         )
         expiration.append(result[0][CACHE_EXPIRE_COLUMN])
@@ -244,7 +247,7 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data, 1)
 
         result = await sql_table.sql_store.execute(
-            f'SELECT expires FROM _{class_name}',
+            f'SELECT expires FROM {sql_class_name}',
             member_id=member.member_id, fetchall=True,
         )
         expiration.append(result[0][CACHE_EXPIRE_COLUMN])
@@ -283,15 +286,15 @@ class TestRestDataCacheApis(unittest.IsolatedAsyncioTestCase):
 
         azure_asset_timestamp: float = 1696909415.03106
         result = await sql_table.sql_store.execute(
-            'UPDATE _incoming_assets '
-            'SET origin_class_name = "public_assets", '
-            f'id = "{AZURE_POD_MEMBER_ID}", '
-            f'id_type = "members-", expires = {refresh_timestamp}, '
-            f'_created_timestamp = {azure_asset_timestamp} '
-            f'WHERE _asset_id = "{asset_id}"',
+            f"UPDATE {sql_class_name} "
+            "SET origin_class_name = 'public_assets', "
+            f"id = '{AZURE_POD_MEMBER_ID}', "
+            f"id_type = 'members-', expires = {refresh_timestamp}, "
+            f"_created_timestamp = {azure_asset_timestamp} "
+            f"WHERE _asset_id = '{asset_id}'",
             member_id=member.member_id
         )
-        self.assertEqual(result.rowcount, 1)
+        self.assertEqual(sql_table.sql_store.get_row_count(result), 1)
 
         data_class: SchemaDataItem = member.get_data_class(class_name)
         row_count: int = await cache_store.refresh_table(

@@ -9,12 +9,12 @@ Class for SQL tables generated based on data classes
 
 import re
 
-
 from copy import copy
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
+from datetime import UTC
 from datetime import datetime
-from datetime import timezone
 from logging import getLogger
 
 import orjson
@@ -41,6 +41,8 @@ from byoda.datamodel.datafilter import DataFilterSet
 
 from byoda.util.logger import Logger
 
+from byoda.exceptions import ByodaRuntimeError
+
 from .table import Table
 
 _LOGGER: Logger = getLogger(__name__)
@@ -48,10 +50,6 @@ _LOGGER: Logger = getLogger(__name__)
 Sql = TypeVar('Sql')
 SqlCursor = TypeVar('SqlCursor')
 SqlConnection = TypeVar('SqlConnection')
-
-# This is the built-in SQLite column name for the rowid that we
-# use for pagination
-SQLITE_ROWID_COLUMN_NAME: str = 'rowid'
 
 RX_SQL_SAFE_VALUE: re.Pattern[str] = re.compile(r'^[a-zA-Z0-9_]+$')
 
@@ -83,7 +81,12 @@ class SqlTable(Table):
 
         self.sql_store: Sql = sql_store
         self.member_id: UUID = member_id
-        self.table_name: str = SqlTable.get_table_name(data_class.name)
+        sql_table_name: str = SqlTable.get_table_name(data_class.name)
+
+        self.storage_table_name = self.sql_store.get_table_name(
+            sql_table_name, data_class.service_id
+        )
+
         self.type: DataType = data_class.type
         self.referenced_class: SchemaDataItem | None = \
             data_class.referenced_class
@@ -92,7 +95,7 @@ class SqlTable(Table):
 
     @staticmethod
     async def setup(data_class: SchemaDataItem,
-                    sql_store: Sql, member_id: UUID):
+                    sql_store: Sql, member_id: UUID) -> Self:
         '''
         Factory for creating a SqlTable for a data_class
         '''
@@ -111,32 +114,18 @@ class SqlTable(Table):
 
         return sql_table
 
-    @staticmethod
-    def get_native_datatype(val: str | DataType) -> str:
-        if isinstance(val, DataType):
-            val = val.value
-
-        return {
-            'string': 'TEXT',
-            'integer': 'INTEGER',
-            'number': 'REAL',
-            'boolean': 'INTEGER',
-            'uuid': 'TEXT',
-            'date-time': 'REAL',
-            'array': 'BLOB',
-            'object': 'BLOB',
-            'reference': 'TEXT',
-        }[val.lower()]
-
     async def create(self) -> None:
         '''
         Create the table
         '''
 
-        stmt: str = f'CREATE TABLE IF NOT EXISTS {self.table_name}('
+        stmt: str = f'CREATE TABLE IF NOT EXISTS {self.storage_table_name}('
 
         for column in self.columns.values():
-            stmt += f'{column.storage_name} {column.storage_type}, '
+            storage_type: str = self.sql_store.get_column_type(
+                column.storage_type
+            )
+            stmt += f'{column.storage_name} {storage_type}, '
 
         # We calculate a hash for each row, which is used for pagination
         column_name: str
@@ -144,14 +133,18 @@ class SqlTable(Table):
         for column_name, column_type in META_COLUMNS.items():
             stmt += f'{column_name} {column_type}, '
 
+        # rowids are used as cursors for pagination
+        if not self.sql_store.has_rowid():
+            stmt += 'rowid BIGSERIAL UNIQUE, '
+
         # SqlTable can be used for cache-only content. In that case, we
         # add an 'expires' column to the table and make sure it is updated
         # every time we append or mutate data
         if self.cache_only:
-            stmt += f'{CACHE_EXPIRE_COLUMN} REAL, '
+            stmt += f'{CACHE_EXPIRE_COLUMN} FLOAT8, '
             stmt += f'{CACHE_ORIGIN_CLASS_COLUMN} TEXT, '
 
-        stmt = stmt.rstrip(', ') + ') STRICT'
+        stmt = stmt.rstrip(', ') + f'{self.sql_store.supports_strict()})'
 
         await self.sql_store.execute(stmt, self.member_id)
 
@@ -165,13 +158,9 @@ class SqlTable(Table):
         the table with this method.
         '''
 
-        rows = await self.sql_store.execute(
-            f'PRAGMA table_info("{self.table_name}");',
-            self.member_id, fetchall=True
+        sql_columns: dict[str, str] = await self.sql_store.get_table_columns(
+            self.storage_table_name, self.member_id
         )
-        sql_columns: dict[str, any] = {
-            row['name']: row['type'] for row in rows
-        }
 
         for column in self.columns.values():
             if type(column) in (SchemaDataScalar, SchemaDataArray):
@@ -184,9 +173,10 @@ class SqlTable(Table):
         if self.cache_only:
             await self.reconcile_cache_only_columns(sql_columns)
 
-    async def reconcile_column(self,
-                               column: SchemaDataScalar | SchemaDataArray,
-                               current_sql_type: str | None) -> None:
+    async def reconcile_column(
+            self, column: SchemaDataScalar | SchemaDataArray,
+            current_sql_type: str | None
+    ) -> None:
         '''
         Ensure a field in the data class is present in the table, has the
         correct data type and, if specified, is indexed
@@ -194,16 +184,21 @@ class SqlTable(Table):
         :raises: ValueError if the data type of an existing column has changed
         '''
 
-        if current_sql_type and column.storage_type != current_sql_type:
-            raise ValueError(
-                f'Can not convert existing SQL column {column.storage_name} '
-                f'from {column.storage_type} to {current_sql_type} in table '
-                f'{self.table_name}'
-            )
+        # TODO: should we re-enable this somehow?
+        # if current_sql_type:
+        #    storage_type: str = self.sql_store.get_column_type(
+        #        column.storage_type
+        #    )
+        #   if storage_type.lower() != current_sql_type.lower():
+        #         raise ValueError(
+        #            f'Can not convert existing SQL column '
+        #             f'{column.storage_name} from {column.storage_type} '
+        #             f'to {current_sql_type} in table {self.storage_table_name}'
+        #        )
 
         if not current_sql_type:
             stmt = (
-                f'ALTER TABLE {self.table_name} '
+                f'ALTER TABLE {self.storage_table_name} '
                 f'ADD COLUMN {column.storage_name} {column.storage_type};'
             )
             await self.sql_store.execute(stmt, self.member_id)
@@ -212,14 +207,15 @@ class SqlTable(Table):
                 and (column.is_index
                      or column.is_counter
                      or column.format == 'uuid')):
-            stmt = (
+            stmt: str = (
                 f'CREATE INDEX IF NOT EXISTS '
-                f'BYODA_IDX_{self.table_name}_{column.name} '
-                f'ON {self.table_name}({column.storage_name})'
+                f'BYODA_IDX_{self.storage_table_name}_{column.name} '
+                f'ON {self.storage_table_name}({column.storage_name})'
             )
             await self.sql_store.execute(stmt, self.member_id)
             _LOGGER.debug(
-                f'Created index on {self.table_name}:{column.storage_name}'
+                f'Created index on {self.storage_table_name}:'
+                f'{column.storage_name}'
             )
 
     async def reconcile_meta_columns(self, sql_columns: dict[str, str]
@@ -228,7 +224,7 @@ class SqlTable(Table):
             stmt: str
             if column_name not in sql_columns:
                 stmt = (
-                    f'ALTER TABLE {self.table_name} '
+                    f'ALTER TABLE {self.storage_table_name} '
                     f'ADD COLUMN {column_name} {column_type};'
                 )
                 await self.sql_store.execute(stmt, self.member_id)
@@ -236,11 +232,11 @@ class SqlTable(Table):
             if column_name in (META_ID_COLUMN, META_CURSOR_COLUMN):
                 stmt = (
                     f'CREATE INDEX IF NOT EXISTS '
-                    f'BYODA_IDX_{self.table_name}_{column_name} '
-                    f'ON {self.table_name}({column_name})'
+                    f'BYODA_IDX_{self.storage_table_name}_{column_name} '
+                    f'ON {self.storage_table_name}({column_name})'
                 )
                 _LOGGER.debug(
-                    f'Created index on {self.table_name}:{column_name}'
+                    f'Created index on {self.storage_table_name}:{column_name}'
                 )
 
     async def reconcile_cache_only_columns(self, sql_columns: dict[str, str]
@@ -249,7 +245,7 @@ class SqlTable(Table):
             stmt: str
             if column_name not in sql_columns:
                 stmt = (
-                    f'ALTER TABLE {self.table_name} '
+                    f'ALTER TABLE {self.storage_table_name} '
                     f'ADD COLUMN {column_name} {column_type};'
                 )
                 await self.sql_store.execute(stmt, self.member_id)
@@ -257,12 +253,12 @@ class SqlTable(Table):
             if column_name in (CACHE_EXPIRE_COLUMN):
                 stmt = (
                     f'CREATE INDEX IF NOT EXISTS '
-                    f'BYODA_IDX_{self.table_name}_{column_name} '
-                    f'ON {self.table_name}({column_name})'
+                    f'BYODA_IDX_{self.storage_table_name}_{column_name} '
+                    f'ON {self.storage_table_name}({column_name})'
                 )
                 await self.sql_store.execute(stmt, self.member_id)
                 _LOGGER.debug(
-                    f'Created index on {self.table_name}:{column_name}'
+                    f'Created index on {self.storage_table_name}:{column_name}'
                 )
 
     async def query(self, data_filter_set: DataFilterSet):
@@ -293,9 +289,9 @@ class SqlTable(Table):
 
         raise NotImplementedError
 
-    def normalize(self, value: object, column: str):
+    def normalize(self, value: object, column: str) -> str | int | float:
         '''
-        Normalizes the value returned by Sqlite3 to the python type for
+        Normalizes the value returned by the dat store to the python type for
         the JSONSchema type specified in the schema of the service
         '''
 
@@ -307,7 +303,7 @@ class SqlTable(Table):
             )
 
         field: SchemaDataItem = self.data_class.fields[field_name]
-        result = field.normalize(value)
+        result: str | int | float = field.normalize(value)
         return result
 
     def _normalize_row(self, row: list[dict[str, object]]
@@ -322,9 +318,9 @@ class SqlTable(Table):
         result: dict[str, object] = {}
         meta: dict[str, str | int | float] = {}
         for column_name in row.keys():
-            value = row[column_name]
+            value: str | int | float | datetime | UUID = row[column_name]
             if (column_name in META_COLUMNS
-                    or column_name == SQLITE_ROWID_COLUMN_NAME
+                    or column_name == 'rowid'
                     or column_name in CACHE_COLUMNS):
                 if value:
                     meta[column_name] = value
@@ -371,7 +367,7 @@ class SqlTable(Table):
             return str(value)
         elif column.storage_type == 'INTEGER':
             return int(value)
-        elif column.storage_type == 'REAL':
+        elif column.storage_type in ('REAL', 'FLOAT8'):
             # We store date-time values as an epoch timestamp
             if (hasattr(column, 'format')
                     and column.format == 'date-time'):
@@ -390,7 +386,7 @@ class SqlTable(Table):
                     )
             else:
                 return float(value)
-        elif column.storage_type == 'BLOB':
+        elif column.storage_type in ('BLOB', 'bytea'):
             if type(value) in (list, dict):
                 # For nested objects or arrays, we store them as JSON
                 try:
@@ -403,11 +399,78 @@ class SqlTable(Table):
 
         return value
 
-    def sql_values_clause(self, data: dict[str, object], cursor: str,
-                          origin_id: UUID | None,
-                          origin_id_type: IdType | None,
-                          origin_class_name: str | None, separator: str = '='
-                          ) -> tuple[str, dict[str, object]]:
+    def sql_update_values_clause(
+        self, data: dict[str, object], cursor: str,
+        origin_id: UUID | None, origin_id_type: IdType | None,
+        origin_class_name: str | None
+    ) -> tuple[str, dict[str, object]]:
+
+        values: dict[str, object] = {}
+
+        stmt: str = ''
+
+        column: SchemaDataItem
+        for column in self.columns.values():
+            value: str = data.get(column.name)
+
+            # We only include columns for which a value is available
+            # in the 'data' dict
+            if value is None:
+                continue
+
+            placeholder: str = self.sql_store.get_named_placeholder(
+                column.storage_name
+            )
+            stmt += f'{column.storage_name} = {placeholder}, '
+
+            db_value: object = self.convert_to_storage_type(column, value)
+            values[column.storage_name] = db_value
+
+        if cursor:
+            placeholder: str = self.sql_store.get_named_placeholder(
+                META_CURSOR_COLUMN
+            )
+
+            stmt += f'{META_CURSOR_COLUMN} = {placeholder}, '
+            values[META_CURSOR_COLUMN] = cursor
+
+        if origin_id and origin_id_type:
+            placeholder_id: str = self.sql_store.get_named_placeholder(
+                META_ID_COLUMN
+            )
+            placeholder_type: str = self.sql_store.get_named_placeholder(
+                META_ID_TYPE_COLUMN
+            )
+            stmt += (
+                f'{META_ID_COLUMN} = {placeholder_id}, '
+                f'{META_ID_TYPE_COLUMN} = {placeholder_type}, '
+            )
+            values[META_ID_COLUMN] = str(origin_id)
+            values[META_ID_TYPE_COLUMN] = origin_id_type.value
+
+        if self.cache_only:
+            placeholder: str = self.sql_store.get_named_placeholder(
+                CACHE_EXPIRE_COLUMN
+            )
+            stmt += f'{CACHE_EXPIRE_COLUMN} = {placeholder}, '
+            now: datetime = datetime.now(tz=UTC).timestamp()
+            values[CACHE_EXPIRE_COLUMN] = int(now + self.expires_after)
+
+            if origin_class_name is not None:
+                placeholder: str = self.sql_store.get_named_placeholder(
+                    CACHE_ORIGIN_CLASS_COLUMN
+                )
+                stmt += f'{CACHE_ORIGIN_CLASS_COLUMN} = {placeholder}, '
+                values[CACHE_ORIGIN_CLASS_COLUMN] = origin_class_name
+
+        stmt = stmt.rstrip(', ') + ' '
+
+        return stmt, values
+
+    def sql_insert_values_clause(
+        self, data: dict[str, object], cursor: str, origin_id: UUID | None,
+        origin_id_type: IdType | None, origin_class_name: str | None
+    ) -> tuple[str, dict[str, object]]:
         '''
         Gets the 'values' part of an SQL INSERT or SQL UPDATE statement
 
@@ -421,8 +484,9 @@ class SqlTable(Table):
         values: dict[str, object] = {}
 
         # We first generate the list of variables
-        column: SchemaDataItem
         stmt: str = '('
+
+        column: SchemaDataItem
         for column in self.columns.values():
             value: str = data.get(column.name)
 
@@ -449,7 +513,7 @@ class SqlTable(Table):
 
         if self.cache_only:
             stmt += CACHE_EXPIRE_COLUMN
-            now: datetime = datetime.now(tz=timezone.utc).timestamp()
+            now: datetime = datetime.now(tz=UTC).timestamp()
             values[CACHE_EXPIRE_COLUMN] = now + self.expires_after
 
             if origin_class_name is not None:
@@ -457,33 +521,56 @@ class SqlTable(Table):
                 values[CACHE_ORIGIN_CLASS_COLUMN] = origin_class_name
 
         # Now we generate the 'placeholders' part of the statement
-        stmt = stmt.rstrip(', ') + f') {separator} ('
+        stmt = stmt.rstrip(', ') + ') VALUES ('
+
         for column in self.columns.values():
             if data.get(column.name) is not None:
-                stmt += f':{column.storage_name}, '
+                placeholder: str = self.sql_store.get_named_placeholder(
+                    column.storage_name
+                )
+                stmt += f'{placeholder}, '
 
         if cursor:
-            stmt += f':{META_CURSOR_COLUMN}, '
+            placeholder: str = self.sql_store.get_named_placeholder(
+                META_CURSOR_COLUMN
+            )
+            stmt += f'{placeholder}, '
 
         if origin_id and origin_id_type:
-            stmt += f':{META_ID_COLUMN}, :{META_ID_TYPE_COLUMN}, '
+            placeholder: str = self.sql_store.get_named_placeholder(
+                META_ID_COLUMN
+            )
+            stmt += f'{placeholder}, '
+            placeholder: str = self.sql_store.get_named_placeholder(
+                META_ID_TYPE_COLUMN
+            )
+            stmt += f'{placeholder}, '
 
         if self.cache_only:
-            stmt += f':{CACHE_EXPIRE_COLUMN}, '
+            placeholder: str = self.sql_store.get_named_placeholder(
+                CACHE_EXPIRE_COLUMN
+            )
+            stmt += f'{placeholder}, '
 
             if origin_class_name is not None:
-                stmt += f':{CACHE_ORIGIN_CLASS_COLUMN}, '
+                placeholder: str = self.sql_store.get_named_placeholder(
+                    CACHE_ORIGIN_CLASS_COLUMN
+                )
+                stmt += f'{placeholder}, '
 
         stmt = stmt.rstrip(', ') + ') '
-
         return stmt, values
 
-    def sql_where_clause(self, data_filters: DataFilterSet) -> str:
+    def sql_where_clause(self, data_filters: DataFilterSet | dict,
+                         placeholder_function: callable) -> str:
         '''
         Generate SQL where clause for the data filters
         '''
 
-        return data_filters.sql_where_clause()
+        if isinstance(data_filters, dict):
+            data_filters = DataFilterSet(data_filters)
+
+        return data_filters.sql_where_clause(placeholder_function)
 
 
 class ObjectSqlTable(SqlTable):
@@ -509,7 +596,9 @@ class ObjectSqlTable(SqlTable):
 
         for column in self.columns.values():
             column.storage_name = SqlTable.get_column_name(column.name)
-            column.storage_type = SqlTable.get_native_datatype(column.type)
+            column.storage_type = self.sql_store.get_native_datatype(
+                column.type
+            )
 
     @property
     def required_fields(self) -> set[str]:
@@ -580,8 +669,9 @@ class ObjectSqlTable(SqlTable):
         if not query_fields:
             query_fields = '*'
 
-        stmt = f'SELECT rowid, {query_fields} FROM {self.table_name} '
-
+        stmt: str = (
+            f'SELECT rowid, {query_fields} FROM {self.storage_table_name} '
+        )
         rows = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=None,
             autocommit=False, fetchall=True
@@ -591,10 +681,12 @@ class ObjectSqlTable(SqlTable):
             return None
         elif len(rows) > 1:
             _LOGGER.error(
-                f'Query for {self.table_name} returned more than one row: '
-                f'{rows}'
+                f'Query for {self.storage_table_name} returned more than one '
+                f'row: {rows}'
             )
 
+        result: dict[str, object]
+        meta: dict[str, str | int | float | UUID | datetime]
         result, meta = self._normalize_row(rows[0])
 
         if result:
@@ -616,8 +708,8 @@ class ObjectSqlTable(SqlTable):
 
         if data_filters:
             raise ValueError(
-                f'mutation of object {self.table_name} does not support data '
-                'filters'
+                f'mutation of object {self.storage_table_name} does not '
+                'support data filters'
             )
 
         # Tables for objects only have a single row so to mutate the data,
@@ -628,21 +720,20 @@ class ObjectSqlTable(SqlTable):
         # SqLite 'UPSERT' does not work here as it depends on a constraint
         # violation for detecting an existing row. We may not have constraints
         # in the data model for the field in the service schema
-        stmt: str = f'DELETE FROM {self.table_name}'
+        stmt: str = f'DELETE FROM {self.storage_table_name}'
         await self.sql_store.execute(
             stmt, member_id=self.member_id, data=None, autocommit=True
         )
 
-        stmt = f'INSERT INTO {self.table_name} '
+        stmt = f'INSERT INTO {self.storage_table_name} '
         values: dict[str, object] = {}
 
         values_stmt: str
         values_data: dict[str, object]
-        values_stmt, values_data = self.sql_values_clause(
+        values_stmt, values_data = self.sql_insert_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,
-            origin_class_name=origin_class_name,
-            separator='VALUES'
+            origin_class_name=origin_class_name
         )
 
         stmt += values_stmt
@@ -653,7 +744,9 @@ class ObjectSqlTable(SqlTable):
             autocommit=True
         )
 
-        return copy(result.rowcount)
+        count: int = self.sql_store.get_row_count(result)
+
+        return count
 
 
 class ArraySqlTable(SqlTable):
@@ -673,10 +766,12 @@ class ArraySqlTable(SqlTable):
         self.columns: dict[str, SchemaDataItem] = self.referenced_class.fields
 
         for data_item in self.columns.values():
-            adapted_type = data_item.type
+            adapted_type: DataType = data_item.type
 
             data_item.storage_name = SqlTable.get_column_name(data_item.name)
-            data_item.storage_type = SqlTable.get_native_datatype(adapted_type)
+            data_item.storage_type = self.sql_store.get_native_datatype(
+                adapted_type
+            )
 
     @property
     def required_fields(self) -> set[str]:
@@ -708,7 +803,10 @@ class ArraySqlTable(SqlTable):
         data
         '''
 
-        stmt: str = f'SELECT COUNT(ROWID) AS counter FROM {self.table_name}'
+        stmt: str = (
+            f'SELECT COUNT(rowid) AS counter '
+            f'FROM {self.storage_table_name}'
+        )
 
         data: dict = {}
         if counter_filter:
@@ -755,14 +853,18 @@ class ArraySqlTable(SqlTable):
         if not query_fields:
             query_fields = '*'
 
-        stmt: str = f'SELECT rowid, {query_fields} FROM {self.table_name} '
+        stmt: str = (
+            f'SELECT rowid, {query_fields} FROM {self.storage_table_name} '
+        )
 
         placeholders: dict[str, str] = {}
 
         where_clause: str | None = None
         if data_filters and data_filters.filters:
             where_data: dict[str, object]
-            where_clause, where_data = self.sql_where_clause(data_filters)
+            where_clause, where_data = self.sql_where_clause(
+                data_filters, self.sql_store.get_named_placeholder
+            )
             stmt += where_clause
             placeholders |= where_data
 
@@ -770,7 +872,7 @@ class ArraySqlTable(SqlTable):
             meta_where_clause: str
             meta_where_data: dict[str, object]
             meta_where_clause, meta_where_data = self.sql_where_clause(
-                meta_filters
+                meta_filters, self.sql_store.get_named_placeholder
             )
 
             if where_clause:
@@ -783,13 +885,19 @@ class ArraySqlTable(SqlTable):
             placeholders |= meta_where_data
 
         if after:
-            # Pagination is implemented using the SQLite 'rowid' column
-            stmt = await self._add_cursor_to_query(
-                stmt, placeholders, after, data_filters
-            )
+            try:
+                stmt = await self._add_cursor_to_query(
+                    stmt, placeholders, after, data_filters
+                )
+            except FileNotFoundError:
+                # Cursor was not found in the table
+                return None
+
+        stmt += ' ORDER BY rowid ASC'
 
         if first:
-            stmt += ' LIMIT :first '
+            placeholder: str = self.sql_store.get_named_placeholder('first')
+            stmt += f' LIMIT {placeholder} '
             placeholders['first'] = first
 
         rows: list[dict[str, any]] = await self.sql_store.execute(
@@ -823,8 +931,7 @@ class ArraySqlTable(SqlTable):
                                    ) -> str:
         '''
         Adds to SQL query to return rows after the specified cursor. Updates
-        provided 'placeholders' dict with value for the Sqlite3 'row_id'
-        column
+        provided 'placeholders' dict with value for the 'rowid' meta-column
 
         :param stmt: SQL statement to add the cursor to
         :param placeholders: placeholders for the SQL statement
@@ -839,7 +946,8 @@ class ArraySqlTable(SqlTable):
         else:
             cursor_stmt += 'WHERE '
 
-        cursor_stmt += 'cursor = :cursor LIMIT 1'
+        placeholder: str = self.sql_store.get_named_placeholder('cursor')
+        cursor_stmt += f'cursor = {placeholder} LIMIT 1'
         cursor_placeholders: dict[str, str] = copy(placeholders)
         cursor_placeholders['cursor'] = after
 
@@ -855,15 +963,14 @@ class ArraySqlTable(SqlTable):
             else:
                 updated_stmt += 'WHERE '
 
-            updated_stmt += 'rowid > :row_id ORDER BY rowid ASC '
-            placeholders['row_id'] = rows[0]['rowid']
+            placeholder: str = self.sql_store.get_named_placeholder('rowid')
+            updated_stmt += f'rowid > {placeholder} '
+            placeholders['rowid'] = rows[0]['rowid']
         else:
-            # If cursor is no longer valid then we act as if
-            # no cursor was specified with the 'after' parameter
-            _LOGGER.debug(
-                f'Cursor {after} not found in table {self.table_name}'
+            _LOGGER.info(
+                f'Cursor {after} not found in table {self.storage_table_name}'
             )
-            pass
+            raise FileNotFoundError('Cursor not fonund in table')
 
         return updated_stmt
 
@@ -878,16 +985,15 @@ class ArraySqlTable(SqlTable):
         :returns: the number of rows added to the table
         '''
 
-        stmt: str = f'INSERT INTO {self.table_name} '
+        stmt: str = f'INSERT INTO {self.storage_table_name} '
         values: dict[str, object] = {}
 
         values_stmt: str
         values_data: dict[str, object]
-        values_stmt, values_data = self.sql_values_clause(
+        values_stmt, values_data = self.sql_insert_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,
             origin_class_name=origin_class_name,
-            separator='VALUES'
         )
 
         stmt += values_stmt
@@ -898,7 +1004,9 @@ class ArraySqlTable(SqlTable):
             autocommit=True
         )
 
-        return copy(result.rowcount)
+        result: int = self.sql_store.get_row_count(result)
+
+        return result
 
     async def mutate(self, data: dict, cursor: str, origin_id: UUID,
                      origin_id_type: IdType, origin_class_name: str,
@@ -916,13 +1024,15 @@ class ArraySqlTable(SqlTable):
 
         return await self.update(
             data, cursor, data_filters, origin_id, origin_id_type,
-            origin_class_name
+            origin_class_name,
+            placeholder_function=self.sql_store.get_named_placeholder
         )
 
     async def update(self, data: dict, cursor: str,
                      data_filters: DataFilterSet,
                      origin_id: UUID | None, origin_id_type: IdType | None,
-                     origin_class_name: str | None) -> int:
+                     origin_class_name: str | None,
+                     placeholder_function: callable) -> int:
         '''
         updates ones or more records
 
@@ -935,12 +1045,12 @@ class ArraySqlTable(SqlTable):
         :returns: the number of rows mutated to the table
         '''
 
-        stmt: str = f'UPDATE {self.table_name} SET '
+        stmt: str = f'UPDATE {self.storage_table_name} SET '
         values: dict[str, object] = {}
 
         values_clause: str
         values_data: dict[str, object]
-        values_clause, values_data = self.sql_values_clause(
+        values_clause, values_data = self.sql_update_values_clause(
             data=data, cursor=cursor,
             origin_id=origin_id, origin_id_type=origin_id_type,
             origin_class_name=origin_class_name
@@ -950,36 +1060,54 @@ class ArraySqlTable(SqlTable):
 
         where_clause: str
         filter_data: str
-        where_clause, filter_data = self.sql_where_clause(data_filters)
-        stmt += where_clause
-        values |= filter_data
+        where_clause, filter_data = self.sql_where_clause(
+            data_filters, placeholder_function=placeholder_function
+        )
+        if where_clause:
+            stmt += where_clause
+            values |= filter_data
+        else:
+            raise ByodaRuntimeError(
+                'Must specify one or more filters when updating data'
+            )
 
-        result: SqlCursor = await self.sql_store.execute(
+        result: SqlCursor | int = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values,
             autocommit=True
         )
-        return copy(result.rowcount)
+        return self.sql_store.get_row_count(result)
 
-    async def delete(self, data_filters: DataFilterSet) -> int:
+    async def delete(self, data_filters: DataFilterSet,
+                     placeholder_function: callable) -> int:
         '''
         Deletes one or more records based on the provided filters
         '''
 
-        stmt: str = f'DELETE FROM {self.table_name} '
+        stmt: str = f'DELETE FROM {self.storage_table_name} '
         values: dict[str, object] = {}
 
         if data_filters:
             where_clause: str
             filter_data: str
-            where_clause, filter_data = self.sql_where_clause(data_filters)
+            where_clause, filter_data = self.sql_where_clause(
+                data_filters, placeholder_function=placeholder_function
+            )
+            if not filter_data:
+                raise ByodaRuntimeError(
+                    'Must specify a value for a data filter to delete data'
+                )
             stmt += where_clause
             values |= filter_data
+        else:
+            raise ByodaRuntimeError(
+                'Must specify a data filter to delete data'
+            )
 
         result: SqlCursor = await self.sql_store.execute(
             stmt, member_id=self.member_id, data=values, autocommit=True
         )
 
-        return copy(result.rowcount)
+        return self.sql_store.get_row_count(result)
 
     async def expire(self, timestamp: int | float | datetime | None = None
                      ) -> int:
@@ -1004,7 +1132,7 @@ class ArraySqlTable(SqlTable):
         if not timestamp:
             # We add 900 seconds to the current time so we'll delete data that
             # expires in the next 15 minutes
-            seconds: float = datetime.now(tz=timezone.utc).timestamp() + 900
+            seconds: float = datetime.now(tz=UTC).timestamp() + 900
         elif isinstance(timestamp, datetime):
             seconds = timestamp.timestamp()
         elif type(timestamp) in (int, float):
@@ -1013,7 +1141,7 @@ class ArraySqlTable(SqlTable):
             raise ValueError(f'Invalid timestamp type: {type(timestamp)}')
 
         stmt: str = (
-            f'DELETE FROM {self.table_name} '
+            f'DELETE FROM {self.storage_table_name} '
             f'WHERE {CACHE_EXPIRE_COLUMN} <= :timestamp'
         )
         data: dict[str, float | int] = {'timestamp': seconds}
@@ -1022,7 +1150,7 @@ class ArraySqlTable(SqlTable):
             stmt, member_id=self.member_id, data=data, autocommit=True
         )
 
-        return copy(result.rowcount)
+        return self.sql_store.get_row_count(result)
 
 
 def _is_sql_safe_value(field: str) -> bool:

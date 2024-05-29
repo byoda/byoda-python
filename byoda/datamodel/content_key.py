@@ -251,7 +251,7 @@ class ContentKey:
 
         _LOGGER.debug(
             f'Found {len(all_key_data or ())} keys for restricted content keys in '
-            f'SQL table {table.table_name}'
+            f'SQL table {table.storage_table_name}'
         )
 
         all_keys: list[ContentKey] = []

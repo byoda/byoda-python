@@ -87,6 +87,10 @@ class KVCache(ABC):
                 cache_type=cache_type
             )
             return kvr
+        elif cache_tech == CacheTech.POSTGRES:
+            raise NotImplementedError(
+                'Caching with postgres is not yet implemented'
+            )
         else:
             raise ValueError(f'Unsupported cache tech: {cache_tech.value}')
 

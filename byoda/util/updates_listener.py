@@ -110,7 +110,7 @@ class UpdatesListener:
         self.annotations: list[str] = annotations
 
         # Extra fields for log messages
-        self.extra: dict[str, UUID] = {
+        self.extra: dict[str, str | UUID | int] = {
             'member_id': self.remote_member_id,
             'service_id': self.service_id,
             'class_name': self.class_name,
@@ -126,7 +126,8 @@ class UpdatesListener:
         :returns: number of assets retrieved
         '''
 
-        _LOGGER.debug('Getting all assets from member', extra=self.extra)
+        log_extra: dict[str, str | UUID | int] = copy(self.extra)
+        _LOGGER.debug('Getting all assets from member', extra=log_extra)
 
         has_more_assets: bool = True
         first: int = 100
@@ -137,6 +138,9 @@ class UpdatesListener:
         sleepy_time: int = 1
         max_sleepy_time: int = 30
         while has_more_assets:
+            log_extra['cursor'] = after
+            log_extra['assets_retrieved'] = assets_retrieved
+            log_extra['has_more_assets'] = has_more_assets
             metric: str
             try:
                 resp: HttpResponse = await DataApiClient.call(
@@ -155,7 +159,7 @@ class UpdatesListener:
 
                 _LOGGER.debug(
                     f'Failed to get all assets from member: {exc}',
-                    extra=self.extra
+                    extra=log_extra
                 )
                 if metrics and 'failed_get_all_data' in metrics:
                     metrics['failed_get_all_data'].inc()
@@ -175,7 +179,7 @@ class UpdatesListener:
 
                 _LOGGER.debug(
                     f'Failed to get assets from member {resp.status_code}: '
-                    f'{resp.text}', extra=self.extra
+                    f'{resp.text}', extra=log_extra
                 )
                 if metrics and 'failed_get_all_data' in metrics:
                     metrics['failed_get_all_data'].inc()
@@ -192,7 +196,7 @@ class UpdatesListener:
             except ValueError as exc:
                 _LOGGER.debug(
                     f'Received corrupt data from member: {exc}',
-                    extra=self.extra
+                    extra=log_extra
                 )
                 metric = 'updateslistener_received_corrupt_data'
                 if metrics and metric in metrics:
@@ -204,7 +208,7 @@ class UpdatesListener:
             assets_retrieved += response.total_count
             _LOGGER.debug(
                 f'Received {response.total_count} assets from request from '
-                f'member, total is now {assets_retrieved}', extra=self.extra
+                'member', extra=log_extra
             )
             metric = 'updateslistener_received_assets'
             if metrics and metric in metrics:
@@ -238,9 +242,10 @@ class UpdatesListener:
 
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
+            _LOGGER.debug(f'Remote end', extra=log_extra)
 
         _LOGGER.info(
-            f'Synced {assets_retrieved} assets from member', extra=self.extra
+            f'Synced all assets from member', extra=log_extra
         )
         metric = 'got_all_data_from_pod'
         if metrics and metric in metrics:
@@ -680,8 +685,8 @@ class UpdateListenerService(UpdatesListener):
         if (ingest_status not in (IngestStatus.PUBLISHED.value,
                                   IngestStatus.EXTERNAL.value)):
             _LOGGER.debug(
-                f'Not importing asset with ingest_status {ingest_status}',
-                extra=self.extra
+                'Not importing asset for ingest_status',
+                extra=self.extra | {'ingest_status': ingest_status}
             )
             metrics['updateslistener_assets_failed_to_store_in_cache'].labels(
                 member_id=self.remote_member_id, ingest_status=ingest_status
@@ -762,6 +767,7 @@ class UpdateListenerMember(UpdatesListener):
             and self.dest_class_name == dest_class_name
         )
 
+    @staticmethod
     async def setup(class_name: str, member: Member, remote_member_id: UUID,
                     dest_class_name: str, annotations: list[str],
                     cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,

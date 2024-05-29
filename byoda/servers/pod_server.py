@@ -62,7 +62,8 @@ class PodServer(Server):
 
     def __init__(self, network: Network = None,
                  cloud_type: CloudType = CloudType.LOCAL,
-                 bootstrapping: bool = False) -> None:
+                 bootstrapping: bool = False,
+                 db_connection_string: str | None = None) -> None:
         '''
         Sets up data structures for a pod server
 
@@ -84,6 +85,7 @@ class PodServer(Server):
 
         self.bootstrapping: bool = bootstrapping
 
+        self.db_connection_string: str | None = db_connection_string
         self.data_store: DataStore | None = None
         self.cache_store: CacheStore | None = None
 
@@ -102,7 +104,7 @@ class PodServer(Server):
 
         # We use the account secret as client TLS cert for outbound
         # requests and as private key for the TLS server
-        filepath = await self.account.tls_secret.save_tmp_private_key()
+        filepath: str = await self.account.tls_secret.save_tmp_private_key()
 
         config.requests.cert = (
             self.account.tls_secret.cert_file, filepath
