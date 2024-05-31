@@ -13,6 +13,10 @@ import sys
 import shutil
 import unittest
 
+from uuid import uuid4
+from datetime import UTC
+from datetime import datetime
+
 from byoda.data_import.youtube_channel import YouTubeChannel
 
 from byoda.datamodel.network import Network
@@ -20,6 +24,7 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.table import Table
 
 from byoda.datatypes import IngestStatus
 from byoda.datatypes import IdType
@@ -211,7 +216,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         channel: str = 'Dathes'
         # channel: str = 'nfl:ALL'
         # channel: str = 'accountabletech'
-        channel: str = 'PolyMatter:ALL'
+        # channel: str = 'PolyMatter:ALL'
         # channel: str = 'HistoryMatters'
         # channel: str = 'thedealguy'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
@@ -225,21 +230,50 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             member.member_id, channel_data_class, data_store
         )
         self.assertEqual(len(ingested_channels), 0)
-
+        ingested_channels = None
         ingested_videos: dict[str, dict[str, str]] = \
             await YouTube.load_ingested_videos(
                 member.member_id, data_class, data_store
             )
         self.assertEqual(len(ingested_videos), 0)
+        ingested_videos = None
 
-        ingested_videos = {
-            '2BqKA3DOilk': {
-                'ingest_status': IngestStatus.PUBLISHED
+        data_class: SchemaDataItem = \
+            data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
+        video_table: Table = data_store.get_table(
+            member.member_id, data_class.name
+        )
+        await video_table.append(
+            {
+                'publisher_asset_id': '2BqKA3DO',
+                'created_timestamp': datetime.now(tz=UTC),
+                'title': 'test video 1',
+                'channel': 'test case',
+                'asset_id': uuid4(),
+                'asset_type': 'video',
+                'ingest_status': IngestStatus.PUBLISHED,
             },
-            'OD08BC26QaM': {
-                'ingest_status': IngestStatus.EXTERNAL
+            cursor='1234567',
+            origin_id=uuid4(),
+            origin_id_type=IdType.MEMBER,
+            origin_class_name='public_assets',
+        )
+        await video_table.append(
+            {
+                'publisher_asset_id': 'OD08BC26QaM',
+                'created_timestamp': datetime.now(tz=UTC),
+                'title': 'test video 2',
+                'channel': 'test case',
+                'asset_id': uuid4(),
+                'asset_type': 'video',
+                'ingest_status': IngestStatus.EXTERNAL,
             },
-        }
+            cursor='1234567',
+            origin_id=uuid4(),
+            origin_id_type=IdType.MEMBER,
+            origin_class_name='public_assets',
+        )
+
         channel_name: str = channel
         if ':' in channel_name:
             channel_name = channel_name.split(':', maxsplit=1)[0]
@@ -253,7 +287,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
 
         await yt.import_videos(
-            member, data_store, storage_driver, ingested_videos,
+            member, data_store, video_table, storage_driver,
             ingested_channels,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
@@ -266,6 +300,22 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             member.member_id, data_class, data_store
         )
         self.assertGreaterEqual(len(ingested_videos), 1)
+
+        await yt.import_videos(
+            member, data_store, video_table, storage_driver,
+            ingested_channels,
+            moderate_request_url=mod_api_url,
+            moderate_jwt_header=jwt.encoded,
+            moderate_claim_url=mod_claim_url,
+            ingest_interval=4,
+            custom_domain='test_domain'
+        )
+
+        newly_ingested_videos: dict[str, dict[str, str]] = \
+            await YouTube.load_ingested_videos(
+                member.member_id, data_class, data_store
+            )
+        self.assertEqual(len(ingested_videos), len(newly_ingested_videos))
 
         ingested_channels = await YouTube.load_ingested_channels(
             member.member_id, channel_data_class, data_store
@@ -288,7 +338,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         yt = YouTube()
 
         await yt.import_videos(
-            member, data_store, storage_driver, ingested_videos,
+            member, data_store, video_table, storage_driver,
             ingested_channels, ingest_interval=4,
             custom_domain=server.custom_domain
         )

@@ -48,9 +48,17 @@ class AccountRequestAuthFast(RequestAuth):
         :raises: HTTPException
         '''
 
-        _LOGGER.debug('Verifying authentication with an account cert')
-
         super().__init__(request.client.host, request.method)
+
+        self.log_extra: dict[str, str] = {
+            'x_client_ssl_verify': x_client_ssl_verify,
+            'x_client_ssl_subject': x_client_ssl_subject,
+            'x_client_ssl_issuing_ca': x_client_ssl_issuing_ca,
+        }
+        _LOGGER.debug(
+            'Verifying authentication with an account cert',
+            extra=self.log_extra
+        )
 
         self.x_client_ssl_verify: TlsStatus | None = x_client_ssl_verify
         self.x_client_ssl_subject: str | None = x_client_ssl_subject
@@ -62,11 +70,13 @@ class AccountRequestAuthFast(RequestAuth):
         server: AppServer = config.server
 
         try:
+            _LOGGER.debug('Check authentication')
             await super().authenticate(
                 self.x_client_ssl_verify, self.x_client_ssl_subject,
                 self.x_client_ssl_issuing_ca, self.x_client_ssl_cert, None
             )
         except ByodaMissingAuthInfo:
+            _LOGGER.debug('No client cert provided', extra=log_extra)
             raise HTTPException(
                 status_code=401,
                 detail=(

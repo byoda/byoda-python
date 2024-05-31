@@ -148,8 +148,14 @@ for NAME in azure gcp aws; do
         export POSTFIX=${NAME}
     fi
 done
-echo "Using directory postfix: ${POSTFIX}"
 
+echo "Using directory postfix: ${POSTFIX}"
+sudo mkdir -p \
+    /byoda/${POSTFIX} \
+    /var/log/byoda/${POSTFIX} \
+    /var/log/angie/${POSTFIX} \
+    /etc/angie/conf.d/${POSTFIX} \
+    /var/lib/postgresql/${POSTFIX}/data
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     if [ -z "${LOGDIR}" ]; then

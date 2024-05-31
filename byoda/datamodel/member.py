@@ -15,6 +15,8 @@ from typing import TypeVar
 from logging import getLogger
 from datetime import datetime
 
+import orjson
+
 from fastapi import FastAPI
 
 from byoda.datamodel.service import Service
@@ -87,7 +89,7 @@ class Member:
         'query_cache', 'counter_cache', 'storage_driver',
         'private_key_password', 'tls_secret', 'data_secret',
         'service_data_secret', 'service_ca_secret', 'service_ca_certchain',
-        'joined', 'schema_versions', 'auto_upgrade', 'cdn_apps'
+        'joined', 'schema_versions', 'auto_upgrade', 'cdn_apps', 'log_extra'
 
     ]
 
@@ -151,9 +153,15 @@ class Member:
         # This is the cert chain up to but excluding the network root CA
         self.service_ca_certchain: ServiceCaSecret | None = None
 
+        self.log_extra: dict[str, any] = {
+            'service_id': self.service_id,
+            'member_id': self.member_id,
+            'schema_versions': ','.join(self.schema_versions),
+            'auto_upgrade': self.auto_upgrade,
+            'network': self.network.name,
+        }
         _LOGGER.debug(
-            f'Instantiated membership {self.member_id} for '
-            f'service {self.service_id}'
+            'Instantiated membership for service', extra=self.log_extra
         )
 
     async def setup(self, local_service_contract: str = None,
@@ -171,13 +179,20 @@ class Member:
             verify_signatures = True
 
         filepath: str = self.paths.service_file(self.service_id)
+        self.log_extra['filepath'] = filepath
+
         network: Network = self.network
-        if self.service_id not in self.network.services:
+        if self.service_id in self.network.services:
+            _LOGGER.debug(
+                'Membership already in memory', extra=self.log_extra
+            )
+            self.service: Service = network.services[self.service_id]
+        else:
             # Here we read the service contract as currently published
             # by the service, which may differ from the one we have
             # previously accepted
             _LOGGER.debug(
-                f'Setting up membership for service {self.service_id}'
+                'Setting up membership for service', extra=self.log_extra
             )
             if local_service_contract:
                 if not config.test_case:
@@ -188,20 +203,25 @@ class Member:
                 filepath: str = local_service_contract
             else:
                 if new_membership:
-                    _LOGGER.debug('Setting up new membership')
+                    _LOGGER.debug(
+                        'Setting up new membership', extra=self.log_extra
+                    )
                     filepath: str = self.paths.service_file(self.service_id)
                 else:
-                    _LOGGER.debug('Setting up existing membership')
+                    _LOGGER.debug(
+                        'Setting up existing membership', extra=self.log_extra
+                    )
                     filepath: str = self.paths.member_service_file(
                         self.service_id
                     )
-
-                _LOGGER.debug(f'Setting service contract file to {filepath}')
+                self.log_extra['filepath'] = filepath
+                _LOGGER.debug(
+                    'Setting service contract file', extra=self.log_extra)
 
             try:
                 _LOGGER.debug(
-                    f'Setting up service {self.service_id} from {filepath} '
-                    'without loading the schema'
+                    'Setting up service without loading the schema',
+                    extra=self.log_extra
                 )
                 self.service = await Service.get_service(
                     network, filepath=filepath,
@@ -213,18 +233,14 @@ class Member:
                 # this membership then it should be downloaded at
                 # a later point
                 _LOGGER.info(
-                    f'Service contract file {filepath} does not exist'
+                    f'Service contract file does not exist',
+                    extra=self.log_extra
                 )
                 self.service = Service(
                     network, service_id=self.service_id,
                 )
 
             network.services[self.service_id] = self.service
-        else:
-            _LOGGER.debug(
-                f'Membership for {self.service_id} already in memory'
-            )
-            self.service: Service = network.services[self.service_id]
 
         if not self.service.data_secret:
             await self.service.download_data_secret(
@@ -270,7 +286,7 @@ class Member:
         else:
             _LOGGER.debug(
                 'Not loading service data secret as we are sideloading the '
-                'service contract'
+                'service contract', extra=self.log_extra
             )
 
     async def load_member_settings(self) -> None:
@@ -279,7 +295,7 @@ class Member:
         object in the service contract.
         '''
 
-        _LOGGER.debug('Loading member settings')
+        _LOGGER.debug('Loading member settings', extra=self.log_extra)
         self.data.load_member_settings
 
     def as_dict(self) -> dict:
@@ -353,10 +369,12 @@ class Member:
                     f'member_id {member_id} must have type UUID or str'
                 )
         else:
-            _LOGGER.debug(f'Creating new member_id: {member_id}')
+            _LOGGER.debug(
+                'Creating new member_id', extra=member.log_extra
+            )
             member.member_id = uuid4()
 
-        _LOGGER.debug(f'New member ID {member.member_id}')
+        _LOGGER.debug('New member ID', extra=member.log_extra)
         if not await member.paths.exists(member.paths.SERVICE_FILE):
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
@@ -375,7 +393,9 @@ class Member:
             member.member_id, member.service_id, account=member.account
         )
 
-        _LOGGER.debug(f'Creating member secrets for member {member.member_id}')
+        _LOGGER.debug(
+            'Creating member secrets for member', extra=member.log_extra
+        )
         await member.create_secrets(local_storage, members_ca=members_ca)
 
         member.data_secret.create_shared_key()
@@ -394,7 +414,9 @@ class Member:
         Sets up the query cache for the membership
         '''
 
-        _LOGGER.debug('Creating query cache for membership')
+        _LOGGER.debug(
+            'Creating query cache for membership', extra=self.log_extra
+        )
         self.query_cache = await QueryCache.create(self)
 
     async def create_counter_cache(self) -> None:
@@ -402,7 +424,9 @@ class Member:
         Sets up the counter cache for the membership
         '''
 
-        _LOGGER.debug('Creating counter cache for membership')
+        _LOGGER.debug(
+            'Creating counter cache for membership', extra=self.log_extra
+        )
         self.counter_cache = await CounterCache.create(self)
 
     async def create_angie_config(self) -> None:
@@ -492,18 +516,20 @@ class Member:
             self.tls_secret = MemberSecret(
                 None, self.service_id, self.account
             )
-            _LOGGER.debug('Loading member TLS secret')
+            _LOGGER.debug('Loading member TLS secret', extra=self.log_extra)
             await self.tls_secret.load(
                 with_private_key=True, password=self.private_key_password
             )
             self.member_id = self.tls_secret.member_id
         else:
-            _LOGGER.debug('Creating member TLS secret')
+            _LOGGER.debug('Creating member TLS secret', extra=self.log_extra)
             self.tls_secret = await self._create_secret(
                 MemberSecret, members_ca
             )
 
-        _LOGGER.debug('Saving MemberSecret to local storage')
+        _LOGGER.debug(
+            'Saving MemberSecret to local storage', extra=self.log_extra
+        )
         await self.tls_secret.save(
              password=self.private_key_password, overwrite=True,
              storage_driver=local_storage
@@ -642,6 +668,12 @@ class Member:
             target_id: UUID = self.member_id
             target_type: IdType = IdType.MEMBER
 
+        _LOGGER.debug(
+            'Creating JWT for target', extra=self.log_extra | {
+                'target_type': target_type.value,
+                'target_id': target_id
+            }
+        )
         jwt: JWT = JWT.create(
             self.member_id, IdType.MEMBER, self.data_secret,
             self.network.name, service_id=self.service_id,
@@ -657,7 +689,10 @@ class Member:
         and the service. The pod will requests the service to sign its TLS CSR
         '''
 
-        _LOGGER.debug('Registering the pod with the network and service')
+        _LOGGER.debug(
+            'Registering the pod with the network and service',
+            extra=self.log_extra
+        )
         # Register with the service to get our CSR signed
         csr: CertificateSigningRequest = await secret.create_csr()
 
@@ -692,10 +727,7 @@ class Member:
                 secret=secret, service_id=self.service_id
             )
 
-            _LOGGER.debug(
-                f'Member {self.member_id} registered service '
-                f'{self.service_id} with network {self.network.name}'
-            )
+            _LOGGER.debug('Member registered service', extra=self.log_extra)
 
     async def update_registration(self) -> None:
         '''
@@ -710,10 +742,7 @@ class Member:
             data={'certchain': self.data_secret.certchain_as_pem()},
             service_id=self.service_id
         )
-        _LOGGER.debug(
-            f'Member {self.member_id} updated registration for service '
-            f'{self.service_id}'
-        )
+        _LOGGER.debug('Member updated registration', extra=self.log_extra)
 
         await RestApiClient.call(
             self.paths.get(Paths.NETWORKMEMBER_API), method=HttpMethod.PUT,
@@ -721,8 +750,8 @@ class Member:
         )
 
         _LOGGER.debug(
-            f'Member {self.member_id} updated registration with service '
-            f'{self.service_id}  with network {self.network.name}'
+            'Member updated registration with the network',
+            extra=self.log_extra
         )
 
     async def load_service_cacert(self) -> None:
@@ -746,7 +775,8 @@ class Member:
             return
         except FileNotFoundError:
             _LOGGER.debug(
-                'Did not find local Service CA cert so will download it'
+                'Did not find local Service CA cert so will download it',
+                extra=self.log_extra
             )
 
         # The downloaded cert downloaded here is the complete certchain from
@@ -782,25 +812,31 @@ class Member:
         if not filepath:
             filepath = self.paths.get(self.paths.MEMBER_SERVICE_FILE)
 
-        if await self.storage_driver.exists(filepath):
-            schema: Schema = await Schema.get_schema(
-                filepath, self.storage_driver,
-                service_data_secret=self.service.data_secret,
-                network_data_secret=self.network.data_secret,
-                verify_contract_signatures=verify_signatures
-            )
-        else:
+        self.log_extra['filepath'] = filepath
+        _LOGGER.info(f'Loading schema from {filepath}')
+        if not await self.storage_driver.exists(filepath):
             _LOGGER.exception(
-                f'Service contract file {filepath} does not exist for the '
-                'member'
+                'Service contract file does not exist for the '
+                'member', extra=self.log_extra
             )
             raise FileNotFoundError(filepath)
+        schema: Schema = await Schema.get_schema(
+            filepath, self.storage_driver,
+            service_data_secret=self.service.data_secret,
+            network_data_secret=self.network.data_secret,
+            verify_contract_signatures=verify_signatures
+        )
+        if config.debug:
+            with open('/tmp/schema.json', 'wb') as file_desc:
+                file_desc.write(orjson.dumps(schema.json_schema))
 
-        _LOGGER.debug(f'Loading schema at {filepath}')
+        _LOGGER.debug('Loading schema', extra=self.log_extra)
         if verify_signatures:
             await self.verify_schema_signatures(schema)
         else:
-            _LOGGER.debug('Not verifying schema signatures')
+            _LOGGER.debug(
+                'Not verifying schema signatures', extra=self.log_extra
+            )
 
         return schema
 
@@ -829,7 +865,7 @@ class Member:
         the schema of the service
         '''
 
-        _LOGGER.debug('Enabling data APIs')
+        _LOGGER.debug('Enabling data APIs', extra=self.log_extra)
 
         update_cors_origins(self.schema.cors_origins)
 
@@ -869,7 +905,7 @@ class Member:
         )
 
         _LOGGER.debug(
-            f'Verified service signature for service {self.service_id}'
+            'Verified service signature', extra=self.log_extra
         )
 
         schema.verify_signature(
@@ -877,7 +913,7 @@ class Member:
         )
 
         _LOGGER.debug(
-            f'Verified network signature for service {self.service_id}'
+            'Verified network signature for service', extra=self.log_extra
         )
 
     async def load_network_links(self) -> list[NetworkLink]:

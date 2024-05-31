@@ -29,12 +29,15 @@ from fastapi import FastAPI
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
 
-from byoda.datamodel.network import Network
+from byoda.datamodel.table import Table
+from byoda.datamodel.table import QueryResult
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.network import Network
+from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.dataclass import SchemaDataArray
-from byoda.datamodel.claim import ClaimRequest
 from byoda.datamodel.claim import Claim
+from byoda.datamodel.claim import ClaimRequest
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
@@ -612,9 +615,10 @@ class YouTubeVideo:
 
     async def persist(
         self, member: Member, storage_driver: FileStorage, ingest_asset: bool,
-        already_ingested_videos: dict[str, dict[str, str | datetime]],
-        bento4_directory: str = None, moderate_request_url: str | None = None,
-        moderate_jwt_header: str = None, moderate_claim_url: str | None = None,
+        video_table: Table, bento4_directory: str = None,
+        moderate_request_url: str | None = None,
+        moderate_jwt_header: str = None,
+        moderate_claim_url: str | None = None,
         custom_domain: str | None = None,
     ) -> bool | None:
         '''
@@ -668,7 +672,7 @@ class YouTubeVideo:
                         'Ingesting AV tracks for video', extra=log_data
                     )
                     update = await self._ingest_assets(
-                        member, storage_driver, already_ingested_videos,
+                        member, storage_driver, video_table,
                         bento4_directory, custom_domain=custom_domain
                     )
                     log_data['ingest_status'] = self.ingest_status.value
@@ -880,8 +884,7 @@ class YouTubeVideo:
         return claim_data
 
     async def _ingest_assets(
-        self, member: Member, storage_driver: FileStorage,
-        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        self, member: Member, storage_driver: FileStorage, video_table: Table,
         bento4_directory: str, custom_domain: str | None = None
     ) -> bool | None:
         '''
@@ -890,8 +893,7 @@ class YouTubeVideo:
 
         :param storage_driver: The storage driver to store the video with
         :param ingest_asset: should the A/V tracks of the asset be downloaded
-        :param already_ingested_videos: dict with key the YouTube Video ID
-        and as value the ingest status of the video
+        :param video_table: Table for persisting videos
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :returns: True if the video was updated, False if it was created,
@@ -906,12 +908,17 @@ class YouTubeVideo:
 
         _LOGGER.debug('Ingesting AV for video', extra=log_data)
 
+        data_filter: DataFilterSet = DataFilterSet(
+            {'publisher_asset_id': {'eq': self.video_id}}
+        )
+        video_data: list[QueryResult] | None = await video_table.query(
+            data_filter
+        )
         update: bool = False
-        if self.video_id in already_ingested_videos:
-            ingested_video: dict = already_ingested_videos[self.video_id]
+        if video_data:
             try:
                 current_status: str | IngestStatus = \
-                    ingested_video.get('ingest_status')
+                    video_data.get('ingest_status')
 
                 if not isinstance(current_status, IngestStatus):
                     current_status = IngestStatus(current_status)

@@ -62,7 +62,8 @@ class SqlTable(Table):
 
     __slots__: list[str] = [
         'class_name', 'sql_store', 'member_id', 'table_name', 'type',
-        'referenced_class', 'columns', 'cache_only', 'expires_after'
+        'referenced_class', 'columns', 'cache_only', 'expires_after',
+        'log_extra'
     ]
 
     def __init__(self, data_class: SchemaDataItem, sql_store: Sql,
@@ -93,6 +94,21 @@ class SqlTable(Table):
 
         self.columns: dict[SchemaDataItem] | None = None
 
+        self.log_extra: dict[str, any] = {
+            'class_name': self.class_name,
+            'cache_only': self.cache_only,
+            'table_name': sql_table_name,
+            'storage_table_name': self.storage_table_name,
+            'member_id': self.member_id,
+            'type': self.type.value,
+        }
+
+        if self.referenced_class:
+            self.log_extra['referenced_class'] = self.referenced_class.name
+
+        if self.cache_only:
+            self.log_extra['expires_after'] = self.expires_after
+
     @staticmethod
     async def setup(data_class: SchemaDataItem,
                     sql_store: Sql, member_id: UUID) -> Self:
@@ -109,6 +125,8 @@ class SqlTable(Table):
                 'Invalid top-level data class type for '
                 f'{data_class.name}: {data_class.type}'
             )
+
+        _LOGGER.info('Setting up SqlTable', extra=sql_table.log_extra)
 
         await sql_table.create()
 
@@ -146,6 +164,9 @@ class SqlTable(Table):
 
         stmt = stmt.rstrip(', ') + f'{self.sql_store.supports_strict()})'
 
+        _LOGGER.info(
+            f'Conditionally creating table: {stmt}', extra=self.log_extra
+        )
         await self.sql_store.execute(stmt, self.member_id)
 
         await self.reconcile_table_columns()
@@ -163,6 +184,11 @@ class SqlTable(Table):
         )
 
         for column in self.columns.values():
+            _LOGGER.info(
+                'Reviewing column', extra=self.log_extra | {
+                    'column': column.name
+                }
+            )
             if type(column) in (SchemaDataScalar, SchemaDataArray):
                 await self.reconcile_column(
                     column, sql_columns.get(column.storage_name)
@@ -196,7 +222,14 @@ class SqlTable(Table):
         #             f'to {current_sql_type} in table {self.storage_table_name}'
         #        )
 
+        _LOGGER.info(
+            'Reconciling column', extra=self.log_extra | {
+                'column': column.name,
+            }
+        )
+
         if not current_sql_type:
+            _LOGGER.info('Adding column', extra=self.log_extra)
             stmt = (
                 f'ALTER TABLE {self.storage_table_name} '
                 f'ADD COLUMN {column.storage_name} {column.storage_type};'
@@ -214,8 +247,9 @@ class SqlTable(Table):
             )
             await self.sql_store.execute(stmt, self.member_id)
             _LOGGER.debug(
-                f'Created index on {self.storage_table_name}:'
-                f'{column.storage_name}'
+                'Created index for column', extra=self.log_extra | {
+                    'column': column.name
+                }
             )
 
     async def reconcile_meta_columns(self, sql_columns: dict[str, str]
@@ -223,6 +257,11 @@ class SqlTable(Table):
         for column_name, column_type in META_COLUMNS.items():
             stmt: str
             if column_name not in sql_columns:
+                _LOGGER.debug(
+                    'Adding meta_column', extra=self.log_extra | {
+                        'column': column_name
+                    }
+                )
                 stmt = (
                     f'ALTER TABLE {self.storage_table_name} '
                     f'ADD COLUMN {column_name} {column_type};'
@@ -236,7 +275,10 @@ class SqlTable(Table):
                     f'ON {self.storage_table_name}({column_name})'
                 )
                 _LOGGER.debug(
-                    f'Created index on {self.storage_table_name}:{column_name}'
+                    'Created index', extra=self.log_extra | {
+                        'column_storage_name': self.storage_table_name,
+                        'column': column_name
+                    }
                 )
 
     async def reconcile_cache_only_columns(self, sql_columns: dict[str, str]

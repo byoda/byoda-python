@@ -290,13 +290,13 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNotNone(token)
 
-        second_token = content_key.generate_token(
+        second_token: str = content_key.generate_token(
             service_id, member.member_id, asset_id
         )
 
         self.assertEqual(token, second_token)
 
-        query_params = content_key.generate_url_query_parameters(
+        query_params: str = content_key.generate_url_query_parameters(
             service_id, member.member_id, asset_id
         )
         self.assertIsNotNone(query_params)

@@ -10,7 +10,6 @@ import os
 
 from logging import getLogger
 from byoda.datatypes import AuthSource
-from byoda.util.logger import Logger
 from datetime import datetime
 
 import orjson
@@ -19,10 +18,15 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request
 
 from byoda.models.content_key import ContentKeyRequestModel
+
 from byoda.models.cdn_account_memberships import \
-    CdnAccountMembershipsRequestModel
+    CdnAccountOriginsRequestModel
+
+from byoda.datatypes import IdType
 
 from byoda.servers.app_server import AppServer
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -76,39 +80,50 @@ async def post_content_keys(request: Request,
     _LOGGER.debug(f'Wrote {len(content_keys)} keys to {filepath}')
 
 
-@router.post('/memberships')
-async def post_memberships(request: Request,
-                           membership_ids: CdnAccountMembershipsRequestModel,
-                           auth: AccountAuthDep) -> None:
-    '''
-    Submit list for memberships for an account. This API must be authenticated
-    using an account TLS secret
-
-    :param membership_ids: The memberships for an account
-    :returns: (none)
-    :raises:
-    '''
+@router.post('/origins', status_code=201)
+async def post_origins(request: Request,
+                       origin: CdnAccountOriginsRequestModel,
+                       auth: AccountAuthDep) -> None:
 
     server: AppServer = config.server
 
-    _LOGGER.debug(
-        f'Post CDN account memberships API called from {request.client.host}'
-    )
+    log_extra: dict[str, str] = {
+        'remote_addr': request.client.host,
+        'service_id': origin.service_id,
+        'member_id': origin.member_id
+    }
+
+    _LOGGER.debug('Post CDN origins API called', extra=log_extra)
+
     await auth.authenticate()
 
-    _LOGGER.debug(
-        f'Post CDN account memberships API called  {auth.id} with '
-        f'{len(membership_ids.membership_ids)} keys'
+    if auth.auth_source != AuthSource.CERT:
+        raise HTTPException(
+            status_code=403,
+            detail='Must authenticate with a certificate'
+        )
+    if auth.id_type != IdType.ACCOUNT:
+        raise HTTPException(
+            status_code=403,
+            detail='Must authenticate with an account credential'
+        )
+
+    log_extra['account_id'] = auth.id
+
+    if not os.path.exists(server.origins_dir):
+        os.makedirs(server.origins_dir, exist_ok=True)
+
+    filepath: str = server.paths.CDN_ORIGINS_FILE.format(
+        origins_dir=server.origins_dir, service_id=origin.service_id,
+        account_id=auth.id
     )
+    log_extra['filepath'] = filepath
 
-    if auth.auth_source != AuthSource.ACCOUNT:
-        raise HTTPException(
-            status_code=403,
-            detail='Must authenticate with a credential for an account'
+    origin_data: dict[str, any] = origin.model_dump()
+    with open(filepath, 'wb') as file_desc:
+        file_desc.write(
+            orjson.dumps(
+                origin_data, option=orjson.OPT_INDENT_2
+            )
         )
-
-    if auth.id != membership_ids.account_id:
-        raise HTTPException(
-            status_code=403,
-            detail='Specified Account ID does not match authentication account'
-        )
+    _LOGGER.debug('Persisted origins', extra=log_extra)

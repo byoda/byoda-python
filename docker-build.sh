@@ -1,24 +1,12 @@
 #!/bin/bash
 
 # set -x
-# export DOCKER_BUILD_KIT=1
+export DOCKER_BUILD_KIT=1
 
 if [ ! -d .git ]; then
     echo "Must be run from a git directory"
     exit 1
 fi
-
-if [ -z "${TAG}" ]; then
-    RESULT=$(git status | grep 'branch main')
-
-    if [ "$?" -eq "0" ]; then
-        export TAG=latest
-    else
-        export TAG=dev
-    fi
-fi
-
-echo "Using tag: ${TAG}"
 
 NAME=$1
 
@@ -73,6 +61,24 @@ if [ -z "${TARGET}" ]; then
     echo "Must specify a target: ${NAME}"
     exit 1
 fi
+
+if [ -z "${TAG}" ]; then
+    RESULT=$(git status | grep 'branch main')
+
+    if [ "$?" -eq "0" ]; then
+        export TAG=latest
+    else
+        if [ "${TARGET}" == "pod" ]; then
+            export TAG=dev
+        else
+            export TAG=latest
+        fi
+    fi
+fi
+
+
+
+echo "Using tag: ${TAG}"
 
 TARGETS="pod service service-asset-updates-worker service-asset-refresh-worker service-email-worker directory service-channel-refresh-worker byotube-service app"
 if echo "${TARGETS}" | grep -qw "${TARGET}"; then

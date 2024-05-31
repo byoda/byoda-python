@@ -251,6 +251,7 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
     for link in network_links:
         try:
             remote_member_id: UUID = link.get('member_id')
+            log_extra['remote_member_id'] = remote_member_id
             if not isinstance(remote_member_id, UUID):
                 remote_member_id = UUID(remote_member_id)
             log_extra['remote_member_id'] = remote_member_id
@@ -263,6 +264,7 @@ async def get_network_links_listeners(data_store: DataStore, member: Member,
 
         if remote_member_id not in listeners:
             annotations: list[str] = link.get('annotations') or []
+            _LOGGER.debug('Adding listener', extra=log_extra)
             listener: UpdateListenerMember = await UpdateListenerMember.setup(
                 listen_class.name, member, remote_member_id, dest_class_name,
                 annotations
@@ -298,7 +300,7 @@ async def listen_local_network_links_tables(
     :raises: None
     '''
 
-    log_extra: dict[str, int] = {}
+    log_extra: dict[str, str | int | UUID] = {}
 
     member: Member
     for member in account.memberships.values():
@@ -331,8 +333,7 @@ async def listen_local_network_links_tables(
             log_extra['dest_class_name'] = dest_class_name
             log_extra['relations'] = ','.join(relations) or '(any)'
             _LOGGER.info(
-                f'Starting to listen for changes for new relations '
-                f'matching {", ".join(relations or ["(any)"])}',
+                'Starting to listen for changes for new relations',
                 extra=log_extra
             )
             task_group.start_soon(
@@ -383,7 +384,6 @@ async def get_network_link_updates(
 
                 remote_member_id: UUID = resp.node.member_id
                 log_extra['remote_member_id'] = remote_member_id
-                _LOGGER.debug('Initiating connection to pod')
 
                 service_id: int = member.service_id
                 if (remote_member_id in existing_listeners and
@@ -396,6 +396,7 @@ async def get_network_link_updates(
                     return None
 
                 # New listener for a new remote pod
+                _LOGGER.debug('Initiating connection to pod', extra=log_extra)
                 listener: UpdateListenerMember = \
                     await UpdateListenerMember.setup(
                         listen_class_name, member, remote_member_id,
@@ -463,8 +464,7 @@ def review_message(message: PubSubMessage, relations: list[str]
 
     if relations and link.relation not in relations:
         _LOGGER.debug(
-            f'Relation {link.relation} not in {relations}, '
-            f'not creating listener for member', extra=log_extra
+            'Relation not in relations we are tracking', extra=log_extra
         )
         return None
 

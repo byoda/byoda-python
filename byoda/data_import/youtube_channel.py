@@ -27,6 +27,7 @@ from innertube import InnerTube
 from httpx import AsyncClient as AsyncHttpClient
 
 from byoda.datamodel.claim import Claim
+from byoda.datamodel.table import Table
 from byoda.datamodel.member import Member
 from byoda.datamodel.table import QueryResult
 from byoda.datamodel.sqltable import ArraySqlTable
@@ -219,13 +220,13 @@ class YouTubeChannel:
 
     async def scrape(
         self, member: Member, data_store: DataStore,
-        storage_driver: FileStorage, bento4_directory: str | None = None,
+        storage_driver: FileStorage, video_table: Table,
+        bento4_directory: str | None = None,
         moderate_request_url: str | None = None,
         moderate_jwt_header: str | None = None,
         moderate_claim_url: str | None = None, ingest_interval: int = 0,
         custom_domain: str | None = None,
         max_videos_per_channel: int = 0,
-        already_ingested_videos: dict[str, dict[str, str | datetime]] = {},
     ) -> None:
         '''
         Scrapes videos from the YouTube website and optionally stores them in
@@ -248,12 +249,16 @@ class YouTubeChannel:
         :returns: number of pages scraped
         '''
 
-        log_data: dict[str, str] = {'channel': self.name}
+        log_extra: dict[str, str] = {'channel': self.name}
 
+        if not self.name:
+            _LOGGER.warning('No channel name provided', extra=log_extra)
+            return None
+    
         page_data: str = await self.get_videos_page()
 
         if not page_data:
-            _LOGGER.warning('No page data found for channel', extra=log_data)
+            _LOGGER.warning('No page data found for channel', extra=log_extra)
             return None
 
         self.parse_channel_info(page_data)
@@ -267,15 +272,15 @@ class YouTubeChannel:
         videos_imported: int = 0
         for video_id in self.video_ids:
             video: YouTubeVideo = await self.scrape_video(
-                video_id, already_ingested_videos, self.ingest_videos,
+                video_id, video_table, self.ingest_videos,
                 self.channel_thumbnail
             )
 
             if not video:
                 continue
 
-            log_data['video_id'] = video.video_id
-            log_data['ingest_status'] = video.ingest_status.value
+            log_extra['video_id'] = video.video_id
+            log_extra['ingest_status'] = video.ingest_status.value
 
             if self.lock_file:
                 self.update_lock_file()
@@ -283,17 +288,17 @@ class YouTubeChannel:
             if video.channel_creator != self.name:
                 _LOGGER.debug(
                     f'Video created by {video.channel_creator} does not '
-                    f'belong to channel {self.name}', extra=log_data
+                    f'belong to channel {self.name}', extra=log_extra
                 )
                 # By importing the asset with status unavailable, we prevent
                 # attempts to ingest this asset again in future runs
                 video._transition_state(IngestStatus.UNAVAILABLE)
 
-            _LOGGER.debug('Persisting video', extra=log_data)
+            _LOGGER.debug('Persisting video', extra=log_extra)
             try:
                 result: bool | None = await video.persist(
                     member, storage_driver,
-                    self.ingest_videos, already_ingested_videos,
+                    self.ingest_videos, video_table,
                     bento4_directory,
                     moderate_request_url=moderate_request_url,
                     moderate_jwt_header=moderate_jwt_header,
@@ -302,9 +307,9 @@ class YouTubeChannel:
                 )
 
                 if result is None:
-                    log_data['ingest_status'] = video.ingest_status.value
+                    log_extra['ingest_status'] = video.ingest_status.value
                     _LOGGER.debug(
-                        'Failed to persist video', extra=log_data
+                        'Failed to persist video', extra=log_extra
                     )
 
                 videos_imported += 1
@@ -318,18 +323,15 @@ class YouTubeChannel:
                     await sleep(random_delay)
             except (ValueError, ByodaRuntimeError) as exc:
                 _LOGGER.exception(
-                    f'Could not persist video: {exc}', extra=log_data
+                    f'Could not persist video: {exc}', extra=log_extra
                 )
 
             video = None
 
         _LOGGER.debug(
             f'Scraped {len(self.videos)} videos from YouTube channel',
-            extra=log_data
+            extra=log_extra
         )
-
-        log_data.pop('ingest_status', None)
-        log_data.pop('video_id', None)
 
         return None
 
@@ -892,16 +894,16 @@ class YouTubeChannel:
         return video_ids
 
     async def scrape_video(
-        self, video_id: str,
-        already_ingested_videos: dict[str, dict[str, str | datetime]],
+        self, video_id: str, table: Table,
         ingest_videos: bool, creator_thumbnail: YouTubeThumbnail | None
     ) -> YouTubeVideo | None:
         '''
         Find the videos in the by walking through the deserialized
         output of a scrape of a YouTube channel
 
-        :param data: a subset of the scraped data from youtube.com
-        :param already_ingested_videos: assets already in the member DB
+        :param video_id: YouTube video ID
+        :param video_table: Table to see if video has already been ingested
+        where to store newly ingested videos
         :param ingest_videos: whether to upload the A/V streams of the
         scraped assets to storage
         '''
@@ -919,16 +921,20 @@ class YouTubeChannel:
         # channel
         status = IngestStatus.NONE
 
-        if video_id in already_ingested_videos:
+        data_filter: DataFilterSet = DataFilterSet(
+            {'publisher_asset_id': {'eq': video_id}}
+        )
+        result: list[QueryResult] | None = await table.query(data_filter)
+        if result and isinstance(result, list) and len(result):
+            video_data, _ = result[0]
             try:
                 status: IngestStatus | None = \
-                    already_ingested_videos[video_id].get('ingest_status')
+                    video_data.get('ingest_status')
 
                 if isinstance(status, str):
                     status = IngestStatus(status)
             except ValueError:
                 status = IngestStatus.NONE
-
             if not ingest_videos and status == IngestStatus.EXTERNAL:
                 _LOGGER.debug(
                     'Skipping video as it is already ingested and we are '
@@ -963,12 +969,6 @@ class YouTubeChannel:
             # so we set the ingest status for the class instance
             # AND for the dict of already ingested videos
             video._transition_state(IngestStatus.QUEUED_START)
-
-        if video_id not in already_ingested_videos:
-            already_ingested_videos[video_id] = {}
-
-        already_ingested_videos[video_id]['ingest_status'] = \
-            video.ingest_status.value
 
         return video
 

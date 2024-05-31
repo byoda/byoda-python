@@ -156,6 +156,12 @@ class RequestAuth:
         self.authorization: str | None = None
         self.jwt: JWT | None = None
 
+        self.log_extra: dict[str, str] = {
+            'remote_addr': remote_addr,
+            'is_authenticated': self.is_authenticated,
+            'method': method,
+        }
+
     async def authenticate(self, tls_status: TlsStatus, client_dn: str | None,
                            issuing_ca_dn: str | None, client_cert: str | None,
                            authorization: str | None) -> JWT | None:
@@ -202,36 +208,41 @@ class RequestAuth:
         elif isinstance(tls_status, str):
             self.tls_status = TlsStatus(self.tls_status)
 
+        self.log_extra['tls_status'] = self.tls_status,
+
         if self.tls_status not in (TlsStatus.NONE, TlsStatus.SUCCESS):
-            _LOGGER.debug(f'Auth failure: TLS status {self.tls_status}')
+            _LOGGER.debug('Auth failure: TLS status', extra=self.log_extra)
             raise HTTPException(
                 status_code=403,
                 detail=f'Client TLS status is {self.tls_status}'
             )
 
         if self.tls_status == TlsStatus.NONE and not self.authorization:
+            _LOGGER.debug('No credentials provided', extra=self.log_extra)
             raise ByodaMissingAuthInfo('No credentials provided')
 
         if client_dn:
             try:
                 _LOGGER.debug(
-                    f'Authenticating using client cert: {self.client_dn}'
+                    'Authenticating using client cert', extra=self.log_extra
                 )
                 self.authenticate_client_cert(
                     self.client_dn, self.issuing_ca_dn
                 )
                 self.auth_source = AuthSource.CERT
+                self.log_extra['auth_source'] = self.auth_source
                 return
             except HTTPException as exc:
                 error = exc.status
                 detail = exc.detail
 
         if self.authorization:
-            _LOGGER.debug('Authenticating using JWT')
+            _LOGGER.debug('Authenticating using JWT', extra=self.log_extra)
             jwt: JWT = await self.authenticate_authorization_header(
                 self.authorization
             )
             self.auth_source = AuthSource.TOKEN
+            self.log_extra['auth_source'] = self.auth_source
             return jwt
 
         raise HTTPException(status_code=error, detail=detail)
@@ -246,14 +257,17 @@ class RequestAuth:
         self.client_cn = RequestAuth.get_commonname(client_dn)
         self.issuing_ca_cn = RequestAuth.get_commonname(issuing_ca_dn)
 
+        self.log_extra['client_cn'] = self.client_cn
+        self.log_extra['issuing_ca_cn'] = self.issuing_ca_cn
+
         if (self.client_cn == self.issuing_ca_cn or not self.issuing_ca_cn
                 or self.client_cn == 'None'
                 or self.issuing_ca_cn == 'None'):
             # Somehow a self-signed cert made it through the certchain
             # check
             _LOGGER.warning(
-                'Misformed cert was proxied by reverse proxy, Client DN: '
-                f'{client_dn}: Issuing CA DN: {issuing_ca_dn}'
+                'Misformed cert was proxied by reverse proxy, Client DN: ',
+                extra=self.log_extra
             )
             raise HTTPException(
                 status_code=400,
@@ -270,14 +284,24 @@ class RequestAuth:
             self.service_id = subdomain.split('-')[1]
 
         self.id_type = RequestAuth.get_cert_idtype(self.client_cn)
+        self.log_extra['id_type'] = self.id_type
         if self.id_type == IdType.ACCOUNT:
-            _LOGGER.debug('Authenticating client cert for an account')
+            _LOGGER.debug(
+                'Authenticating client cert for an account',
+                extra=self.log_extra
+            )
             self.account_id = self.id
         elif self.id_type == IdType.MEMBER:
-            _LOGGER.debug('Authenticating client cert for a member')
+            _LOGGER.debug(
+                'Authenticating client cert for a member',
+                extra=self.log_extra
+            )
             self.member_id = self.id
         elif self.id_type == IdType.SERVICE:
-            _LOGGER.debug('Authenticating client cert for a service')
+            _LOGGER.debug(
+                'Authenticating client cert for a service',
+                extra=self.log_extra
+            )
         else:
             raise HTTPException(
                 status_code=400,

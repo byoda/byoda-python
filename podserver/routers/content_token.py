@@ -36,8 +36,6 @@ from byoda.datatypes import MonetizationType
 
 from byoda.datastore.data_store import DataStore
 
-from byoda.secrets.app_data_secret import AppDataSecret
-
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.logger import Logger
@@ -144,20 +142,25 @@ async def post_content_token(
     requesting_member_id: UUID = key_request.member_id
     requesting_member_type: IdType = key_request.member_id_type
 
+    log_extra: dict[str, any] = {
+        'service_id': service_id,
+        'asset_id': asset_id,
+        'remote_addr': request.client.host,
+        'data_class': ASSET_CLASS_NAME
+    }
+
     _LOGGER.debug(
-        f'Received request for restricted content token, '
-        f'service_id={service_id}, asset_id={asset_id}, '
-        f'from {request.client.host}'
+        'Received request for content token', extra=log_extra
     )
 
     server: PodServer = config.server
     account: Account = server.account
 
     member: Member = await account.get_membership(service_id)
-
+    log_extra['member_id'] = member.member_id
     data_store: DataStore = server.data_store
 
-    _LOGGER.debug(f'Getting content key table for member {member.member_id}')
+    _LOGGER.debug('Getting content key table', extra=log_extra)
     key_table: Table = data_store.get_table(
         member.member_id, RESTRICTED_CONTENT_KEYS_TABLE
     )
@@ -170,14 +173,13 @@ async def post_content_token(
     data: list[QueryResult] = await table.query(data_filter)
 
     if not data or not isinstance(data, list) or not len(data):
-        _LOGGER.debug(
-           f'Asset {asset_id} not found in table {ASSET_CLASS_NAME} '
-           'for member {member.member_id}'
+        _LOGGER.debug('Asset not found', extra=log_extra)
+        raise HTTPException(
+            400, f'Token denied for unknown asset_id {asset_id}'
         )
-        raise HTTPException(400, f'Token denied for asset_id {asset_id}')
 
     if len(data) > 1:
-        _LOGGER.debug(f'Found more than one asset with sset_id: {asset_id}')
+        _LOGGER.debug('Found more than one asset', extra=log_extra)
 
     asset: dict[str, any] = data[0].data
 
@@ -185,16 +187,26 @@ async def post_content_token(
     if ('monetizations' not in asset
             or not isinstance(asset['monetizations'], list)
             or len(asset['monetizations']) == 0):
+        _LOGGER.debug(
+            'Approving token as no monetizations found', extra=log_extra
+        )
         approve_request = True
     else:
         for monetization in asset['monetizations']:
             mon_type: str = monetization['monetization_type']
             if mon_type == MonetizationType.FREE.value:
+                _LOGGER.debug(
+                    'Approving token for free asset', extra=log_extra
+                )
                 approve_request = True
                 break
 
             if mon_type == MonetizationType.BURSTPOINTS.value:
                 if not attestation:
+                    _LOGGER.debug(
+                        'No token because no burst points attestation',
+                        extra=log_extra
+                    )
                     raise HTTPException(
                         400, 'Burst points attestation required'
                     )
@@ -204,17 +216,25 @@ async def post_content_token(
                     MINIMUM_BURST_POINTS, attestation
                 )
                 if not evaluation:
+                    _LOGGER.debug(
+                        'No token because invalid attestation',
+                        extra=log_extra
+                    )
                     raise HTTPException(
                         400, 'Burst points attestation invalid'
                     )
                 approve_request = True
     if not approve_request:
+        _LOGGER.debug(
+            'No token because request was not approved',
+            extra=log_extra
+        )
         raise HTTPException(400, 'Request denied')
 
     key: ContentKey = await ContentKey.get_active_content_key(table=key_table)
 
     if not key:
-        _LOGGER.error('No tokens available')
+        _LOGGER.error('No tokens available', log_extra)
         raise HTTPException(400, 'No tokens available')
 
     content_token: str = key.generate_token(

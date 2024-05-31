@@ -110,8 +110,8 @@ class UpdatesListener:
         self.annotations: list[str] = annotations
 
         # Extra fields for log messages
-        self.extra: dict[str, str | UUID | int] = {
-            'member_id': self.remote_member_id,
+        self.log_extra: dict[str, str | UUID | int] = {
+            'remote_member_id': self.remote_member_id,
             'service_id': self.service_id,
             'class_name': self.class_name,
             'network_name': self.network_name,
@@ -126,7 +126,7 @@ class UpdatesListener:
         :returns: number of assets retrieved
         '''
 
-        log_extra: dict[str, str | UUID | int] = copy(self.extra)
+        log_extra: dict[str, str | UUID | int] = copy(self.log_extra)
         _LOGGER.debug('Getting all assets from member', extra=log_extra)
 
         has_more_assets: bool = True
@@ -158,7 +158,7 @@ class UpdatesListener:
                     continue
 
                 _LOGGER.debug(
-                    f'Failed to get all assets from member: {exc}',
+                    f'Exception while getting all assets from member: {exc}',
                     extra=log_extra
                 )
                 if metrics and 'failed_get_all_data' in metrics:
@@ -174,6 +174,11 @@ class UpdatesListener:
                             status_code=resp.status_code
                         ).inc()
                     sleepy_time *= 2
+                    log_extra['sleepy_time'] = sleepy_time
+                    _LOGGER.debug(
+                        'Failed to get all assets from member: '
+                        f'{resp.status_code}', extra=log_extra
+                    )
                     await sleep(sleepy_time)
                     continue
 
@@ -188,6 +193,7 @@ class UpdatesListener:
             # We made it to here so we got data from the pod, so we can
             # reset the timer
             sleepy_time = 1
+            log_extra['sleepy_time'] = sleepy_time
 
             data: list[dict[str, object]] = resp.json()
 
@@ -206,24 +212,31 @@ class UpdatesListener:
                 return assets_retrieved
 
             assets_retrieved += response.total_count
+            log_extra['assets_retrieved'] = assets_retrieved
+
             _LOGGER.debug(
                 f'Received {response.total_count} assets from request from '
                 'member', extra=log_extra
             )
             metric = 'updateslistener_received_assets'
             if metrics and metric in metrics:
-                metrics[metric].labels(member_id=self.remote_member_id).inc(
-                    assets_retrieved
-                )
+                metrics[metric].labels(
+                    remote_member_id=self.remote_member_id
+                ).inc(assets_retrieved)
 
             edge: Edge
             for edge in response.edges or []:
                 creator: str | None = edge.node.get('creator')
+                log_extra['creator'] = creator
                 ingest_status: str | None = edge.node.get('ingest_status')
+                log_extra['ingest_status'] = ingest_status
                 if (ingest_status != IngestStatus.UNAVAILABLE.value
                         and (not self.annotations or
                              (isinstance(self.annotations, list)
                               and creator in self.annotations))):
+                    _LOGGER.debug(
+                        'Storing imported asset in cache', extra=log_extra
+                    )
                     await self.store_asset_in_cache(
                         edge.node, edge.origin, edge.cursor
                     )
@@ -234,6 +247,8 @@ class UpdatesListener:
                             ingest_status=ingest_status
                         ).inc()
                 else:
+                    _LOGGER.debug('Skipping import of asset', extra=log_extra)
+
                     if metrics:
                         metric = 'updateslistener_assets_skipped'
                         metrics[metric].labels(
@@ -242,15 +257,16 @@ class UpdatesListener:
 
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
-            _LOGGER.debug(f'Remote end', extra=log_extra)
+            _LOGGER.debug('Remote end', extra=log_extra)
 
         _LOGGER.info(
-            f'Synced all assets from member', extra=log_extra
+            'Synced all assets from member', extra=self.log_extra
         )
         metric = 'got_all_data_from_pod'
         if metrics and metric in metrics:
             metrics[metric].labels(member_id=self.remote_member_id).inc()
 
+        self.log_extra['assets_retrieved'] = assets_retrieved
         return assets_retrieved
 
     async def setup_listen_assets(self, task_group: TaskGroup) -> None:
@@ -266,7 +282,7 @@ class UpdatesListener:
         :raises: RuntimeError if we give up trying to connect to the remote
         '''
 
-        _LOGGER.debug('Initiating listening to updates', extra=self.extra)
+        _LOGGER.debug('Initiating listening to updates', extra=self.log_extra)
 
         task_group.start_soon(self.get_updates)
 
@@ -286,7 +302,7 @@ class UpdatesListener:
 
         service_id: int = self.service_id
         _LOGGER.debug(
-            'Connecting to remote member for updates', extra=self.extra
+            'Connecting to remote member for updates', extra=self.log_extra
         )
 
         metrics: dict[str, Gauge, Counter] | None = config.metrics
@@ -296,7 +312,6 @@ class UpdatesListener:
 
         reconnect_delay: int = 0.5
         last_alive: datetime = datetime.now(tz=UTC)
-        extra: dict[str, any] = copy(self.extra)
         while True:
             metric: str = 'updateslistener_connection_healthy'
             if metrics and metric in metrics:
@@ -308,14 +323,14 @@ class UpdatesListener:
                         self.tls_secret, member_id=self.remote_member_id,
                         network=self.network_name
                 ):
-                    extra['reconnect_delay'] = reconnect_delay
+                    self.log_extra['reconnect_delay'] = reconnect_delay
                     updates_data: dict = orjson.loads(result)
                     edge = UpdatesResponseModel(**updates_data)
-                    extra['origin_id'] = edge.origin_id
-                    extra['origin_id_type'] = edge.origin_id_type
+                    self.log_extra['origin_id'] = edge.origin_id
+                    self.log_extra['origin_id_type'] = edge.origin_id_type
 
                     if edge.origin_id_type != IdType.MEMBER:
-                        _LOGGER.debug('Ignoring data', extra=extra)
+                        _LOGGER.debug('Ignoring data', extra=self.log_extra)
                         continue
 
                     creator: str | None = edge.node['creator']
@@ -326,7 +341,7 @@ class UpdatesListener:
                                      and creator in self.annotations))):
                         _LOGGER.debug(
                             'Appending data from member to asset '
-                            f'cache: {edge.node}', extra=extra
+                            f'cache: {edge.node}', extra=self.log_extra
                         )
 
                         await self.store_asset_in_cache(
@@ -361,7 +376,7 @@ class UpdatesListener:
                     WebSocketException, ConnectionRefusedError) as exc:
                 _LOGGER.debug(
                     f'Websocket client transport error. Will reconnect: {exc}',
-                    extra=extra
+                    extra=self.log_extra
                 )
                 metric = 'updateslistener_websocket_client_transport_errors'
                 if metrics and metric in metrics:
@@ -371,7 +386,7 @@ class UpdatesListener:
             except socket_gaierror as exc:
                 _LOGGER.debug(
                     f'Websocket connection to member failed: {exc}',
-                    extra=extra
+                    extra=self.log_extra
                 )
                 metric = 'updateslistener_websocket_client_connection_errors'
                 if metrics and metric in metrics:
@@ -381,7 +396,7 @@ class UpdatesListener:
             except CancelledError as exc:
                 _LOGGER.debug(
                     'Websocket connection to member cancelled by asyncio: '
-                    f'{exc}', extra=extra
+                    f'{exc}', extra=self.log_extra
                 )
                 metric = 'updateslistener_websocket_client_cancelled_errors'
                 if metrics and metric in metrics:
@@ -391,7 +406,7 @@ class UpdatesListener:
             except Exception as exc:
                 _LOGGER.exception(
                     f'Failed to establish websocket connection: {exc}',
-                    extra=extra
+                    extra=self.log_extra
                 )
                 metric = 'updateslistener_websocket_exception_errors'
                 if metrics and metric in metrics:
@@ -399,7 +414,7 @@ class UpdatesListener:
                         member_id=self.remote_member_id
                     ).inc()
 
-            _LOGGER.debug('Websocket reconnect delay', extra=extra)
+            _LOGGER.debug('Websocket reconnect delay', extra=self.log_extra)
 
             metric: str = 'updateslistener_connection_healthy'
             if metrics and metric in metrics:
@@ -415,10 +430,17 @@ class UpdatesListener:
             reconnect_delay += 2 * random() * reconnect_delay
             if reconnect_delay > UpdatesListener.MAX_RECONNECT_DELAY:
                 reconnect_delay = UpdatesListener.MAX_RECONNECT_DELAY
+            _LOGGER.debug(
+                f'Reconnect delay is now {reconnect_delay}',
+                extra=self.log_extra
+            )
 
             not_seen_for: timedelta = \
                 last_alive - datetime.now(tz=UTC)
             if not_seen_for > timedelta(days=3):
+                _LOGGER.debug(
+                    'Member not seen for 3 days', extra=self.log_extra
+                )
                 metric: str = 'updateslistener_expired_members'
                 if metrics and metric in metrics:
                     metrics[metric].labels(
@@ -603,8 +625,7 @@ class UpdateListenerService(UpdatesListener):
         metric = 'updateslistener_assets_unseen'
         if metric not in metrics:
             metrics[metric] = Counter(
-                metric, 'Number of assets not yet seen by a listener',
-                ['member_id']
+                metric, 'Number of assets not yet seen by a listener'
             )
 
         self.asset_cache: AssetCache = asset_cache
@@ -668,7 +689,7 @@ class UpdateListenerService(UpdatesListener):
 
         metrics: dict[str, Counter | Gauge] = config.metrics
         if not data:
-            _LOGGER.debug('Ignoring empty data', extra=self.extra)
+            _LOGGER.debug('Ignoring empty data', extra=self.log_extra)
             metric: str = 'updateslistener_received_assets_without_data'
             metrics[metric].labels(member_id=self.remote_member_id).inc()
             return False
@@ -677,16 +698,20 @@ class UpdateListenerService(UpdatesListener):
             if not data.get('video_thumbnails') or not data.get['title']:
                 _LOGGER.debug(
                     'Not importing test asset without thumbnails',
-                    extra=self.extra
+                    extra=self.log_extra | {'asset_id': data['asset_id']}
                 )
                 return False
 
         ingest_status: str | None = data.get('ingest_status')
+        log_extra: dict[str, str | UUID | int] = copy(self.log_extra)
+        log_extra['ingest_status'] = ingest_status
+        log_extra['origin_id'] = origin_id
+        log_extra['cursor'] = cursor
+        log_extra['asset_id'] = data['asset_id']
         if (ingest_status not in (IngestStatus.PUBLISHED.value,
                                   IngestStatus.EXTERNAL.value)):
             _LOGGER.debug(
-                'Not importing asset for ingest_status',
-                extra=self.extra | {'ingest_status': ingest_status}
+                'Not importing asset for ingest_status', extra=self.log_extra
             )
             metrics['updateslistener_assets_failed_to_store_in_cache'].labels(
                 member_id=self.remote_member_id, ingest_status=ingest_status
@@ -790,6 +815,7 @@ class UpdateListenerMember(UpdatesListener):
             class_name, member, remote_member_id, dest_class_name,
             annotations, cache_expiration,
         )
+        _LOGGER.debug('Setting up listener as a member', extra=self.log_extra)
 
         return self
 
@@ -833,19 +859,23 @@ class UpdateListenerMember(UpdatesListener):
         except ByodaRuntimeError as exc:
             _LOGGER.warning(
                 'Got exception when appending video with query_id '
-                f'{query_id}: {exc}', extra=self.extra
+                f'{query_id}: {exc}', extra=self.log_extra
             )
             return False
 
         if resp.status_code != 200:
             _LOGGER.warning(
                 f'Failed to append video with query_id {query_id}: '
-                f'{resp.text or resp.status_code}', extra=self.extra
+                f'{resp.text or resp.status_code}', extra=self.log_extra
             )
             return False
 
+        log_extra: dict[str, any] = copy(self.log_extra)
+        log_extra['asset_id'] = data['asset_id']
+        log_extra['ingest_status'] = data.get('ingest_status')
+        log_extra['HTTP_status_code'] = resp.status_code
         _LOGGER.debug(
-            f'Successfully appended data: {resp.status_code}', extra=self.extra
+            'Successfully appended data', log_extra
         )
 
         return True

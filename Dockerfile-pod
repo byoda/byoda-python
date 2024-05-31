@@ -2,14 +2,11 @@ FROM ubuntu:24.04
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
-# TODO
-# 1: run uvicorn/fastapi/app as non-root user
-
 ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
 
-WORKDIR /podserver
 ENV PYTHONPATH=/podserver/byoda-python
+WORKDIR /podserver
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 
@@ -19,10 +16,10 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://local
 RUN mkdir -p \
     /var/log/byoda \
     /byoda/network-byoda.net/ \
-    byoda-python
+    byoda-python \
+    /opt/byoda/byoda-python
 
-
-COPY ./Pipfile ./Pipfile.lock byoda-python/
+COPY ./Pipfile ./Pipfile.lock /podserver/byoda-python/
 
 # BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
 # https://www.bento4.com/
