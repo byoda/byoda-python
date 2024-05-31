@@ -120,7 +120,7 @@ class SchemaDataItem:
 
         self.fields: list[SchemaDataItem] | None = None
 
-        self.properties: set(DataProperty) = set()
+        self.properties: set[DataProperty] = set()
 
         # Should data for this class automatically expire and be purged?
         self.cache_only: bool = False

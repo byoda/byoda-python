@@ -184,6 +184,16 @@ class AzureFileStorage(FileStorage):
 
         self.clients = {}
 
+    def get_container(self, storage_type: StorageType) -> str:
+        '''
+        Returns the name of the container for the storage type
+
+        This is different from GcpStorage and AwsStorage as
+        there we actually return the bucket name
+        '''
+
+        return self.buckets[storage_type.value].container
+
     def _get_container_client(self, filepath: str,
                               storage_type: StorageType = StorageType.PRIVATE
                               ) -> tuple[ContainerClient, str]:

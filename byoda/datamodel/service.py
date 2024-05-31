@@ -672,6 +672,7 @@ class Service:
         :returns: the schema as string
         '''
 
+        save = True
         if save:
             # Resolve any variables in the value for the filepath variable
             if not filepath:
@@ -679,18 +680,18 @@ class Service:
             else:
                 filepath = self.paths.get(filepath, service_id=self.service_id)
 
-        _LOGGER.debug(
+        _LOGGER.info(
             f'Downloading schema for service_id {self.service_id} using '
             f'template {Paths.SERVICE_CONTRACT_DOWNLOAD}'
         )
 
-        resp = await ApiClient.call(
+        resp: HttpResponse = await ApiClient.call(
             Paths.SERVICE_CONTRACT_DOWNLOAD, service_id=self.service_id
         )
         if resp.status_code == 200:
-            _LOGGER.debug(f'Downloaded service contract to {filepath}')
+            _LOGGER.info(f'Downloaded service contract to {filepath}')
             if save:
-                _LOGGER.debug(f'Saving service contract to {filepath}')
+                _LOGGER.info(f'Saving service contract to {filepath}')
                 await self.save_schema(resp.text, filepath=filepath)
 
             return resp.text

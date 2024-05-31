@@ -116,8 +116,8 @@ class BurstAttestModel(BaseModel):
 class ContentTokenRequestModel(BaseModel):
     service_id: int
     asset_id: UUID
-    member_id: UUID
-    member_id_type: IdType
+    member_id: UUID | None = None
+    member_id_type: IdType | None = None
     attestation: BurstAttestModel | None = None
 
 

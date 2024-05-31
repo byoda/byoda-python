@@ -107,6 +107,9 @@ class Paths:
     APP_CERT_DOWNLOAD                   = 'https://service.service-{service_id}.{network}/app-certs/apps-{app_id}-cert.pem'                # noqa
     APP_DATACERT_DOWNLOAD               = 'https://service.service-{service_id}.{network}/app-certs/app-data-{app_id}-cert.pem'            # noqa
 
+    # CDN Paths
+    CDN_ORIGINS_FILE        = '{origins_dir}/{service_id}-{account_id}-origins.json'                                  # noqa
+
     # APIs
     NETWORKACCOUNT_API      = 'https://dir.{network}/api/v1/network/account'                                          # noqa
     NETWORKSERVICE_API      = 'https://dir.{network}/api/v1/network/service/service_id/{service_id}'                  # noqa
@@ -121,6 +124,7 @@ class Paths:
     PODACCOUNT_PROXY_API    = 'https://proxy.{network}/{account_id}/api/v1/pod/account'                               # noqa
     PODHEALTH_API           = 'https://{member_id}.members-{service_id}.{network}/api/v1/status'                      # noqa
     CDN_KEYS_API            = 'https://{fqdn}/api/v1/cdn/content_keys'                                                # noqa
+    CDN_ORIGINS_API         = 'https://{fqdn}/api/v1/cdn/origins'                                                     # noqa
 
     # Content download URLs
     RESTRICTED_ASSET_POD_URL = 'https://{custom_domain}/restricted/{asset_id}/{filename}'                                               # noqa

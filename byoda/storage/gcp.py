@@ -7,8 +7,8 @@ Google Cloud Platform.
 :license    : GPLv3
 '''
 
+from typing import Self
 from logging import getLogger
-
 from tempfile import TemporaryFile
 
 from google.cloud import storage
@@ -75,7 +75,7 @@ class GcpFileStorage(FileStorage):
 
     @staticmethod
     async def setup(private_bucket: str, restricted_bucket: str,
-                    public_bucket: str, root_dir: str = None):
+                    public_bucket: str, root_dir: str = None) -> Self:
         '''
         Factory for GcpFileStorage
 
@@ -89,6 +89,13 @@ class GcpFileStorage(FileStorage):
         return GcpFileStorage(
             private_bucket, restricted_bucket, public_bucket, root_dir
         )
+
+    def get_container_name(self, storage_type: StorageType) -> str:
+        '''
+        Returns the name of the container for the storage type
+        '''
+
+        return self.buckets[storage_type.value]
 
     def _get_blob_client(self, filepath: str,
                          storage_type: StorageType = StorageType.PRIVATE

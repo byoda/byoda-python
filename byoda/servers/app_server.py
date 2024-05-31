@@ -72,6 +72,7 @@ class AppServer(Server):
                 os.makedirs(f'{self.claim_dir}/{status.value}', exist_ok=True)
         elif app_type == AppType.CDN:
             self.keys_dir: str = app_config['cdnserver']['keys_dir']
+            self.origins_dir: str = app_config['cdnserver']['origins_dir']
             self.sqlite_db_file: str = app_config['cdnserver'].get('sqlite_db')
             if not self.sqlite_db_file:
                 raise ValueError('No sqlite_db defined for CDN app')

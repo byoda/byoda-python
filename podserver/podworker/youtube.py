@@ -21,6 +21,7 @@ from byoda.datamodel.member import Member
 from byoda.datamodel.network import Network
 from byoda.datamodel.schema import Schema
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.table import Table
 
 from byoda.datatypes import IdType
 
@@ -31,7 +32,6 @@ from byoda.datastore.data_store import DataStore
 from byoda.storage.filestorage import FileStorage
 
 from byoda.data_import.youtube import YouTube
-from byoda.data_import.youtube_channel import YouTubeChannel
 from byoda.data_import.youtube_video import YouTubeVideo
 
 from byoda.servers.pod_server import PodServer
@@ -67,11 +67,14 @@ async def run_youtube_startup_tasks(server: PodServer,
     youtube_member: Member = await account.get_membership(
         youtube_import_service_id, with_pubsub=False
     )
+    log_extra: dict[str, any] = {
+        'member_id': youtube_member.member_id,
+        'youtube_import_service_id': youtube_import_service_id
+    }
     if youtube_member:
         try:
             _LOGGER.debug(
-                f'Running startup tasks for membership of '
-                f'service {youtube_import_service_id} for YouTube import'
+                'Running YouTube startup tasks for membership', extra=log_extra
             )
             schema: Schema = youtube_member.schema
             schema.get_data_classes(with_pubsub=False)
@@ -100,17 +103,23 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     schema: Schema = member.schema
     data_classes: dict[str, SchemaDataItem] = schema.data_classes
 
+    log_extra: dict[str, any] = {
+        'member_id': member.member_id,
+        'service_id': service_id
+    }
     if not member:
-        _LOGGER.info(f'Not a member of service with ID: {service_id}')
+        _LOGGER.info('Not a member of service', extra=log_extra)
         return
 
     youtube: YouTube = server.youtube_client
     if YouTube.youtube_integration_enabled() and not server.youtube_client:
-        _LOGGER.debug('Enabling YouTube integration')
+        _LOGGER.debug('Enabling YouTube integration', extra=log_extra)
         youtube: YouTube = YouTube(lock_file=LOCK_FILE)
 
     if not youtube:
-        _LOGGER.debug('Skipping YouTube update as it is not enabled')
+        _LOGGER.debug(
+            'Skipping YouTube update as it is not enabled', extra=log_extra
+            )
         return
 
     if os.path.exists(LOCK_FILE):
@@ -119,13 +128,13 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         if ctime < now - LOCK_TIMEOUT:
             _LOGGER.debug(
                 f'Removing stale lock file, created {now - ctime} '
-                'seconds ago'
+                'seconds ago', extra=log_extra
             )
             os.remove(LOCK_FILE)
         else:
             _LOGGER.info(
                 f'YouTube ingest lock file {LOCK_FILE} exists, '
-                'skipping this run'
+                'skipping this run', extra=log_extra
             )
             return
 
@@ -156,35 +165,26 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     else:
         jwt_header: str | None = None
 
-    channel_data_class: SchemaDataItem = \
-        data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
-    ingested_channels: dict[str, dict[str, str]] = \
-        await YouTube.load_ingested_channels(
-            member.member_id, channel_data_class, data_store
-        )
-
     data_class: SchemaDataItem = \
         data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
-    ingested_videos: dict[str, dict[str, str]] = \
-        await YouTube.load_ingested_videos(
-            member.member_id, data_class, data_store
-        )
-
+    video_table: Table = data_store.get_table(
+        member.member_id, data_class.name
+    )
     # Add a random delay between import runs to avoid overloading YouTube
     interval: int = int(
         os.environ.get('YOUTUBE_IMPORT_INTERVAL', YOUTUBE_IMPORT_INTERVAL)
     )
 
     random_delay: int = int(random() * interval / 4)
-    _LOGGER.debug(f'Sleeping for {random_delay} seconds to randomize runs')
+    log_extra['random_delay'] = random_delay
+    _LOGGER.debug('Sleeping to randomize runs', extra=log_extra)
     await sleep(random_delay)
 
     try:
-        _LOGGER.debug('Running YouTube metadata update')
+        _LOGGER.debug('Running YouTube metadata update', extra=log_extra)
 
         await youtube.import_videos(
-            member, data_store, storage_driver, ingested_videos,
-            ingested_channels,
+            member, data_store,  video_table, storage_driver,
             moderate_request_url=moderation_request_url,
             moderate_jwt_header=jwt_header,
             moderate_claim_url=moderation_claim_url,
@@ -193,7 +193,10 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         os.remove(LOCK_FILE)
 
     except Exception as exc:
-        _LOGGER.exception(f'Exception during Youtube metadata update: {exc}')
+        _LOGGER.exception(
+            f'Exception during Youtube metadata update: {exc}',
+            extra=log_extra
+        )
 
     # Release memory used by the import run
     youtube.channels = []

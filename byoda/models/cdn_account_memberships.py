@@ -7,25 +7,18 @@ Schema for pod to report its memberships to the CDN
 '''
 
 from uuid import UUID
-from typing import LiteralString
 
 from pydantic import BaseModel
 
+from byoda.datatypes import StorageType
 
-class CdnAccountMembershipsRequestModel(BaseModel):
+
+class BucketMap(BaseModel):
+    storage_type: StorageType
     container: str
-    account: UUID
-    membership_id: UUID
+
+
+class CdnAccountOriginsRequestModel(BaseModel):
     service_id: int
-
-    def __repr__(self) -> LiteralString:
-        return (
-            '<CdnAccountMembershipsRequestModel='
-            '(account_id: UUID, membership_ids: list[UUID]>'
-        )
-
-    def as_dict(self) -> dict[str, UUID | list[UUID]]:
-        return {
-            'account_id': self.account_id,
-            'membership_ids': self.membership_ids
-        }
+    member_id: UUID
+    buckets: dict[str, str]

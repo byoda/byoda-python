@@ -27,13 +27,13 @@ from datetime import UTC
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
-
 from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.app_server import AppServer
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import AppType
+from byoda.datatypes import StorageType
 
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.restapi_client import RestApiClient
@@ -47,7 +47,9 @@ from byoda import config
 from byoda.util.fastapi import setup_api
 
 from tests.lib.defines import COLLATERAL_DIR
+from tests.lib.defines import BYOTUBE_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
 from tests.lib.util import get_test_uuid
 
 from tests.lib.setup import mock_environment_vars
@@ -86,12 +88,12 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
         app_config: dict[str, dict[str, any]] = TestApis.APP_CONFIG
         app_config['appserver']['root_dir'] = TEST_DIR
+        app_config['cdnserver']['keys_dir'] = f'{TEST_DIR}/cdn_keys'
+        app_config['cdnserver']['origins_dir'] = f'{TEST_DIR}/cdn_origins'
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
             pass
-
-        os.makedirs(app_config['cdnserver']['keys_dir'], exist_ok=True)
 
         paths: dict[str, str] = {
             'key': '/private/network-byoda.net/service-4294929430/apps/',
@@ -155,6 +157,11 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         await ApiClient.close_all()
 
     async def test_cdn_content_keys_post_jwt(self) -> None:
+        test_dir: str = f'/{TEST_DIR}/cdn_keys'
+        try:
+            shutil.rmtree(test_dir)
+        except FileNotFoundError:
+            pass
         API: str = BASE_URL + '/cdn/content_keys'
 
         network_name: str = TestApis.APP_CONFIG['application']['network']
@@ -188,6 +195,46 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
             timeout=600, app=APP
         )
         self.assertEqual(resp.status_code, 200)
+        filepath: str = f'/{TEST_DIR}/cdn_keys/{member_id}-keys.json'
+        self.assertTrue(os.path.exists(filepath))
+
+    async def test_cdn_origins_post_jwt(self) -> None:
+        test_dir: str = f'/{TEST_DIR}/cdn_origins/'
+        try:
+            shutil.rmtree(test_dir)
+        except FileNotFoundError:
+            pass
+
+        API: str = BASE_URL + '/cdn/origins'
+
+        network_name: str = TestApis.APP_CONFIG['application']['network']
+
+        account_id: UUID = get_test_uuid()
+        ssl_headers: dict[str, str] = {
+            'X-Client-SSL-Verify': 'SUCCESS',
+            'X-Client-SSL-Subject':
+                f'CN={account_id}.accounts.{network_name}',
+            'X-Client-SSL-Issuing-CA': 'CN=accounts-ca.accounts-ca.byoda.net'
+        }
+
+        member_ids: list[UUID] = [get_test_uuid(), get_test_uuid()]
+        data: dict[str, int | dict[str, str | UUID | StorageType]] = {
+            'service_id': BYOTUBE_SERVICE_ID,
+            'member_id': member_ids[0],
+            'buckets': {
+                StorageType.RESTRICTED.value:
+                    f'{account_id}-restricted-123456',
+                StorageType.PUBLIC.value: f'{account_id}-public',
+            }
+        }
+        resp: HttpResponse = await RestApiClient.call(
+            API, method=HttpMethod.POST, headers=ssl_headers, data=data,
+            timeout=600, app=APP
+        )
+        self.assertEqual(resp.status_code, 201)
+        filepath: str = \
+            f'{test_dir}/{BYOTUBE_SERVICE_ID}-{account_id}-origins.json'
+        self.assertTrue(os.path.exists(filepath))
 
 
 if __name__ == '__main__':

@@ -49,7 +49,8 @@ from podworker.discovery import get_current_network_links
 from podworker.discovery import listen_local_network_links_tables
 from podworker.discovery import check_network_links
 
-from podworker.cdn_keys import upload_content_keys
+from podworker.cdn import upload_origin_mapping
+from podserver.podworker.cdn import upload_content_keys
 
 from podworker.datastore_maintenance import backup_datastore
 from podworker.datastore_maintenance import database_maintenance
@@ -62,6 +63,7 @@ from podworker.youtube import youtube_update_task
 _LOGGER: Logger | None = None
 
 LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/worker.log'
+
 ADDRESSBOOK_ID: int = 4294929430
 YOUTUBE_IMPORT_SERVICE_ID: int = 16384
 
@@ -132,6 +134,8 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
 
     await upload_content_keys(server)
 
+    await upload_origin_mapping(server)
+
     await run_youtube_startup_tasks(server, youtube_import_service_id)
 
     return updates_listeners
@@ -167,7 +171,7 @@ async def setup_recurring_tasks(server: PodServer,
     if server.cloud != CloudType.LOCAL:
         _LOGGER.debug('Scheduling backups of the datastore')
         interval: int = int(os.environ.get("BACKUP_INTERVAL", 240) or 240)
-        every(interval).minutes.do(backup_datastore, server)
+        # every(interval).minutes.do(backup_datastore, server)
 
     if YouTube.youtube_integration_enabled():
         interval: int = int(

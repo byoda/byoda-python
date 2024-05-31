@@ -8,6 +8,8 @@ Various utility classes, variables and functions
 
 import os
 
+from uuid import UUID
+
 from logging import getLogger
 
 from byoda.datamodel.account import Account
@@ -17,7 +19,13 @@ from byoda.datamodel.network import Network
 from byoda.datamodel.content_key import ContentKey
 from byoda.datamodel.table import Table
 
+from byoda.datatypes import StorageType
+
 from byoda.datastore.data_store import DataStore
+from byoda.datastore.document_store import DocumentStore
+
+from byoda.storage.filestorage import FileStorage
+from byoda.storage.azure import AzureFileStorage
 
 from byoda.servers.pod_server import PodServer
 
@@ -52,15 +60,15 @@ async def upload_content_keys(server: PodServer) -> None:
     account: Account = server.account
     data_store: DataStore = server.data_store
 
+    cdn_app_id: str | None = os.environ.get('CDN_APP_ID')
+    if not cdn_app_id:
+        _LOGGER.debug('No CDN App ID defined, skipping uploading of keys')
+        return
+
     _LOGGER.info('Uploading content keys')
 
     member: Member
     for member in account.memberships.values():
-        cdn_app_id: str | None = os.environ.get('CDN_APP_ID')
-        if not cdn_app_id:
-            _LOGGER.debug('No CDN App ID defined, skipping')
-            return
-
         schema: Schema = member.schema
         if DATA_CLASS_RESTRICTED_CONTENT_KEYS not in schema.data_classes:
             _LOGGER.debug(
@@ -126,3 +134,84 @@ async def call_content_keys_api(cdn_app_id: str, member: Member,
             )
     except Exception as exc:
         _LOGGER.error(f'Failed to upload content keys to CDN Keys API: {exc}')
+
+
+async def upload_origin_mapping(server: PodServer) -> None:
+    server: PodServer = server
+    account: Account = server.account
+    network: Network = account.network
+
+    _LOGGER.info('Uploading Origin mapping')
+
+    cdn_app_id: str | None = os.environ.get('CDN_APP_ID')
+    if not cdn_app_id:
+        _LOGGER.debug('No CDN App ID defined, skipping')
+        return
+
+    member: Member
+    for member in account.memberships.values():
+        log_extra: dict[str, str | UUID] = {
+            'service_id': member.service_id,
+            'member_id': member.member_id
+        }
+
+        document_store: DocumentStore = account.document_store
+        filestore: FileStorage = document_store.backend
+        if isinstance(filestore, AzureFileStorage):
+            restricted_container: str = filestore.get_container(
+                StorageType.RESTRICTED
+            )
+            public_container: str = filestore.get_container(
+                StorageType.PUBLIC
+            )
+        else:
+            restricted_container: str = filestore.get_bucket_name(
+                StorageType.RESTRICTED
+            )
+            public_container: str = filestore.get_bucket_name(
+                StorageType.PUBLIC
+            )
+            raise NotImplementedError(
+                'Only Azure storage is supported for CDN origins'
+            )
+
+        log_extra['restricted_bucket'] = restricted_container
+        log_extra['public_bucket'] = public_container
+
+        data: dict[str, UUID | int | dict[str, str]] = {
+            'service_id': member.service_id,
+            'member_id': member.member_id,
+            'buckets': {
+                StorageType.RESTRICTED.value: restricted_container,
+                StorageType.PUBLIC.value: public_container
+            }
+        }
+        fqdn: str = \
+            f'{cdn_app_id}.apps-{member.service_id}.{network.name}'
+        log_extra['fqdn'] = fqdn
+
+        url: str = Paths.CDN_ORIGINS_API.format(fqdn=fqdn)
+        log_extra['url'] = url
+        try:
+            resp: HttpResponse = await RestApiClient.call(
+                url, HttpMethod.POST, secret=account.tls_secret,
+                service_id=member.service_id, data=data
+            )
+
+            log_extra['status_code'] = resp.status_code
+            if resp.status_code == 201:
+                _LOGGER.debug(
+                    'Uploaded origins CDN Origins API', extra=log_extra
+                )
+            else:
+                _LOGGER.error(
+                    f'Failed to upload origins for service: {resp.text}',
+                    extra=log_extra
+                )
+        except Exception as exc:
+            _LOGGER.error(
+                'Failed to upload origins to CDN Origins API', extra=log_extra
+            )
+            _LOGGER.error(
+                f'Failed to upload content keys to CDN Keys API: {exc}'
+            )

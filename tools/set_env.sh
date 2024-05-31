@@ -33,11 +33,34 @@ fi
 export PYTHONPATH=$PYTHONPATH:$(pwd):~/byoda-python:~/src/byoda-python:/root/byoda-python:/root/src/byoda-python
 export NETWORK="byoda.net"
 
-export ROOT_CA=/byoda/network-$NETWORK/network-$NETWORK-root-ca-cert.pem
+export POSTFIX=
+if [[ ${HOSTNAME:0:4} == "byo-" ]]; then
+    export POSTFIX=$HOSTNAME
+fi
+if [[ ${HOSTNAME} == 'dathes' || ${HOSTNAME} == 'notest' || ${HOSTNAME} == 'demotest' || ${HOSTNAME} == 'dmz' ]]; then
+    export POSTFIX=$HOSTNAME
+else
+    for NAME in azure gcp aws; do
+        if [[ ${HOSTNAME} == ${NAME}-pod ]]; then
+            export POSTFIX=${NAME}
+        fi
+    done
+fi
+
+if [ -z $POSTFIX ]; then
+    if [ ! -f "/byoda/network-byoda.net/account-pod/pod-cert.pem" ]; then
+        ACCOUNT_ID=$(ls /byoda)
+        export POSTFIX=${ACCOUNT_ID:24:8}
+    else
+        echo "Assuming we are using the legacy directory structure"
+    fi
+fi
+
+export ROOT_CA=/byoda/${POSTFIX}/network-$NETWORK/network-$NETWORK-root-ca-cert.pem
 export PASSPHRASE=${PRIVATE_KEY_SECRET}
 
-export ACCOUNT_CERT=/byoda/network-byoda.net/account-pod/pod-cert.pem
-export ACCOUNT_KEY=/byoda/private/network-byoda.net-account-pod.key
+export ACCOUNT_CERT=/byoda/${POSTFIX}/network-byoda.net/account-pod/pod-cert.pem
+export ACCOUNT_KEY=/byoda/${POSTFIX}/private/network-byoda.net-account-pod.key
 if [ -f  ${ACCOUNT_CERT} ]; then
     export CERT_ACCOUNT_ID=$( \
             openssl x509 -in $ACCOUNT_CERT -noout -text | \
@@ -83,8 +106,8 @@ echo "POD logs                          : ${HOME_PAGE}/logs/{pod[worker].log,ang
 
 # The byo.tube service
 export SERVICE_BYOTUBE_ID=16384
-export MEMBER_BYOTUBE_CERT=/byoda/network-byoda.net/account-pod/service-${SERVICE_BYOTUBE_ID}/network-byoda.net-member-${SERVICE_BYOTUBE_ID}-cert.pem
-export MEMBER_BYOTUBE_KEY=/byoda/private/network-byoda.net-account-pod-member-${SERVICE_BYOTUBE_ID}.key
+export MEMBER_BYOTUBE_CERT=/byoda/${POSTFIX}/network-byoda.net/account-pod/service-${SERVICE_BYOTUBE_ID}/network-byoda.net-member-${SERVICE_BYOTUBE_ID}-cert.pem
+export MEMBER_BYOTUBE_KEY=/byoda/${POSTFIX}/private/network-byoda.net-account-pod-member-${SERVICE_BYOTUBE_ID}.key
 if [ -f  ${MEMBER_BYOTUBE_CERT} ]; then
     export MEMBER_BYOTUBE_ID=$( \
         openssl x509 -in $MEMBER_BYOTUBE_CERT -noout -text | \
@@ -114,3 +137,4 @@ echo "Member FQDN                       : ${MEMBER_BYOTUBE_FQDN}"
 echo "Member username                   : ${MEMBER_USERNAME}"
 echo "Member cert                       : ${MEMBER_BYOTUBE_CERT}"
 echo "Member key                        : ${MEMBER_BYOTUBE_KEY}"
+
