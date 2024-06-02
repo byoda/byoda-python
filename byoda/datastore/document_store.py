@@ -81,11 +81,13 @@ class DocumentStore:
                 'filepath, data_secret'
             )
 
-        # TODO: add methods to FileStorage and SqliteStorage classes so we do not
-        # need to use isinstance() here
+        # TODO: add methods to FileStorage and SqliteStorage classes so we do
+        # not need to use isinstance() here
         if isinstance(self.backend, FileStorage):
             # DocumentStore only stores encrypted data, which is binary
-            data = await self.backend.read(filepath, file_mode=FileMode.BINARY)
+            data: str = await self.backend.read(
+                filepath, file_mode=FileMode.BINARY
+            )
 
             if data_secret:
                 data = data_secret.decrypt(data)

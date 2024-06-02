@@ -176,8 +176,10 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
     )
 
     random_delay: int = int(random() * interval / 4)
-    log_extra['random_delay'] = random_delay
-    _LOGGER.debug('Sleeping to randomize runs', extra=log_extra)
+    _LOGGER.debug(
+        'Sleeping to randomize runs',
+        extra=log_extra | {'seconds': random_delay}
+    )
     await sleep(random_delay)
 
     try:

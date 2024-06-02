@@ -52,7 +52,7 @@ class YouTube:
     ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     MODERATION_REQUEST_API: str = '/api/v1/moderate/asset'
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
-    INGEST_INTERVAL_SECONDS: int = 60
+    INGEST_INTERVAL_SECONDS: int = 5
 
     def __init__(self, lock_file: str = None, api_key: str | None = None
                  ) -> None:
