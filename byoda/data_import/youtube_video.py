@@ -385,16 +385,15 @@ class YouTubeVideo:
                 if video_info:
                     sleepy_time: int = randrange(2, 5)
                     _LOGGER.debug(
-                        f'Collected info for video '
-                        f'sleeping {sleepy_time} seconds',
-                        extra=log_data
+                        'Collected info for video, sleeping',
+                        extra=log_data | {'seconds': sleepy_time}
                     )
                     await sleep(sleepy_time)
                 else:
                     sleepy_time: int = randrange(10, 30)
                     _LOGGER.debug(
-                        f'Video scrape failed, sleeping {sleepy_time} seconds',
-                        extra=log_data
+                        'Video scrape failed, sleeping',
+                        extra=log_data | {'seconds': sleepy_time}
                     )
                     await sleep(sleepy_time)
                     return
@@ -403,9 +402,8 @@ class YouTubeVideo:
                 video._transition_state(IngestStatus.UNAVAILABLE)
                 log_data['ingest_status'] = video.ingest_status.value
                 _LOGGER.info(
-                    f'Failed to extract info for video, '
-                    f'sleeping {sleepy_time} seconds: {exc}',
-                    extra=log_data
+                    f'Failed to extract info for video, sleeping: {exc}',
+                    extra=log_data | {'seconds': sleepy_time}
                 )
                 video._transition_state(IngestStatus.UNAVAILABLE)
                 await sleep(sleepy_time)
@@ -414,9 +412,8 @@ class YouTubeVideo:
             except Exception as exc:
                 sleepy_time: int = randrange(10, 30)
                 _LOGGER.info(
-                    f'Failed to extract info for video, '
-                    f'sleeping {sleepy_time} seconds: {exc}',
-                    extra=log_data
+                    f'Failed to extract info for video: {exc}',
+                    extra=log_data | {'seconds': sleepy_time}
                 )
                 await sleep(sleepy_time)
                 return None
@@ -1194,7 +1191,6 @@ class YouTubeVideo:
                 '--mpd-name', 'video.mpd',
                 '--hls', '--hls-master-playlist-name', 'video.m3u8',
                 '-o', f'{work_dir}/packaged',
-
                 *file_names
             ],
             capture_output=True, text=True

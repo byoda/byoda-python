@@ -164,7 +164,7 @@ class SqlTable(Table):
 
         stmt = stmt.rstrip(', ') + f'{self.sql_store.supports_strict()})'
 
-        _LOGGER.info(
+        _LOGGER.debug(
             f'Conditionally creating table: {stmt}', extra=self.log_extra
         )
         await self.sql_store.execute(stmt, self.member_id)
@@ -184,7 +184,7 @@ class SqlTable(Table):
         )
 
         for column in self.columns.values():
-            _LOGGER.info(
+            _LOGGER.debug(
                 'Reviewing column', extra=self.log_extra | {
                     'column': column.name
                 }
@@ -222,14 +222,14 @@ class SqlTable(Table):
         #             f'to {current_sql_type} in table {self.storage_table_name}'
         #        )
 
-        _LOGGER.info(
+        _LOGGER.debug(
             'Reconciling column', extra=self.log_extra | {
                 'column': column.name,
             }
         )
 
         if not current_sql_type:
-            _LOGGER.info('Adding column', extra=self.log_extra)
+            _LOGGER.debug('Adding column', extra=self.log_extra)
             stmt = (
                 f'ALTER TABLE {self.storage_table_name} '
                 f'ADD COLUMN {column.storage_name} {column.storage_type};'
@@ -1009,7 +1009,7 @@ class ArraySqlTable(SqlTable):
             updated_stmt += f'rowid > {placeholder} '
             placeholders['rowid'] = rows[0]['rowid']
         else:
-            _LOGGER.info(
+            _LOGGER.debug(
                 f'Cursor {after} not found in table {self.storage_table_name}'
             )
             raise FileNotFoundError('Cursor not fonund in table')

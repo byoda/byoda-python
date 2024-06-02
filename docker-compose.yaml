@@ -2,7 +2,7 @@ services:
   angie:
     image: byoda/angie:latest
     container_name: angie
-    restart: unless-stopped
+    restart: always
     pull_policy: always
     ulimits:
       nofile:
@@ -43,7 +43,7 @@ services:
   byoda-appserver:
     image: byoda/byoda-pod:${TAG}
     container_name: byoda
-    restart: unless-stopped
+    restart: always
     pull_policy: always
     env_file:
       - /home/ubuntu/byoda.env

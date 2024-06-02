@@ -254,7 +254,7 @@ class YouTubeChannel:
         if not self.name:
             _LOGGER.warning('No channel name provided', extra=log_extra)
             return None
-    
+
         page_data: str = await self.get_videos_page()
 
         if not page_data:
@@ -320,6 +320,9 @@ class YouTubeChannel:
                 if ingest_interval:
                     random_delay: float = \
                         random() * ingest_interval + ingest_interval / 2
+                    _LOGGER.debug(
+                        'Sleeping', extra=log_extra | {'seconds': random_delay}
+                    )
                     await sleep(random_delay)
             except (ValueError, ByodaRuntimeError) as exc:
                 _LOGGER.exception(
