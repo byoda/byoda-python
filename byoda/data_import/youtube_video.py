@@ -10,13 +10,14 @@ import os
 import shutil
 import subprocess
 
+from copy import copy
 from enum import Enum
 from uuid import UUID
 from uuid import uuid4
 from typing import Self
+from shutil import copytree
 from random import randrange
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 from dateutil import parser as dateutil_parser
@@ -58,182 +59,21 @@ from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
 
+from byoda.util.logger import Logger
+
 from byoda.exceptions import ByodaRuntimeError
 
 from byoda import config
 
 from .youtube_thumbnail import YouTubeThumbnail
-from .youtube_streams import TARGET_AUDIO_STREAMS, TARGET_VIDEO_STREAMS
+from .youtube_streams import TARGET_AUDIO_STREAMS
+from .youtube_streams import TARGET_VIDEO_STREAMS
+from .youtube_streams import EncodingCategory
+from .youtube_format import YouTubeFormat
 
 _LOGGER: Logger = getLogger(__name__)
 
 BENTO4_DIR: str = '/podserver/bento4'
-
-
-class YouTubeFragment:
-    '''
-    Models a fragment of a YouTube video or audio track
-    '''
-
-    def __init__(self) -> None:
-        self.url: str | None = None
-        self.duration: float | None = None
-        self.path: str | None = None
-
-    def as_dict(self) -> dict[str, str | float]:
-        '''
-        Returns a dict representation of the fragment
-        '''
-
-        return {
-            'url': self.url,
-            'duration': self.duration,
-            'path': self.path
-        }
-
-    @staticmethod
-    def from_dict(data: dict[str, str | float]) -> Self:
-        '''
-        Factory for YouTubeFragment, parses data are provided
-        by yt-dlp
-        '''
-
-        fragment = YouTubeFragment()
-        fragment.url = data.get('url')
-        fragment.path = data.get('path')
-        fragment.duration = data.get('duration')
-        return fragment
-
-
-class YouTubeFormat:
-    '''
-    Models a track (audio, video, or storyboard of YouTube video
-    '''
-
-    def __init__(self) -> None:
-        self.format_id: str | None = None
-        self.format_note: str | None = None
-        self.ext: str | None = None
-        self.audio_ext: str | None = None
-        self.video_ext: str | None = None
-        self.protocol: str | None = None
-        self.audio_codec: str | None = None
-        self.video_codec: str | None = None
-        self.container: str | None = None
-        self.url: str | None = None
-        self.width: int | None = None
-        self.height: int | None = None
-        self.fps: float | None = None
-        self.quality: float | None = None
-        self.dynamic_range: str | None = None
-        self.has_drm: bool | None = None
-        self.tbr: float | None = None
-        self.abr: float | None = None
-        self.asr: int | None = None
-        self.audio_channels: int | None = None
-        self.rows: int | None = None
-        self.cols: int | None = None
-        self.fragments: list[YouTubeFragment] = []
-        self.resolution: str | None = None
-        self.aspect_ratio: str | None = None
-        self.format: str | None = None
-
-    def __str__(self) -> str:
-        return (
-            f'YouTubeFormat('
-            f'{self.format_id}, {self.format_note}, {self.ext}, '
-            f'{self.protocol}, {self.audio_codec}, {self.video_codec}, '
-            f'{self.container}, {self.width}, {self.height}, {self.fps}, '
-            f'{self.resolution}, '
-            f'{self.audio_ext}, {self.video_ext}'
-            ')'
-        )
-
-    def as_dict(self) -> dict[str, any]:
-        '''
-        Returns a dict representation of the video
-        '''
-
-        data: dict[str, any] = {
-            'format_id': self.format_id,
-            'format_note': self.format_note,
-            'ext': self.ext,
-            'audio_ext': self.audio_ext,
-            'video_ext': self.video_ext,
-            'protocol': self.protocol,
-            'audio_codec': self.audio_codec,
-            'video_codec': self.video_codec,
-            'container': self.container,
-            'url': self.url,
-            'width': self.width,
-            'height': self.height,
-            'fps': self.fps,
-            'quality': self.quality,
-            'dynamic_range': self.dynamic_range,
-            'has_drm': self.has_drm,
-            'tbr': self.tbr,
-            'abr': self.abr,
-            'asr': self.asr,
-            'audio_channels': self.audio_channels,
-            'rows': self.rows,
-            'cols': self.cols,
-            'fragments': [],
-            'resolution': self.resolution,
-            'aspect_ratio': self.aspect_ratio,
-            'format': self.format,
-        }
-
-        for fragment in self.fragments:
-            data['fragments'].append(fragment.as_dict())
-
-        return data
-
-    def from_dict(data: dict[str, any]) -> Self:
-        '''
-        Factory using data retrieved using the 'yt-dlp' tool
-        '''
-
-        format = YouTubeFormat()
-        format.format_id = data['format_id']
-        format.format_note = data.get('format_note')
-        format.ext = data.get('ext')
-        format.protocol = data.get('protocol')
-        format.audio_codec = data.get('acodec')
-        if format.audio_codec and format.audio_codec.lower() == 'none':
-            format.audio_codec = None
-
-        format.video_codec = data.get('vcodec')
-        if format.video_codec and format.video_codec.lower() == 'none':
-            format.video_codec = None
-
-        format.container = data.get('container')
-        format.audio_ext = data.get('audio_ext')
-        format.video_ext = data.get('video_ext')
-        format.url = data.get('url')
-        format.width = data.get('width')
-        format.height = data.get('height')
-        format.fps = data.get('fps')
-        format.tbr = data.get('tbr')
-        format.asr = data.get('asr')
-        format.abr = data.get('abr')
-        format.rows = data.get('rows')
-        format.cols = data.get('cols')
-        format.audio_channels = data.get('audio_channels')
-        format.dynamic_range = data.get('dynamic_range')
-
-        format.resolution = data.get('resolution')
-        format.aspect_ratio = data.get('aspect_ratio')
-        format.audio_ext = data.get('audio_ext')
-        format.video_ext = data.get('video_ext')
-        format.format = data.get('format')
-
-        for fragment_data in data.get('fragments', []):
-            fragment: YouTubeFragment = YouTubeFragment.from_dict(
-                fragment_data
-            )
-            format.fragments.append(fragment)
-
-        return format
 
 
 class YouTubeVideoChapter:
@@ -376,6 +216,7 @@ class YouTubeVideo:
         _LOGGER.debug(
             'Instantiating YouTubeDL client', extra=log_data
         )
+
         with YoutubeDL(ydl_opts) as ydl:
             try:
                 _LOGGER.debug('Scraping YouTube video', extra=log_data)
@@ -383,7 +224,7 @@ class YouTubeVideo:
                     video.url, download=False
                 )
                 if video_info:
-                    sleepy_time: int = randrange(2, 5)
+                    sleepy_time: int = randrange(1, 3)
                     _LOGGER.debug(
                         'Collected info for video, sleeping',
                         extra=log_data | {'seconds': sleepy_time}
@@ -391,7 +232,7 @@ class YouTubeVideo:
                     await sleep(sleepy_time)
                 else:
                     sleepy_time: int = randrange(10, 30)
-                    _LOGGER.debug(
+                    _LOGGER.info(
                         'Video scrape failed, sleeping',
                         extra=log_data | {'seconds': sleepy_time}
                     )
@@ -418,94 +259,94 @@ class YouTubeVideo:
                 await sleep(sleepy_time)
                 return None
 
-            video.channel_creator = video_info.get('channel')
-            if channel_name and channel_name != video.channel_creator:
-                video._transition_state(IngestStatus.UNAVAILABLE)
-                log_data['ingest_status'] = video.ingest_status.value
-                _LOGGER.debug(
-                    f'Skipping video from channel {video.channel_creator} '
-                    f'different from {channel_name}', extra=log_data
-                )
-                return video
-
-            if video_info.get('is_live'):
-                _LOGGER.debug('Skipping live video', extra=log_data)
-                return None
-
-            video.embedable = video_info.get('playable_in_embed', True)
-            if not (video.embedable or ingest_videos):
-                _LOGGER.debug('Skipping non-embedable video', extra=log_data)
-                return None
-
-            video.description = video_info.get('description')
-            video.title = video_info.get('title')
-            video.view_count = video_info.get('view_count')
-            video.like_count = video_info.get('like_count')
-            video.duration = video_info.get('duration')
-            video.long_title = video_info.get('fulltitle')
-            video.is_live = video_info.get('is_live')
-            video.was_live = video_info.get('was_live')
-            video.availability = video_info.get('availability')
-            video.duration = video_info.get('duration')
-            video.annotations = video_info.get('tags')
-            video.categories = video_info.get('categories')
-            video.creator_thumbnail_asset = creator_thumbnail
-
-            video.age_limit = video_info.get('age_limit', 0)
-
-            try:
-                if int(video.age_limit) >= 18 and not ingest_videos:
-                    _LOGGER.debug(
-                        'Video is for 18+ videos and can not be embedded',
-                        extra=log_data
-                    )
-                    return
-            except ValueError:
-                pass
-
-            # For fully ingested assets, the _ingest_video method
-            # updates the url of the thumbnail
-            video.creator_thumbnail = None
-            if creator_thumbnail:
-                video.creator_thumbnail = creator_thumbnail.url
-
-            video.published_time = dateutil_parser.parse(
-                video_info['upload_date']
-            )
-            video.channel_id = video_info.get('channel_id')
-
-            for thumbnail in video_info.get('thumbnails') or []:
-                thumbnail = YouTubeThumbnail(None, thumbnail)
-                if thumbnail.size and thumbnail.url:
-                    # We only want to store thumbnails for which
-                    # we know the size and have a URL
-                    video.thumbnails[thumbnail.size] = thumbnail
-                else:
-                    _LOGGER.debug(
-                        f'Not importing thumbnail without size '
-                        f'({thumbnail.size}) or URL ({thumbnail.url})'
-                    )
-
-            for chapter_data in video_info.get('chapters') or []:
-                chapter = YouTubeVideoChapter(chapter_data)
-                video.chapters.append(chapter)
-
-            max_height: int = 0
-            max_width: int = 0
-            for format_data in video_info.get('formats') or []:
-                format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
-                if format.height and format.height > max_height:
-                    max_height = format.height
-                if format.width and format.width > max_width:
-                    max_width = format.width
-                video.encoding_profiles[format.format_id] = format
-
-            if max_height > max_width:
-                video.screen_orientation_horizontal = False
-
+        video.channel_creator = video_info.get('channel')
+        if channel_name and channel_name != video.channel_creator:
+            video._transition_state(IngestStatus.UNAVAILABLE)
+            log_data['ingest_status'] = video.ingest_status.value
             _LOGGER.debug(
-                'Parsed all available data for video', extra=log_data
+                f'Skipping video from channel {video.channel_creator}',
+                extra=log_data
             )
+            return video
+
+        if video_info.get('is_live'):
+            _LOGGER.debug('Skipping live video', extra=log_data)
+            return None
+
+        video.embedable = video_info.get('playable_in_embed', True)
+        if not (video.embedable or ingest_videos):
+            _LOGGER.debug('Skipping non-embedable video', extra=log_data)
+            return None
+
+        video.description = video_info.get('description')
+        video.title = video_info.get('title')
+        video.view_count = video_info.get('view_count')
+        video.like_count = video_info.get('like_count')
+        video.duration = video_info.get('duration')
+        video.long_title = video_info.get('fulltitle')
+        video.is_live = video_info.get('is_live')
+        video.was_live = video_info.get('was_live')
+        video.availability = video_info.get('availability')
+        video.duration = video_info.get('duration')
+        video.annotations = video_info.get('tags')
+        video.categories = video_info.get('categories')
+        video.creator_thumbnail_asset = creator_thumbnail
+
+        video.age_limit = video_info.get('age_limit', 0)
+
+        try:
+            if int(video.age_limit) >= 18 and not ingest_videos:
+                _LOGGER.debug(
+                    'Video is for 18+ videos and can not be embedded',
+                    extra=log_data
+                )
+                return
+        except ValueError:
+            pass
+
+        # For fully ingested assets, the _ingest_video method
+        # updates the url of the thumbnail
+        video.creator_thumbnail = None
+        if creator_thumbnail:
+            video.creator_thumbnail = creator_thumbnail.url
+
+        video.published_time = dateutil_parser.parse(
+            video_info['upload_date']
+        )
+        video.channel_id = video_info.get('channel_id')
+
+        for thumbnail in video_info.get('thumbnails') or []:
+            thumbnail = YouTubeThumbnail(None, thumbnail)
+            if thumbnail.size and thumbnail.url:
+                # We only want to store thumbnails for which
+                # we know the size and have a URL
+                video.thumbnails[thumbnail.size] = thumbnail
+            else:
+                _LOGGER.debug(
+                    f'Not importing thumbnail without size '
+                    f'({thumbnail.size}) or URL ({thumbnail.url})'
+                )
+
+        for chapter_data in video_info.get('chapters') or []:
+            chapter = YouTubeVideoChapter(chapter_data)
+            video.chapters.append(chapter)
+
+        max_height: int = 0
+        max_width: int = 0
+        for format_data in video_info.get('formats') or []:
+            format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
+            if format.height and format.height > max_height:
+                max_height = format.height
+            if format.width and format.width > max_width:
+                max_width = format.width
+            video.encoding_profiles[format.format_id] = format
+
+        if max_height > max_width:
+            video.screen_orientation_horizontal = False
+
+        _LOGGER.debug(
+            'Parsed all available data for video', extra=log_data
+        )
         return video
 
     @staticmethod
@@ -614,9 +455,8 @@ class YouTubeVideo:
         self, member: Member, storage_driver: FileStorage, ingest_asset: bool,
         video_table: Table, bento4_directory: str = None,
         moderate_request_url: str | None = None,
-        moderate_jwt_header: str = None,
-        moderate_claim_url: str | None = None,
-        custom_domain: str | None = None,
+        moderate_jwt_header: str = None, moderate_claim_url: str | None = None,
+        custom_domain: str | None = None, _test_asset_dir: str | None = None
     ) -> bool | None:
         '''
         Adds or updates a video in the datastore.
@@ -630,6 +470,7 @@ class YouTubeVideo:
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :param claim: a claim for the video signed by a moderate API
+        :param _test_asset_dir: location of test asset to avoid downloading
         :returns: True if the video was added, False if it already existed, or
         None if an error was encountered
         '''
@@ -670,7 +511,8 @@ class YouTubeVideo:
                     )
                     update = await self._ingest_assets(
                         member, storage_driver, video_table,
-                        bento4_directory, custom_domain=custom_domain
+                        bento4_directory, custom_domain=custom_domain,
+                        _test_asset_dir=_test_asset_dir
                     )
                     log_data['ingest_status'] = self.ingest_status.value
 
@@ -745,6 +587,7 @@ class YouTubeVideo:
             chapter.as_dict() for chapter in self.chapters or []
         ]
 
+        asset['encoding_profiles'] = list(self.encoding_profiles.keys())
         network: Network = member.network
         schema: Schema = member.schema
         data_class: SchemaDataArray = \
@@ -828,7 +671,7 @@ class YouTubeVideo:
             'noprogress': True,
             'no_color': True,
             'format': ','.join(video_formats | audio_formats),
-            'outtmpl': {'default': 'asset%(id)s.%(format_id)s.%(ext)s'},
+            'outtmpl': {'default': 'asset-%(id)s.%(format_id)s.%(ext)s'},
             'paths': {'home': work_dir, 'temp': work_dir},
             'fixup': 'never',
         }
@@ -882,7 +725,8 @@ class YouTubeVideo:
 
     async def _ingest_assets(
         self, member: Member, storage_driver: FileStorage, video_table: Table,
-        bento4_directory: str, custom_domain: str | None = None
+        bento4_directory: str, custom_domain: str | None = None,
+        _test_asset_dir: str | None = None
     ) -> bool | None:
         '''
         Downloads to audio and video files of the asset and stores them
@@ -893,6 +737,8 @@ class YouTubeVideo:
         :param video_table: Table for persisting videos
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
+        :param custom_domain: custom domain to use for the video URL
+        :param _test_asset_dir: directory where to find the test asset
         :returns: True if the video was updated, False if it was created,
         None if an error was encountered
         :raises: ValueError if the ingest status of the video is invalid
@@ -915,7 +761,7 @@ class YouTubeVideo:
         if video_data:
             try:
                 current_status: str | IngestStatus = \
-                    video_data.get('ingest_status')
+                    video_data[0][0].get('ingest_status')
 
                 if not isinstance(current_status, IngestStatus):
                     current_status = IngestStatus(current_status)
@@ -935,24 +781,30 @@ class YouTubeVideo:
         tmp_dir: str = self._get_tempdir(storage_driver)
 
         try:
-            download_dir: str | None = self.download(
-                TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS, work_dir=tmp_dir
-            )
-            if not download_dir:
-                return None
+            if not _test_asset_dir:
+                download_dir: str | None = self.download(
+                    TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS,
+                    work_dir=tmp_dir
+                )
+                if not download_dir:
+                    return None
+            else:
+                if not config.test_case:
+                    raise ValueError(
+                        'Test asset directory must only be used in test cases'
+                    )
+                copytree(_test_asset_dir, tmp_dir)
 
-            pkg_dir: str = self.package_streams(
-                tmp_dir, bento4_dir=bento4_directory
-            )
+            self.package_streams(tmp_dir, bento4_dir=bento4_directory)
 
-            await self.upload(pkg_dir, storage_driver)
+            await self.upload(tmp_dir, storage_driver)
 
-            tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=pkg_dir)
+            tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=tmp_dir)
             self.merkle_root_hash = tree.as_string()
 
-            tree_filename: str = tree.save(pkg_dir)
+            tree_filename: str = tree.save(tmp_dir)
             await storage_driver.copy(
-                f'{pkg_dir}/{tree_filename}',
+                f'{tmp_dir}/{tree_filename}',
                 f'{self.asset_id}/{tree_filename}',
                 storage_type=StorageType.RESTRICTED, exist_ok=True
             )
@@ -1106,62 +958,14 @@ class YouTubeVideo:
         tmp_dir: str = self._get_tempdir(storage_driver)
         shutil.rmtree(tmp_dir)
 
-    def filter_encoding_profiles(
-            self, wanted_encoding_profiles: dict[str, dict[str, str | bool]]
-            ) -> set[int]:
-        '''
-        Filters the encoding profiles to only include the wanted formats
-
-        :param wanted_encoding_profiles: the wanted video or audio encoding
-        profiles
-        '''
-
-        log_data: dict[str, str] = {
-            'video_id': self.video_id,
-            'channel': self.channel_creator,
-            'asset_id': self.asset_id,
-            'ingest_status': self.ingest_status.value
-        }
-
-        included_profiles: set[int] = set()
-
-        for id, data in wanted_encoding_profiles.items():
-            if not data['wanted']:
-                continue
-
-            if id in included_profiles:
-                continue
-
-            if id in self.encoding_profiles:
-                included_profiles.add(id)
-                continue
-
-            replacement: int = data['replacement']
-            while replacement is not None:
-                if replacement in wanted_encoding_profiles:
-                    included_profiles.add(replacement)
-                    break
-                replacement = wanted_encoding_profiles[replacement].get(
-                    'replacement'
-                )
-
-        _LOGGER.debug(
-            f'Tracks selected to ingest {", ".join(included_profiles)}',
-            extra=log_data
-        )
-
-        return included_profiles
-
     def package_streams(self, work_dir: str, bento4_dir: str = BENTO4_DIR
-                        ) -> str:
+                        ) -> None:
         '''
         Creates MPEG-DASH and HLS manifests for the video and audio streams
         in work_dir
-
-        :returns: the location of the packaged files
         '''
 
-        log_data: dict[str, str] = {
+        log_extra: dict[str, str] = {
             'video_id': self.video_id,
             'channel': self.channel_creator,
             'asset_id': self.asset_id,
@@ -1171,35 +975,218 @@ class YouTubeVideo:
         if not bento4_dir:
             bento4_dir = BENTO4_DIR
 
+        self._transition_state(IngestStatus.PACKAGING)
+
+        # These encoding profiles will replace the existing profiles
+        # that are based on what YouTube made available
+        self._review_encoding_profiles(work_dir, log_extra)
+
+        # We create manifests for each of the encoding profiles
+        pkg_dirs: list[str] = []
+        for category in sorted(EncodingCategory):
+            pkg_dir: str = self._package_category_streams(
+                category, work_dir, bento4_dir, log_extra
+            )
+            if pkg_dir:
+                pkg_dirs.append(pkg_dir)
+
+        self._consolidate_category_files(pkg_dirs, work_dir)
+
+        self._create_default_manifests(work_dir, log_extra=log_extra)
+
+    def _review_encoding_profiles(
+        self, work_dir: str, log_extra: dict[str, any]
+    ) -> dict[str, dict[str, any]]:
+        '''
+        Only include profiles that have been downloaded by YT-DLP
+        '''
+
+        all_encoding_profiles: dict[str, YouTubeFormat] = copy(
+            self.encoding_profiles
+        )
+        self.encoding_profiles = {}
+        filename: str
+        for filename in os.listdir(work_dir):
+            if not filename.startswith('asset-'):
+                continue
+
+            profile_number: str = YouTubeVideo._get_profile(filename)
+            if profile_number in all_encoding_profiles:
+                self.encoding_profiles[profile_number] = all_encoding_profiles[
+                    profile_number
+                ]
+            else:
+                _LOGGER.debug(
+                    f'Did not expect encoding profile #{profile_number}',
+                    extra=log_extra
+                )
+
+    def _create_default_manifests(self, work_dir: str,
+                                  log_extra: dict[str, any]) -> None:
+        '''
+        Make sure there are default manifests for the video and audio
+        '''
+
+        if os.path.exists(f'{work_dir}/video.mpd-1080p'):
+            _LOGGER.debug('Defaulting to 1080p', extra=log_extra)
+            shutil.copy(
+                f'{work_dir}/video.mpd-1080p', f'{work_dir}/video.mpd'
+            )
+            shutil.copy(
+                f'{work_dir}/video.m3u8-1080p', f'{work_dir}/video.m3u8'
+            )
+        elif os.path.exists(f'{work_dir}/video.mpd-720p'):
+            _LOGGER.debug('Defaulting to 720p', extra=log_extra)
+            shutil.copy(
+                f'{work_dir}/video.mpd-720p', f'{work_dir}/video.mpd'
+            )
+            shutil.copy(
+                f'{work_dir}/video.m3u8-720p', f'{work_dir}/video.m3u8'
+            )
+        elif os.path.exists(f'{work_dir}/video.mpd-SD'):
+            _LOGGER.debug('Defaulting to SD', extra=log_extra)
+            shutil.copy(
+                f'{work_dir}/video.mpd-SD', f'{work_dir}/video.mpd'
+            )
+            shutil.copy(
+                f'{work_dir}/video.m3u8-SD', f'{work_dir}/video.m3u8'
+            )
+        else:
+            _LOGGER.debug('No target for default manifest', extra=log_extra)
+
+    def _package_category_streams(
+        self, category: EncodingCategory, work_dir: str, bento4_dir: str,
+        log_extra: dict[str, any]
+    ) -> str:
+        '''
+        Creates MPEG-DASH and HLS manifests for the video and audio streams
+        for the given encoding category
+
+        :returns: the directory where the packaged files are located
+        '''
+
+        label: str = category.label()
+        log_extra['content_category'] = label
+
         file_names: list[str] = [
-            f'{work_dir}/{file_name}' for file_name in os.listdir(work_dir)
+            file_name for file_name in os.listdir(work_dir)
             if not file_name.endswith('.json')
         ]
 
         _LOGGER.debug(
             'Packaging MPEG-DASH and HLS manifests for '
-            f'files: {", ".join(file_names)}', extra=log_data
+            f'files: {", ".join(file_names)}', extra=log_extra
         )
 
-        self._transition_state(IngestStatus.PACKAGING)
+        if not self._has_tracks(category):
+            _LOGGER.debug('No tracks for category', extra=log_extra)
+            return
 
+        category_files: set[str] = set()
+        for filename in file_names:
+            if filename.startswith('packaged-'):
+                continue
+
+            profile_number: str = YouTubeVideo._get_profile(filename)
+            include: bool = False
+            if YouTubeVideo._is_audio_track(filename):
+                log_extra['profile'] = profile_number
+
+                if (TARGET_AUDIO_STREAMS[profile_number]['category'].value <=
+                        category.value):
+                    include = True
+            elif YouTubeVideo._is_video_track(filename):
+                if (TARGET_VIDEO_STREAMS[profile_number]['category'].value <=
+                        category.value):
+                    include = True
+
+            if include:
+                category_files.add(f'{work_dir}/{filename}')
+                _LOGGER.debug(
+                    'Added encoding profile to category',
+                    extra=log_extra
+                )
+
+        profile_dir: str = f'{work_dir}/packaged-{label}'
         # https://www.bento4.com/documentation/mp4dash/
+        # Would have liked to use '--no-media' flag but it throws and error
         result: subprocess.CompletedProcess[str] = subprocess.run(
             [
                 f'{bento4_dir}/bin/mp4dash',
-                '--no-split', '--use-segment-list', '--use-segment-timeline',
-                '--mpd-name', 'video.mpd',
-                '--hls', '--hls-master-playlist-name', 'video.m3u8',
-                '-o', f'{work_dir}/packaged',
-                *file_names
+                '--no-split', '--use-segment-list',
+                '--use-segment-timeline',
+                '--mpd-name', f'video.mpd-{label}',
+                '--hls',
+                '--hls-master-playlist-name', f'video.m3u8-{label}',
+                '-o', f'{profile_dir}',
+                *category_files
             ],
             capture_output=True, text=True
         )
-        if result.returncode == 0:
-            _LOGGER.debug('Packaging successful', extra=log_data)
-        else:
+        if result.returncode != 0:
             raise RuntimeError(
-                f'Packaging failed for asset {self.video_id}: {result.stderr}'
+                f'Packaging failed for asset {self.video_id}: '
+                f'{result.stderr}'
             )
 
-        return f'{work_dir}/packaged'
+        _LOGGER.debug(
+            'Packaging successful for category', extra=log_extra
+        )
+        self._delete_dupe_bento4_media_file(profile_dir, work_dir)
+
+        return profile_dir
+
+    def _delete_dupe_bento4_media_file(self, profile_dir: str, work_dir: str
+                                       ) -> None:
+        # The '--no-media' flag does not work with the mp4dash command so
+        # we end up with duplicate A/V files, and we can delete the dupes
+        # from the profile-specific directory
+        for filename in os.listdir(profile_dir):
+            if os.path.exists(f'{work_dir}/{filename}'):
+                os.remove(f'{profile_dir}/{filename}')
+
+    def _consolidate_category_files(self, profile_dirs: list[str], work_dir
+                                    ) -> None:
+        '''
+        Consolidate all the outputs from the Bento4 packaging tool into
+        one directory.
+
+        '''
+
+        profile_dir: str
+        for profile_dir in profile_dirs:
+            for filename in os.listdir(profile_dir):
+                if not os.path.exists(f'{work_dir}/{filename}'):
+                    shutil.move(f'{profile_dir}/{filename}', work_dir)
+                else:
+                    os.remove(f'{profile_dir}/{filename}')
+
+            os.rmdir(profile_dir)
+
+    def _has_tracks(self, encoding_category: EncodingCategory) -> bool:
+        '''
+        Checks if the video has tracks for the encoding category
+
+        :param encoding_category: the encoding category
+        :returns: whether the video has tracks for the encoding category
+        '''
+
+        for profile in self.encoding_profiles:
+            profile_specs: dict[str, any] = TARGET_VIDEO_STREAMS.get(profile)
+            if (profile_specs
+                    and profile_specs.get('category') == encoding_category):
+                return True
+
+        return False
+
+    @staticmethod
+    def _is_video_track(filename: str) -> bool:
+        return filename.endswith('.mp4')
+
+    @staticmethod
+    def _is_audio_track(filename: str) -> bool:
+        return filename.endswith('.m4a')
+
+    @staticmethod
+    def _get_profile(filename: str) -> str:
+        return filename.split('.')[-2]
