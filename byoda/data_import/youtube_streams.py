@@ -8,49 +8,82 @@ Definitions for the tracks containing audio and video of a Youtube video
 
 # flake8: noqa: E501
 
+from enum import Enum
+from typing import Self
+
+
+
+class EncodingCategory(Enum):
+    '''
+    We use numbering so that we can include all tracks with category <= 3
+    for an upto and including HD manifest
+    '''
+    SD          = 1
+    SEVENTWENTY = 2
+    TENEIGHTY   = 3
+    FOURK       = 4
+    EIGHTK      = 5
+
+    def __lt__(self, other: Self) -> bool:
+        return self.value < other.value
+
+    def label(self) -> str:
+        if self == EncodingCategory.SD:
+            return 'SD'
+        elif self == EncodingCategory.SEVENTWENTY:
+            return '720p'
+        elif self == EncodingCategory.TENEIGHTY:
+            return '1080p'
+        elif self == EncodingCategory.FOURK:
+            return '4K'
+        elif self == EncodingCategory.EIGHTK:
+            return '8K'
+        else:
+            return 'Unknown'
+
 # These are the MPEG-DASH AV1 and H.264 streams that we want to download. We
 # try to download streams that have 'wanted' == True. If a video does not
 # have one of the wanted streams, then we will try to download the replacement.
 # We are currently not attempting to download 8k streams
 TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool |  None]] = {
-    '701': {'resolution': '2160p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '401'},
-    '700': {'resolution': '1440p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '400'},
-    '699': {'resolution': '1080p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '399'},
-    '698': {'resolution': '720p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '398'},
-    '697': {'resolution': '480p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '397'},
-    '696': {'resolution': '360p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '396'},
-    '695': {'resolution': '240p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '395'},
-    '694': {'resolution': '144p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '394'},
-    '398': {'resolution': '720p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '298'},
-    '402': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None},
-    '571': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None},
-    '401': {'resolution': '2160p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '305'},
-    '400': {'resolution': '1440p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '304'},
-    '399': {'resolution': '1080p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '299'},
-    '397': {'resolution': '480p', 'codec': 'AV1', 'wanted': True, 'replacement': '135'},
-    '396': {'resolution': '360p', 'codec': 'AV1', 'wanted': True, 'replacement': '134'},
-    '395': {'resolution': '240p', 'codec': 'AV1', 'wanted': True, 'replacement': '133'},
-    '394': {'resolution': '144p', 'codec': 'AV1', 'wanted': True, 'replacement': '160'},
-    '305': {'resolution': '2160p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '266'},
-    '304': {'resolution': '1440p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '264'},
-    '299': {'resolution': '1080p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '137'},
-    '298': {'resolution': '720p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '136'},
-    '266': {'resolution': '2160p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '264': {'resolution': '1440p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '137': {'resolution': '1080p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '136': {'resolution': '720p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '135': {'resolution': '480p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '134': {'resolution': '360p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '133': {'resolution': '240p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
-    '160': {'resolution': '144p', 'codec': 'H.264', 'wanted': True, 'replacement': None},
+    '701': {'resolution': '2160p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '401', 'category': EncodingCategory.FOURK},
+    '700': {'resolution': '1440p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '400', 'category': EncodingCategory.FOURK},
+    '699': {'resolution': '1080p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '399', 'category': EncodingCategory.TENEIGHTY},
+    '698': {'resolution': '720p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '398', 'category': EncodingCategory.SEVENTWENTY},
+    '697': {'resolution': '480p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '397', 'category': EncodingCategory.SD},
+    '696': {'resolution': '360p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '396', 'category': EncodingCategory.SD},
+    '695': {'resolution': '240p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '395', 'category': EncodingCategory.SD},
+    '694': {'resolution': '144p', 'codec': 'AV1 HFR High', 'wanted': True, 'replacement': '394', 'category': EncodingCategory.SD},
+    '398': {'resolution': '720p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '298', 'category': EncodingCategory.SEVENTWENTY},
+    '402': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None, 'category': EncodingCategory.EIGHTK},
+    '571': {'resolution': '4320p', 'codec': 'AV1 HFR', 'wanted': False, 'replacement': None, 'category': EncodingCategory.EIGHTK},
+    '401': {'resolution': '2160p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '305', 'category': EncodingCategory.FOURK},
+    '400': {'resolution': '1440p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '304', 'category': EncodingCategory.FOURK},
+    '399': {'resolution': '1080p', 'codec': 'AV1 HFR', 'wanted': True, 'replacement': '299', 'category': EncodingCategory.TENEIGHTY},
+    '397': {'resolution': '480p', 'codec': 'AV1', 'wanted': True, 'replacement': '135', 'category': EncodingCategory.SD},
+    '396': {'resolution': '360p', 'codec': 'AV1', 'wanted': True, 'replacement': '134', 'category': EncodingCategory.SD},
+    '395': {'resolution': '240p', 'codec': 'AV1', 'wanted': True, 'replacement': '133', 'category': EncodingCategory.SD},
+    '394': {'resolution': '144p', 'codec': 'AV1', 'wanted': True, 'replacement': '160', 'category': EncodingCategory.SD},
+    '305': {'resolution': '2160p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '266', 'category': EncodingCategory.FOURK},
+    '304': {'resolution': '1440p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '264', 'category': EncodingCategory.FOURK},
+    '299': {'resolution': '1080p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
+    '298': {'resolution': '720p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
+    '266': {'resolution': '2160p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.FOURK},
+    '264': {'resolution': '1440p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.FOURK},
+    '137': {'resolution': '1080p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
+    '136': {'resolution': '720p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SEVENTWENTY},
+    '135': {'resolution': '480p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
+    '134': {'resolution': '360p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
+    '133': {'resolution': '240p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
+    '160': {'resolution': '144p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
 }
 
 # These are the MPEG-DASH MP4 audio streams that we want to download.
 TARGET_AUDIO_STREAMS: dict[str, dict[str, str | bool |  None]] = {
-    '599': {'codec': 'mp4a HE v1 32kbps', 'wanted': True, 'replacement': None},
-    '139': {'codec': 'mp4a HE v1 48kbps', 'wanted': True, 'replacement': None},
-    '140': {'codec': 'mp4a AAC-LC 128kbps', 'wanted': True, 'replacement': None},
-    '141': {'codec': 'mp4a AAC-LC 256kbps', 'wanted': True, 'replacement': None},
+    '599': {'codec': 'mp4a HE v1 32kbps', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
+    '139': {'codec': 'mp4a HE v1 48kbps', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SD},
+    '140': {'codec': 'mp4a AAC-LC 128kbps', 'wanted': True, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
+    '141': {'codec': 'mp4a AAC-LC 256kbps', 'wanted': True, 'replacement': None, 'category': EncodingCategory.FOURK},
 }
 
 # We are not interested in formats:

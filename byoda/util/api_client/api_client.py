@@ -319,7 +319,7 @@ class ApiClient:
         if not data:
             processed_data: bytes | str | None = None
         elif type(data) not in [str, bytes]:
-            # orjson can serialize datetimes, UUIDs so we serialize
+            # orjson can serialize datetimes & UUIDs so we serialize
             # ourselves instead of having the HTTP client library do it
             processed_data = orjson.dumps(data)
         else:
