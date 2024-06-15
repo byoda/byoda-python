@@ -69,7 +69,7 @@ class PubSubNng(PubSub):
             data_class.name, schema.service_id, is_counter, process_id
         )
 
-        path = PubSubNng.get_directory(schema.service_id)
+        path: str = PubSubNng.get_directory(schema.service_id)
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
 

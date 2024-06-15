@@ -94,7 +94,7 @@ class Network:
         self.tls_secret: Secret = None
 
         self.services: dict[int: Service] = dict()
-        self.service_summaries: dict[int:dict[str, str | int | None]] = {}
+        self.service_summaries: dict[int, dict[str, str | int | None]] = {}
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
         self.service_ca: ServiceCaSecret = None

@@ -140,7 +140,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ### Test change     # noqa: E266
     ###
     global LOG_FILE
-    LOG_FILE: str = os.environ.get('LOGDIR', data['root_dir']) + '/pod.log'
+    LOG_FILE = os.environ.get('LOGDIR', data['root_dir']) + '/pod.log'
     ###
     ###
     ###

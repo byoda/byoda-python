@@ -39,10 +39,9 @@ from byoda.datatypes import IngestStatus
 from byoda.datastore.data_store import DataStore
 
 from byoda.storage.filestorage import FileStorage
+from byoda.storage.postgres import PostgresStorage
 
 from byoda.util.api_client.api_client import HttpResponse
-
-from byoda.exceptions import ByodaRuntimeError
 
 from byoda.util.test_tooling import convert_number_string
 
@@ -182,39 +181,58 @@ class YouTubeChannel:
         data_filter: DataFilterSet = DataFilterSet(
             {'creator': {'eq': self.name}}
         )
-        rows: list[QueryResult] | None = await table.query(
-            data_filters=data_filter
-        )
-
-        if rows:
-            _LOGGER.debug('Creator already in the data store', extra=log_data)
-            return None
-
-        channel_id: UUID = uuid4()
-
-        dirpath: str = mkdtemp(dir='/tmp')
-        thumbnail: YouTubeThumbnail
-        for thumbnail in self.channel_thumbnails:
-            await thumbnail.ingest(
-                video_id=channel_id, storage_driver=storage_driver,
-                member=member, work_dir=dirpath, custom_domain=custom_domain
-            )
-
-        for thumbnail in self.banners:
-            await thumbnail.ingest(
-                video_id=channel_id, storage_driver=storage_driver,
-                member=member, work_dir=dirpath, custom_domain=custom_domain
-            )
-
-        rmtree(dirpath)
 
         channel_data: dict[str, any] = self.as_dict()
         cursor: str = table.get_cursor_hash(channel_data, member.member_id)
-        await table.append(
-            channel_data, cursor, origin_id=None,
-            origin_id_type=None, origin_class_name=None
+
+        rows: list[QueryResult] | None = await table.query(
+            data_filters=data_filter
         )
-        _LOGGER.debug('Created channel in the data store', extra=log_data)
+        if not rows:
+            _LOGGER.debug(
+                'Creator is not yet in the data store',
+                extra=log_data
+            )
+
+            channel_id: UUID = uuid4()
+
+            dirpath: str = mkdtemp(dir='/tmp')
+            thumbnail: YouTubeThumbnail
+            for thumbnail in self.channel_thumbnails:
+                await thumbnail.ingest(
+                    video_id=channel_id, storage_driver=storage_driver,
+                    member=member, work_dir=dirpath,
+                    custom_domain=custom_domain
+                )
+
+            for thumbnail in self.banners:
+                await thumbnail.ingest(
+                    video_id=channel_id, storage_driver=storage_driver,
+                    member=member, work_dir=dirpath,
+                    custom_domain=custom_domain
+                )
+
+            rmtree(dirpath)
+
+            await table.append(
+                channel_data, cursor, origin_id=None,
+                origin_id_type=None, origin_class_name=None
+            )
+            _LOGGER.debug('Created channel in the data store', extra=log_data)
+        else:
+            data: dict[str, any] = {
+                'thirdparty_platform_followers':
+                    self.youtube_subscribers_count,
+                'thirdparty_platform_views': self.youtube_views_count,
+            }
+            await table.update(
+                data, cursor, data_filter, None, None, None,
+                placeholder_function=PostgresStorage.get_named_placeholder
+            )
+            log_data['thirdparty_platform_followers'] = \
+                self.youtube_subscribers_count
+            log_data['thirdparty_platform_views'] = self.youtube_views_count
+            _LOGGER.info('Updated channel followers and views', extra=log_data)
 
         return None
 
@@ -267,7 +285,14 @@ class YouTubeChannel:
             member, data_store, storage_driver, custom_domain=custom_domain
         )
 
-        self.video_ids: list[str] = await self.get_video_ids()
+        self.video_ids: list[str] = []
+        try:
+            self.video_ids = await self.get_video_ids()
+        except Exception as exc:
+            _LOGGER.info(
+                f'Extracting video_ids failed: {exc}', extra=log_extra
+            )
+            return None
 
         videos_imported: int = 0
         for video_id in self.video_ids:
@@ -317,17 +342,19 @@ class YouTubeChannel:
                         and videos_imported >= max_videos_per_channel):
                     break
 
-                if ingest_interval:
-                    random_delay: float = \
-                        random() * ingest_interval + ingest_interval / 2
-                    _LOGGER.debug(
-                        'Sleeping', extra=log_extra | {'seconds': random_delay}
-                    )
-                    await sleep(random_delay)
-            except (ValueError, ByodaRuntimeError) as exc:
-                _LOGGER.exception(
+            except Exception as exc:
+                _LOGGER.warning(
                     f'Could not persist video: {exc}', extra=log_extra
                 )
+
+            if ingest_interval:
+                random_delay: float = \
+                    random() * ingest_interval + ingest_interval / 2
+                _LOGGER.debug(
+                    'Sleeping between ingesting assets for a channel',
+                    extra=log_extra | {'seconds': random_delay}
+                )
+                await sleep(random_delay)
 
             video = None
 

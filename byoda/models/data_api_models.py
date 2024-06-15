@@ -459,3 +459,30 @@ class Channel(PydanticBaseModel):
             'keywords that apply to all the videos of the channel'
         )
     )
+    annotations: list[str] | None = Field(
+        default=None, description='annotations for the channel'
+    )
+    thirdparty_platform_followers: int | None = Field(
+        default=None, description=(
+            'The number of followers the channel has on other platforms'
+        )
+    )
+    thirdparty_platform_videos: int | None = Field(
+        default=None, description=(
+            'The number of videos the channel has on other platforms'
+        )
+    )
+    thirdparty_platform_views: int | None = Field(
+        default=None, description=(
+            'The number of views the channel has on other platforms'
+        )
+    )
+
+
+class ChannelShortcutResponse(PydanticBaseModel):
+    member_id: UUID
+    creator: str
+
+
+class ChannelShortcutValueResponseModel(PydanticBaseModel):
+    shortcut: str

@@ -320,23 +320,88 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         channel_id: UUID = get_test_uuid()
         created: datetime = datetime.now(tz=UTC)
-        channel = Channel(
+        creator: str = 'test_creator'
+        first_channel = Channel(
             channel_id=channel_id,
-            creator='test_creator',
+            creator=creator,
             created_timestamp=created,
             description='test channel',
             is_family_safe=True,
             keywords=['test', 'channel'],
+            annotations=['key1:value1', 'key:2:value2'],
+            available_country_codes=['USA'],
+            channel_thumbnails=[],
+            banners=[],
+            external_urls=[],
+            claims=[],
+            thirdparty_platform_videos=10,
+            thirdparty_platform_followers=10000,
+            thirdparty_platform_views=1000000
         )
         member_id: UUID = get_test_uuid()
-        await channel_cache.add_newest_channel(member_id, channel)
+        await channel_cache.add_newest_channel(member_id, first_channel)
 
         set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
-        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
+        cursor: str = ChannelCache.get_cursor(member_id, first_channel.creator)
         result = await channel_cache.client.sismember(
             set_key, cursor
         )
         self.assertTrue(result)
+
+        shortcut: str = ChannelCache.get_shortcut_key(
+            member_id, creator
+        ).split(':')[1]
+        shortcut_member_id: str
+        shortcut_creator: str
+        shortcut_member_id, shortcut_creator = \
+            await channel_cache.get_shortcut(shortcut)
+
+        self.assertEqual(shortcut_member_id, member_id)
+        self.assertEqual(shortcut_creator, creator)
+
+        api_url: str = 'http://localhost:8000/api/v1/service/channel/shortcut'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                api_url, params={'shortcut': shortcut},
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(UUID(data['member_id']), member_id)
+            self.assertEqual(data['creator'], creator)
+
+            resp: HttpResponse = await client.get(
+                f'{api_url}_by_value',
+                params={'member_id': member_id, 'creator': creator},
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertIsNotNone(data)
+            self.assertEqual(data['shortcut'], shortcut)
+
+        api_url: str = 'http://localhost:8000/api/v1/service/channel'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                api_url, params={
+                    'member_id': member_id, 'creator': first_channel.creator
+                },
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            node = data.get('node')
+            self.assertIsNotNone(node)
+            self.assertEqual(node['creator'], first_channel.creator)
+            self.assertEqual(
+                node['thirdparty_platform_videos'],
+                first_channel.thirdparty_platform_videos
+            )
+            self.assertEqual(
+                node['thirdparty_platform_followers'],
+                first_channel.thirdparty_platform_followers
+            )
+            self.assertEqual(
+                node['thirdparty_platform_views'],
+                first_channel.thirdparty_platform_views
+            )
 
         cursor = None
         member_id = None

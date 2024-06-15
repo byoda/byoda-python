@@ -15,7 +15,7 @@ import os
 import sys
 import unittest
 
-from uuid import uuid4, UUID
+from uuid import UUID
 from datetime import datetime
 from datetime import timezone, timedelta
 
@@ -23,18 +23,19 @@ import httpx
 
 from fastapi import FastAPI
 
-from yaml import safe_load as yaml_save_loader
+from yaml import safe_load as yaml_safe_loader
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
-from byoda.datamodel.content_key import ContentKey
-from byoda.datamodel.content_key import ContentKeyStatus
 from byoda.datamodel.content_key import RESTRICTED_CONTENT_KEYS_TABLE
 from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.table import Table
+from byoda.datamodel.monetization import Monetizations
 
 from byoda.datatypes import IdType
 from byoda.datatypes import MonetizationType
+
+from byoda.storage.postgres import PostgresStorage
 
 from byoda.datastore.data_store import DataStore
 
@@ -56,6 +57,7 @@ from podserver.routers import member as MemberRouter
 from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
 from podserver.routers import content_token as ContentTokenRouter
+
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
@@ -86,7 +88,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         server: PodServer = config.server
 
-        test_config: dict[str, str | int] = self.get_byopay_data()
+        # test_config: dict[str, str | int] = self.get_byopay_data()
         account: Account = await setup_account(
             network_data, test_dir=TEST_DIR, clean_pubsub=False,
             service_id=BYOTUBE_SERVICE_ID, version=BYOTUBE_VERSION,
@@ -141,44 +143,66 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             origin_class_name=None
         )
 
-        # New POST /token test replaces GET API
         monetizations: list[dict[str, any]] | None = None
         await self.monetization_test(member.member_id, monetizations)
 
         monetizations = []
         await self.monetization_test(member.member_id, monetizations)
 
-        monetizations = [{'monetization_type': MonetizationType.FREE}]
+        monetizations = Monetizations.from_dict(
+            [
+                {'monetization_type': MonetizationType.FREE}
+            ]
+        )
         await self.monetization_test(member.member_id, monetizations)
 
-        monetizations = [{'monetization_type': MonetizationType.SUBSCRIPTION}]
+        monetizations = Monetizations.from_dict(
+            [
+                {'monetization_type': MonetizationType.SUBSCRIPTION}
+            ]
+        )
         await self.monetization_test(
             member.member_id, monetizations, expect_success=False
         )
 
-        monetizations = [
-            {'monetization_type': MonetizationType.SUBSCRIPTION},
-            {'monetization_type': MonetizationType.FREE}
-        ]
+        monetizations = Monetizations.from_dict(
+            [
+                {'monetization_type': MonetizationType.SUBSCRIPTION},
+                {'monetization_type': MonetizationType.FREE}
+            ]
+        )
+
         await self.monetization_test(
             member.member_id, monetizations, expect_success=True
         )
 
-        monetizations = [{'monetization_type': MonetizationType.BURSTPOINTS}]
+        monetizations = Monetizations.from_dict(
+            [
+                {'monetization_type': MonetizationType.BURSTPOINTS},
+            ]
+        )
         await self.monetization_test(
-            member.member_id, monetizations, expect_success=False
+            member.member_id, monetizations, attest=None, expect_success=False
         )
 
         attest: dict[str, any] = await self.get_attestation()
-        monetizations = [{'monetization_type': MonetizationType.BURSTPOINTS}]
+        monetizations = Monetizations.from_dict(
+            [
+                {'monetization_type': MonetizationType.BURSTPOINTS},
+            ]
+        )
         await self.monetization_test(
             member.member_id, monetizations, attest=attest,
             expect_success=True
         )
-        await key_table.delete(DataFilterSet({'key_id': {'eq': key_id}}))
+        await key_table.delete(
+            DataFilterSet({'key_id': {'eq': key_id}}),
+            placeholder_function=PostgresStorage.get_named_placeholder
+
+        )
 
     async def monetization_test(self, member_id: UUID,
-                                monetizations: list[str] | None,
+                                monetizations: Monetizations | None,
                                 attest: dict[str, any] | None = None,
                                 expect_success: bool = True) -> None:
         '''
@@ -201,11 +225,15 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             mon_count = len(monetizations)
 
         _LOGGER.debug(f'Creating test asset with {mon_count} monetizations')
+
+        monetization_data: list[dict[str, any]] | None = \
+            monetizations.as_dict() if monetizations else None
+
         asset: dict[str, any] = {
             'asset_id': str(asset_id),
             'title': f'Test asset with {mon_count} monetizations',
             'asset_type': 'video',
-            'monetizations': monetizations
+            'monetizations': monetization_data
         }
         await asset_table.append(
             asset, cursor='blah', origin_id=get_test_uuid(),
@@ -257,7 +285,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     def get_byopay_data(self) -> dict[str, str | int]:
         with open('tests/collateral/local/dathes-pod.yml', 'r') as file_desc:
-            test_config = yaml_save_loader(file_desc)
+            test_config = yaml_safe_loader(file_desc)
 
             return test_config
 

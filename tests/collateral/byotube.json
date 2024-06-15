@@ -485,6 +485,15 @@
                         "description": "The contents of the message",
                         "type": "string"
                     },
+                    "message_asset_id": {
+                        "description": "The UUID of the asset to which this message is a response",
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "message_asset_class": {
+                        "description": "The class of the asset that this message is in response to, ie. public_assets, network_assets",
+                        "type": "string"
+                    },
                     "claims": {
                         "description": "list of claims for the message",
                         "type": "array",

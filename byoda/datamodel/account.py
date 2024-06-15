@@ -543,6 +543,12 @@ class Account:
         )
         member.tls_secret.save_tmp_private_key()
 
+        # Save ASAP so apps can download it for extern-JWT validation
+        await member.data_secret.save(
+            self.private_key_password, overwrite=True,
+            storage_driver=local_storage
+        )
+
         # Edge-case where pod already has a cert for the membership
         if member.tls_secret.cert:
             await member.update_registration()

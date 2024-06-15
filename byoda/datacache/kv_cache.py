@@ -172,4 +172,4 @@ class KVCache(ABC):
                 'Can not set identifier after first access to the cache'
             )
 
-        self._identifier = '-' + str(value)
+        self._identifier: str = '-' + str(value)

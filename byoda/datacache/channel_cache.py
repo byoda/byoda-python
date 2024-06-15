@@ -6,6 +6,8 @@ Asset Cache maintains lists of channels
 :license    : GPLv3
 '''
 
+import base64
+
 from uuid import UUID
 from typing import Self
 from logging import getLogger
@@ -33,6 +35,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 class ChannelCache(SearchableCache, Metrics):
     CHANNEL_KEY_PREFIX: str = 'channels'
+    CHANNEL_SHORTCUT_PREFIX: str = 'channel_shortcuts'
 
     def __init__(self, connection_string: str) -> None:
         '''
@@ -266,9 +269,10 @@ class ChannelCache(SearchableCache, Metrics):
             raise ValueError(f'Cursor must be a string: {cursor}')
 
         key_name: str = ChannelCache.get_channel_key_for_cursor(cursor)
-        _LOGGER.debug(
-            f'Getting channel data for cursor: {cursor} with {key_name}'
-        )
+
+        log_data: dict[str, str] = {'cursor': cursor, 'key': key_name}
+
+        _LOGGER.debug('Getting channel data for cursor', extra=log_data)
 
         node_data: dict[str, any] | None = await self.client.json().get(
             key_name
@@ -299,10 +303,11 @@ class ChannelCache(SearchableCache, Metrics):
         creator: str
         member_id_string, creator = key.split('_', 1)
 
-        _LOGGER.debug(
-            f'Split cursor in to member_id {member_id_string} '
-            f'and creator {creator}'
-        )
+        log_data: dict[str, str | UUID] = {
+            'member_id': member_id_string,
+            'creator': creator
+        }
+        _LOGGER.debug('Split cursor', extra=log_data)
 
         try:
             member_id: UUID = UUID(member_id_string)
@@ -347,7 +352,7 @@ class ChannelCache(SearchableCache, Metrics):
         if not isinstance(member_id, UUID):
             member_id = UUID(member_id)
 
-        return f'{str(member_id)}_{creator}'
+        return f'{member_id}_{creator}'
 
     async def add_to_cache(self, member_id: UUID, channel: Channel | dict
                            ) -> bool:
@@ -390,7 +395,102 @@ class ChannelCache(SearchableCache, Metrics):
 
         await self.set_expiration(key)
 
+        await self.set_shortcut(member_id, channel.creator)
+
         return True
+
+    @staticmethod
+    def get_shortcut_value(member_id: UUID, creator: str) -> str:
+        '''
+        Get the value for the shortcut
+
+        :param member_id: the member_id of the creator
+        :param creator: the name of the creator/channel
+        :returns: the shortcut value
+        '''
+
+        unencoded: bytes = ChannelCache.get_cursor(
+            member_id, creator
+        ).encode('utf-8')
+        encoded: str = base64.b64encode(unencoded).decode('utf-8')[0:12]
+
+        return encoded
+
+    @staticmethod
+    def get_shortcut_key(member_id: UUID, creator: str) -> str:
+        '''
+        Gets the cache key for the shortcut
+
+        :param member_id: the member_id of the creator
+        :param creator: the name of the creator/channel
+        :returns: the shortcut value
+        '''
+
+        encoded: str = ChannelCache.get_shortcut_value(member_id, creator)
+        return f'{ChannelCache.CHANNEL_SHORTCUT_PREFIX}:{encoded}'
+
+    async def set_shortcut(self, member_id: UUID, creator: str) -> str:
+        '''
+        Sets a shortcut for the channel in the cache
+
+        :param member_id: the member_id of the creator
+        :param creator: the name of the creator/channel
+        :returns: the shortcut
+        '''
+
+        shortcut_key: str = ChannelCache.get_shortcut_key(member_id, creator)
+        encoded_shortcut: str = f'{member_id}_{creator}'
+        _LOGGER.debug(
+            'Setting channel shortcut',
+            {
+                'shortcut_key': shortcut_key,
+                'shortcut_value': encoded_shortcut,
+                'member_id': member_id,
+                'creator': creator,
+            }
+        )
+        await self.client.set(
+            shortcut_key, encoded_shortcut, ex=ChannelCache.DEFAULT_EXPIRATION
+        )
+
+    async def get_shortcut(self, shortcut: str) -> tuple[UUID, str]:
+        '''
+        Gets the member_id and creator/channel name for the shortcut
+
+        :param shortcut: the shortcut
+        :returns: member_id and creator/channel name
+        '''
+
+        shortcut_key: str = \
+            f'{ChannelCache.CHANNEL_SHORTCUT_PREFIX}:{shortcut}'
+
+        value: any = await self.client.get(shortcut_key)
+
+        log_data: dict[str, any] = {
+            'shortcut': shortcut,
+            'shortcut_key': shortcut_key,
+            'shortcut_value': value
+        }
+
+        if not value:
+            raise FileNotFoundError
+
+        if not isinstance(value, str):
+            _LOGGER.debug('Shortcut value is not a string', extra=log_data)
+            raise ValueError('Value for key is not a string')
+
+        if len(value) < 38:
+            _LOGGER.debug('Value for key too short', extra=log_data)
+            raise ValueError('Invalid value for shortcut key')
+
+        member_id: UUID = UUID(value[:36])
+        creator: str = value[37:]
+
+        log_data['member_id'] = member_id
+        log_data['creator'] = creator
+        _LOGGER.debug('Shortcut found', log_data)
+
+        return (member_id, creator)
 
     def setup_metrics(self) -> None:
         '''

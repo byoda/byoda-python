@@ -13,9 +13,6 @@ import os
 import logging
 import argparse
 
-from datetime import UTC
-from datetime import datetime
-
 import anyio
 
 from byoda.datacache.asset_cache import AssetCache
@@ -24,25 +21,28 @@ from byoda.util.logger import Logger
 
 _LOGGER: Logger | None = None
 
+MAX_LIST_LENGTH: int = 2000
+
 
 async def main(argv: list) -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--debug', '-d', action='store_true', default=False)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
-    parser.add_argument('--clean', '-c', action='store_true', default=True)
+    parser.add_argument('--clean', '-c', action='store_true', default=False)
+    parser.add_argument(
+        '--skip-list', '-s', type=str, default='/tmp/skip.list'
+    )
     parser.add_argument(
         '--redis-url', '-r', type=str, default=os.environ.get(
             'REDIS_URL', 'redis://localhost:6379'
         )
     )
-
     args: argparse.Namespace = parser.parse_args(argv[1:])
 
-    args.debug = True
     global _LOGGER
     if args.debug:
         _LOGGER = Logger.getLogger(
-            argv[0], debug=True, json_out=False, loglevel=logging.DEBUG
+            argv[0], debug=True, json_out=True, loglevel=logging.DEBUG
         )
     else:
         _LOGGER = Logger.getLogger(
@@ -50,33 +50,79 @@ async def main(argv: list) -> None:
         )
 
     cache: AssetCache = await AssetCache.setup(args.redis_url)
+    all_lists: list[str] = await cache.client.smembers('lists:list_of_lists')
+
+    # skip_list: set[str] = set()
+    # if os.path.exists(args.skip_list):
+    #     with open(args.skip_list, 'r') as file_desc:
+    #         skip_list = set(file_desc.read().splitlines())
+    # skip_list.add('list_of_lists')
+    # skip_list.add('all_assets')
+    # skip_list.add(AssetCache.ALL_ASSETS_LIST)
+
+    for list_name in all_lists:
+        if cache.is_channel_list(list_name):
+            continue
+        if list_name[0].islower():
+            continue
+
+        print(f'Old-format name for: {list_name}')
+        list_key: str = cache.get_list_key(list_name)
+        result = await cache.client.delete(list_key)
+        await cache.client.srem('lists:list_of_lists', list_name)
+
+        # if list_name in skip_list:
+        #     continue
+
+        # await check_for_dupes(cache, list_name)
+        # with open(args.skip_list, 'a') as file_desc:
+        #     file_desc.write(f'{list_name}\n')
+
+        # if args.clean:
+        #     await check_expirations(cache, list_name)
+        #     await check_expirations(cache, AssetCache.ALL_ASSETS_LIST)
+
     # await check_for_dupes(cache, AssetCache.ALL_ASSETS_LIST)
-    await check_expirations(cache, AssetCache.ALL_ASSETS_LIST)
     await cache.close()
 
 
 async def check_for_dupes(cache: AssetCache, list_name: str) -> None:
     list_key: str = cache.get_list_key(list_name)
     keys: list[str] = await cache.client.lrange(list_key, 0, -1)
-    keys_set = set(keys)
 
-    if len(keys) != len(keys_set):
+    log_data: dict[str, any] = {
+        'list_name': list_name,
+        'found_keys': len(keys),
+    }
+
+    keys_set = set(keys)
+    if len(keys) == len(keys_set):
+        _LOGGER.debug('No duplicate keys found in list', extra=log_data)
+    else:
         dupes: int = len(keys) - len(keys_set)
-        _LOGGER.warning(
-            f'Found {dupes} duplicates out of {len(keys)} keys'
-        )
+        log_data['dupes'] = dupes
+        _LOGGER.warning('Found duplicate keys in list', extra=log_data)
         keys_seen = set()
-        total: int = 0
+        new_keys: list[str] = []
         for key in keys:
             if key not in keys_seen:
                 keys_seen.add(key)
-            else:
-                count: int = await cache.client.lrem(list_key, 1, key)
-                total += count
-                _LOGGER.warning(
-                    f'Found duplicate {key}: {count} removed. '
-                    f'total removed {total}'
-                )
+                new_keys.append(key)
+
+        if len(new_keys) >= len(keys):
+            _LOGGER.error(
+                'Failed to remove duplicate keys from list', extra=log_data
+            )
+            return
+
+        await cache.client.delete(list_key)
+        if cache.is_channel_list(list_name):
+            await cache.client.rpush(list_key, *new_keys[0:MAX_LIST_LENGTH])
+        else:
+            await cache.client.rpush(list_key, *new_keys)
+        _LOGGER.warning(
+            'Removed duplicate keys from list', extra=log_data
+        )
 
 
 async def check_expirations(cache: AssetCache, list_name: str) -> None:
@@ -90,7 +136,8 @@ async def check_expirations(cache: AssetCache, list_name: str) -> None:
         if expiration == -2:
             keys_not_found += 1
             _LOGGER.debug(
-                f'Key not found: {key}. Total not found {keys_not_found}'
+                f'List {list_name} Key not found: {key}. '
+                f'Total not found {keys_not_found}'
             )
             await cache.client.lrem(list_key, 1, key)
             continue
@@ -99,11 +146,8 @@ async def check_expirations(cache: AssetCache, list_name: str) -> None:
             continue
         else:
             keys_found += 1
-            _LOGGER.debug(
-                f'Found not-expired key: {key}. Total found: {keys_found}'
-            )
     _LOGGER.info(
-        f'Checked {len(keys)} assets for expiration, '
+        f'Checked {len(keys)} assets in list {list_name} for expiration, '
         f'{keys_not_found} not found'
     )
 

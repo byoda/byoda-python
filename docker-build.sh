@@ -57,6 +57,23 @@ if [[ "${NAME}" == "a" || "${NAME}" == "byoda-app" || "${NAME}" == "app" || "${N
     TARGET="app"
 fi
 
+# Angie
+if [[ "${NAME}" == "angie" ]]; then
+    TARGET="angie"
+    docker build . --file Dockerfile-${TARGET} --tag byoda/${TARGET}:${TAG} --build-arg TAG=${TAG}
+    if [ "$?" -eq "0" ]; then
+        export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
+        echo "Pushing image: $IMAGE_ID"
+        docker image tag ${IMAGE_ID} byoda/${TARGET}:${TAG}
+        docker push byoda/${TARGET}:${TAG}
+        echo "Docker build of Angie completed"
+        exit 0
+    else
+        echo "Docker build of Angie failed"
+        exit 1
+    fi
+fi
+
 if [ -z "${TARGET}" ]; then
     echo "Must specify a target: ${NAME}"
     exit 1
@@ -64,19 +81,16 @@ fi
 
 if [ -z "${TAG}" ]; then
     RESULT=$(git status | grep 'branch main')
-
     if [ "$?" -eq "0" ]; then
         export TAG=latest
     else
-        if [ "${TARGET}" == "pod" ]; then
+        if [[ "${TARGET}" == "pod" || "${TARGET}" == "p" ]]; then
             export TAG=dev
         else
             export TAG=latest
         fi
     fi
 fi
-
-
 
 echo "Using tag: ${TAG}"
 

@@ -186,6 +186,10 @@ class LiteJWT:
             metric, 'Number of JWT tokens that have an invalid audience'
         )
 
+        metric = 'jwt_token_invalid_algorithm'
+        metrics[metric] = Counter(
+            metric, 'Number of JWT tokens that have an invalid algorithm'
+        )
         metric = 'jwt_token_invalid_issuer'
         metrics[metric] = Counter(
             metric, 'Number of JWT tokens that have an invalid issuer'

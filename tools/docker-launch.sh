@@ -155,7 +155,9 @@ sudo mkdir -p \
     /var/log/byoda/${POSTFIX} \
     /var/log/angie/${POSTFIX} \
     /etc/angie/conf.d/${POSTFIX} \
-    /var/lib/postgresql/${POSTFIX}/data
+    /var/lib/postgresql/${POSTFIX}/data \
+    /var/www/wwwroot/${POSTFIX} \
+    /etc/letsencrypt/${POSTFIX}
 
 if [[ "${KEEP_LOGS}" == "0" && -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
     if [ -z "${LOGDIR}" ]; then

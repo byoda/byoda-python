@@ -38,6 +38,9 @@ class AuthRequestModel(BaseModel):
 
 class AuthTokenResponseModel(BaseModel):
     auth_token: str
+    member_id: UUID | None = None
+    account_id: UUID | None = None
+    id_type: IdType = IdType.MEMBER
 
     def __repr__(self) -> str:
         return ('<AuthToken=(auth_token: str)>')

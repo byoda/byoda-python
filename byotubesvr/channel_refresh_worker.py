@@ -12,6 +12,7 @@ the service
 import os
 import sys
 
+from uuid import UUID
 from datetime import UTC
 from datetime import datetime
 
@@ -71,16 +72,19 @@ async def main() -> None:
     server = await setup_server()
     service: Service = server.service
 
-    _LOGGER.debug(
-        f'Starting channel refresh worker for service ID: {service.service_id}'
-    )
+    log_data: dict[str, str | UUID | int | float] = {
+        'service_id': service.service_id,
+        'network': service.network.name
+    }
+    _LOGGER.debug('Starting channel refresh worker', extra=log_data)
 
     channel_cache: ChannelCache = server.channel_cache_readwrite
 
-    wait_time: int = 0
+    wait_time: float = 0.1
     while True:
+        log_data['sleeping'] = wait_time
         if wait_time:
-            _LOGGER.debug(f'Sleeping for {wait_time} seconds')
+            _LOGGER.debug('Sleeping', extra=log_data)
             await sleep(wait_time)
 
         try:
@@ -90,8 +94,8 @@ async def main() -> None:
             if not edge:
                 wait_time = 5
                 _LOGGER.warning(
-                    'No channel available in list of channels, '
-                    f'waiting {wait_time} seconds'
+                    'No channel available in list of channels',
+                    extra=log_data
                 )
                 metrics['svc_channels_no_channels_available'].inc()
                 continue
@@ -99,11 +103,18 @@ async def main() -> None:
             # We need to catch any exception to make sure we can try
             # adding the member_id back to the list of member_ids in the
             # MemberDb
-            _LOGGER.exception(f'Got exception: {exc}')
+
+            _LOGGER.debug(
+                'Got exception', extra=log_data | {
+                    'exception': str(exc)
+                }
+            )
             wait_time = min(wait_time * 2, MAX_WAIT)
             continue
 
         channel: Channel = edge.node
+        log_data['channel'] = channel.creator
+        log_data['origin_id'] = edge.origin
         now = int(datetime.now(tz=UTC).timestamp())
 
         stale_in: int = 0
@@ -113,31 +124,32 @@ async def main() -> None:
 
         if stale_in > 0:
             wait_time = stale_in
-            _LOGGER.debug(
-                f'Next channel to become stale in {wait_time} seconds'
-            )
+            log_data['stale_in'] = stale_in
+            _LOGGER.debug('Next channel to become stale', extra=log_data)
             metrics['svc_channels_wait_for_stale_channel'].set(wait_time)
             await channel_cache.add_oldest_channel_back(edge.origin, channel)
             continue
 
         metrics['svc_channels_channel_refresh_attempts'].inc()
-        _LOGGER.debug(
-            f'Processing channel {channel.creator} of member {edge.origin}'
-        )
+        _LOGGER.debug('Processing channel', extra=log_data)
         wait_time = 0
         try:
+            log_data['sleeping'] = wait_time
             new_edge: Edge[Channel] = await get_channel_from_pod(edge)
             if new_edge:
                 metrics['svc_channels_channels_refreshed'].inc()
                 _LOGGER.debug(
-                    f'Adding channel {channel.creator} back as newest channel'
+                    'Adding channel back as newest channel', extra=log_data
                 )
                 await channel_cache.add_newest_channel(
                     new_edge.origin, new_edge.node
                 )
             else:
                 metrics['svc_channels_channel_no_longer_available'].inc()
-                _LOGGER.debug('Did not receive a new edge for the channel')
+                _LOGGER.debug(
+                    'Did not receive a new edge for the channel',
+                    extra=log_data
+                )
                 # TODO: for now we just add the channel back. Need to
                 # have retry lists for channels that can't be renewed
                 # because of connectivity issues
@@ -150,7 +162,9 @@ async def main() -> None:
             # We need to catch any exception to make sure we can try
             # adding the member_id back to the list of member_ids in the
             # MemberDb
-            _LOGGER.exception(f'Got exception: {exc}')
+            _LOGGER.debug(
+                'Exception', extra=log_data | {'exception': str(exc)}
+            )
             if not wait_time:
                 wait_time = 1
             else:
@@ -159,19 +173,30 @@ async def main() -> None:
         try:
             await channel_cache.add_oldest_channel_back(edge)
         except Exception as exc:
-            _LOGGER.exception(f'Could not add oldest channel back: {exc}')
+            _LOGGER.debug(
+                'Exception', extra=log_data | {'exception': str(exc)}
+            )
 
 
 async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
+    '''
+    Calls the data API to get the channel from the pod
+
+    :raises: RuntimeError if no connection could be made to the pod
+    '''
     service: Service = config.server.service
     network: Network = service.network
     metrics: dict[str, Counter | Gauge] = config.metrics
 
     channel: Channel = edge.node
 
-    _LOGGER.debug(
-        f'Getting channel {channel.creator} from pod of member {edge.origin}'
-    )
+    log_data: dict[str, any] = {
+        'service_id': service.service_id,
+        'network': network.name,
+        'channel': channel.creator,
+        'origin_id': edge.origin
+    }
+    _LOGGER.debug('Getting channel from pod', extra=log_data)
 
     try:
         resp: HttpResponse = await DataApiClient.call(
@@ -180,44 +205,38 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
             data_filter={'creator': {'eq': channel.creator}},
         )
 
+        log_data['status_code'] = resp.status_code
         if resp.status_code != 200:
-            _LOGGER.error(
-                f'Failed to get channel {channel.creator} '
-                f'from member {edge.origin}'
-            )
+            log_data['http_response'] = resp.text[:128]
+            _LOGGER.error('Failed to get channel', extra=log_data)
             return None
 
         metrics['svc_channels_channels_fetched'].inc()
 
         data: dict[str, any] = resp.json()
         if not data or not isinstance(data, dict) or not data.get('edges'):
-            _LOGGER.info(
-                f'No data returned for channel {channel.creator} '
-                f'from member {edge.origin}'
-            )
+            _LOGGER.info('No data returned for channel', extra=log_data)
             return None
 
         edges: list[dict[str, any]] = data.get('edges')
         if not isinstance(edges, list) or not len(edges):
             _LOGGER.info(
-                'No edges included in data returned for channel '
-                f'{channel.creator} from member {edge.origin}'
+                'No edges included in data returned for channel',
+                extra=log_data
             )
             return None
 
         node: dict[str, any] = edges[0].get('node')
         if not node or not isinstance(node, dict) or 'creator' not in node:
             _LOGGER.info(
-                f'No node data returned for channel {channel.creator} '
-                f'from member {edge.origin}'
+                'No node data returned for channel', extra=log_data
             )
             return None
 
         new_creator: str = node['creator']
         if not new_creator:
             _LOGGER.info(
-                f'No creator returned for channel {channel.creator} '
-                f'from member {edge.origin}'
+                'No creator returned for channel', extra=log_data
             )
             return None
 
@@ -228,14 +247,17 @@ async def get_channel_from_pod(edge: Edge[Channel]) -> Edge[Channel] | None:
         )
         return new_edge
     except (ConnectError, HTTPError) as exc:
-        _LOGGER.error(
-            f'Failed to get channel {channel.creator} '
-            f'from pod of member {edge.origin}: {exc}'
+        _LOGGER.debug(
+            'Failed to get channel from pod', extra=log_data | {
+                'excepton': str(exc),
+            }
         )
-        return None
+        raise RuntimeError('Failed to download channel from the pod')
     except Exception as exc:
-        _LOGGER.exception(f'Got exception: {exc}')
-        return None
+        _LOGGER.debug(
+            'Got exception', extra=log_data | {'exception': str(exc)}
+        )
+        raise RuntimeError('Failed to download channel from the pod')
 
 
 async def setup_server() -> tuple[Service, ServiceServer]:

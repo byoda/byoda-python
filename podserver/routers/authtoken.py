@@ -8,6 +8,7 @@
 
 import os
 
+from uuid import UUID
 from logging import getLogger
 from byoda.util.logger import Logger
 
@@ -68,8 +69,9 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
         )
 
     username: str
+    member: Member | None = None
     if auth_request.service_id:
-        member: Member = await account.get_membership(auth_request.service_id)
+        member = await account.get_membership(auth_request.service_id)
         if not member:
             raise HTTPException(
                 status_code=401, detail='Invalid username/password'
@@ -96,16 +98,23 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             status_code=401, detail='Invalid username/password'
         )
 
+    data: dict[str, str | UUID | int | IdType] = {}
     jwt: JWT
     if auth_request.target_type == IdType.ACCOUNT:
         jwt = account.create_jwt()
+        data['account_id'] = account.account_id
+        data['id_type'] = IdType.ACCOUNT
     elif auth_request.target_type == IdType.MEMBER:
         if not auth_request.service_id:
             raise HTTPException(400, 'Missing service_id parameter')
         jwt = member.create_jwt()
+        data['member_id'] = member.member_id
+        data['id_type'] = IdType.MEMBER
     elif auth_request.target_type == IdType.SERVICE:
         if not auth_request.service_id:
             raise HTTPException('Missing service_id parameter')
+        data['member_id'] = member.member_id
+        data['id_type'] = IdType.MEMBER
         jwt = JWT.create(
             member.member_id, IdType.MEMBER, member.tls_secret,
             member.network.name, service_id=member.service_id,
@@ -123,10 +132,13 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             member.network.name, service_id=member.service_id,
             scope_type=auth_request.target_type, scope_id=auth_request.app_id,
         )
+        data['member_id'] = member.member_id
+        data['id_type'] = IdType.MEMBER
     else:
         raise HTTPException(400, 'Invalid target for the JWT')
 
-    return {'auth_token': jwt.encoded}
+    data['auth_token'] = jwt.encoded
+    return data
 
 
 # BUG: this should be a GET?
@@ -157,7 +169,11 @@ async def post_member_auth_token(request: Request, service_id: int,
 
     jwt: JWT = member.create_jwt()
 
-    return {'auth_token': jwt.encoded}
+    return {
+        'auth_token': jwt.encoded,
+        'member_id': member.member_id,
+        'id_type': IdType.MEMBER
+    }
 
 
 @router.post('/authtoken/remote')
@@ -198,4 +214,8 @@ async def post_member_remote_auth_token(
         expiration_seconds=MAX_APP_TOKEN_EXPIRATION
     )
 
-    return {'auth_token': jwt.encoded}
+    return {
+        'auth_token': jwt.encoded,
+        'member_id': member.member_id,
+        'id_type': IdType.MEMBER
+    }

@@ -95,6 +95,27 @@ class AssetCache(SearchableCache, Metrics):
 
         return self
 
+    def is_channel_list(self, list_name: str) -> bool:
+        '''
+        Check if a list is a channel list
+
+        :param list_name: the name of the list to check
+        :returns: True if the list is a channel list, False otherwise
+        '''
+
+        if len(list_name) < 36:
+            return False
+
+        try:
+            UUID(list_name[:36])
+        except ValueError:
+            return False
+
+        if list_name[36] != '_':
+            return False
+
+        return True
+
     async def pos(self, list_name: str, cursor: str) -> int:
         '''
         Gets the position of an item in the list

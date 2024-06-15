@@ -6,6 +6,8 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV LANG=C.UTF-8
 
 ENV PYTHONPATH=/podserver/byoda-python
+ENV PSYCOPG_IMPL=binary
+
 WORKDIR /podserver
 
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
@@ -58,7 +60,7 @@ RUN apt-get update && apt-get install -y \
 
 
 COPY podserver/files/config.yml byoda-python/
-COPY podserver/files/startup.sh .
+COPY podserver/files/startup.sh podserver/files/restart_podworker.sh .
 
 COPY . byoda-python/
 

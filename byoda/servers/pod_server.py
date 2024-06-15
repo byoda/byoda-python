@@ -146,7 +146,8 @@ class PodServer(Server):
         # We first need to get registered services as that will tell
         # us the version of the schema that we should join.
 
-        _LOGGER.debug(f'Got bootstrap joins for {service_ids}')
+        log_data: dict[str, any] = {'service_ids': service_ids}
+        _LOGGER.debug('Got bootstrap joins', extra=log_data)
 
         account: Account = self.account
         data_store: DataStore = self.data_store
@@ -155,30 +156,35 @@ class PodServer(Server):
         service_summaries: dict[int, dict[str, str | int | None]] = \
             self.network.service_summaries
 
+        log_data['services_found'] = ','.join(
+            [str(service_id) for service_id in service_summaries]
+        )
         service_id: int
         for service_id in service_ids or []:
+            log_data['service_id'] = service_id
             _LOGGER.debug(
-                f'Processing bootstrap join for service {service_id}'
+                'Processing bootstrap join for service', extra=log_data
             )
 
             if service_id in self.account.memberships:
-                _LOGGER.debug(f'We already joined service {service_id}')
+                _LOGGER.debug('We already joined service', extra=log_data)
                 continue
 
             if service_id not in service_summaries:
                 _LOGGER.debug(
-                    f'Can not join service {service_id}: not found in network'
+                    'Can not join service, not found in network',
+                    extra=log_data
                 )
                 continue
 
             version: int = service_summaries[service_id]['version']
+            log_data['version'] = version
             # This joins the service (create secrets, register with the
             # service) but does not persist the membership
-            _LOGGER.debug(
-                f'Auto-joining service {service_id}, version {version}'
-            )
+            _LOGGER.debug('Auto-joining service', extra=log_data)
+
             member: Member = await account.join(
-                service_id, version, self.local_storage, with_reload=False
+                service_id, version, self.local_storage, with_reload=True
             )
 
             # This updates account.db so the podserver knows it is a member

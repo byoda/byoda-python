@@ -101,7 +101,10 @@ class PostgresStorage(Sql):
         :param server: PodServer instance
         '''
 
-        _LOGGER.info(f'Connecting to Postgres using {connection_string}')
+        log_data: dict[str, any] = {
+            'connection_string': connection_string,
+        }
+        _LOGGER.info(f'Connecting to Postgres', extra=log_data)
 
         conn: Connection[Tuple] | None = None
         restore_backup_needed: bool = False
@@ -110,36 +113,34 @@ class PostgresStorage(Sql):
                 f'{connection_string}/byoda', autocommit=True
             )
         except OperationalError as exc:
+            log_data['exception'] = exc
             _LOGGER.info(
-                f'Could not open the database {connection_string} '
-                f'or restore it from backup: {exc}'
+                'Could not open the database or restore it from backup',
+                extra=log_data
             )
-            restore_backup_needed = True
-            if server.cloud != CloudType.LOCAL:
-                await PostgresStorage.restore_backup(connection_string, server)
-                conn: Connection[Tuple] = connect(
-                    f'{connection_string}/byoda', autocommit=True
-                )
-
-        try:
-            if conn:
-                conn.execute('SELECT * FROM memberships;')
-            else:
-                restore_backup_needed = True
-        except SyntaxError as exc:
-            _LOGGER.warning(
-                f'Membership table not found, restoring backup: {exc}'
-            )
-            conn.close()
-            await PostgresStorage.restore_backup(connection_string, server)
-        except Exception as exc:
-            _LOGGER.info(
-                f'Could not open the database {connection_string} '
-                f'or restore it from backup: {exc}'
-            )
+            del log_data['exception']
             restore_backup_needed = True
 
+        new_db_needed: bool = False
         if restore_backup_needed:
+            if server.cloud == CloudType.LOCAL:
+                new_db_needed = True
+            else:
+                try:
+                    await PostgresStorage.restore_backup(connection_string, server)
+                    conn: Connection[Tuple] = connect(
+                        f'{connection_string}/byoda', autocommit=True
+                    )
+                    conn.close()
+                    restore_backup_needed = False
+                except OperationalError:
+                    new_db_needed = True
+
+        if new_db_needed:
+            _LOGGER.info(
+                f'Could not restore the database {connection_string} '
+                'from the cloud, creating a new database instead.'
+            )
             PostgresStorage._create_database(connection_string)
 
         account: Account = server.account
@@ -381,6 +382,10 @@ class PostgresStorage(Sql):
         Restores the account DB and membership DB files from the cloud
         '''
 
+        log_data: dict[str, any] = {
+            'connection_string': connection_string,
+        }
+
         account: Account = server.account
         self = PostgresStorage(
             connection_string, account.paths, account.data_secret
@@ -395,10 +400,11 @@ class PostgresStorage(Sql):
             self.paths.get(Paths.ACCOUNT_DATA_DIR) +
             f'{BACKUP_FILE}.{PROTECTED_FILE_EXTENSION}'
         )
-        _LOGGER.info(f'Restoring DB from {protected_cloud_filepath}')
+        log_data['protected_cloud_filepath'] = protected_cloud_filepath
+        _LOGGER.info(f'Restoring DB from cloud', extra=log_data)
         local_filepath: str = \
             self.paths.get(Paths.ACCOUNT_DATA_DIR) + '/{BACKUP_FILE}'
-
+        log_data['local_filepath'] = local_filepath
         protected_local_filepath: str = \
             f'{local_filepath}.{PROTECTED_FILE_EXTENSION}'
         try:
@@ -406,14 +412,12 @@ class PostgresStorage(Sql):
                 await cloud_file_store.read(
                     protected_cloud_filepath, file_descriptor=file_desc
                 )
-                _LOGGER.debug(
-                    f'Retrieved backup from cloud: {protected_cloud_filepath}'
-                )
+                _LOGGER.debug('Retrieved backup from cloud', extra=log_data)
 
             data_secret: DataSecret = server.account.data_secret
 
             data_secret.decrypt_file(protected_local_filepath, local_filepath)
-            _LOGGER.debug(f'Decrypted the backup file: {local_filepath}')
+            _LOGGER.debug('Decrypted the backup file', extra=log_data)
 
             subprocess.run(
                 [
@@ -426,6 +430,7 @@ class PostgresStorage(Sql):
                     local_filepath
                 ]
             )
-            _LOGGER.debug(f'Restored backup file: {local_filepath}')
+            _LOGGER.debug('Restored backup file', extra=log_data)
         except Exception as exc:
-            _LOGGER.critical(f'Could not restore database: {exc}')
+            log_data['exception'] = exc
+            _LOGGER.critical('Could not restore database', extra=log_data)

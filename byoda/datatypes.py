@@ -163,7 +163,6 @@ class MonetizationType(Enum):
     SUBSCRIPTION    = 'subscription'
     PPV             = 'ppv'
     SPPV            = 'sppv'
-    PREROLL_AD      = 'preroll_ad'
 
 
 # From byopay.payserver.util.datatypes

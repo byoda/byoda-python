@@ -589,7 +589,8 @@ class MemberData(dict):
                 modeled_data: dict[str, object] = class_ref.model_validate(
                     data_item
                 )
-                cursor: str = meta_data['cursor']
+                # results for queries for 'objects' may not have a cursor
+                cursor: str = meta_data.get('cursor', '')
                 log_extra['cursor'] = cursor
                 edge_data = edge_class_ref(
                     cursor=cursor, origin=member.member_id, node=modeled_data
