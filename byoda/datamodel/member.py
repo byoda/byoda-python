@@ -540,13 +540,13 @@ class Member:
             self.data_secret = MemberDataSecret(
                 self.member_id, self.service_id, self.account
             )
-            _LOGGER.debug('Loading member data secret')
+            _LOGGER.debug('Loading member data secret', extra=self.log_extra)
             await self.data_secret.load(
                 with_private_key=True, password=self.private_key_password
 
             )
         else:
-            _LOGGER.debug('Creating member data secret')
+            _LOGGER.debug('Creating member data secret', extra=self.log_extra)
             self.data_secret = await self._create_secret(
                 MemberDataSecret, members_ca
             )

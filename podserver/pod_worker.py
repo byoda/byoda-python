@@ -12,6 +12,8 @@ data secrets
 import os
 import sys
 
+
+from datetime import timedelta
 from uuid import UUID
 
 from anyio import run
@@ -109,7 +111,9 @@ async def main(argv) -> None:
                 await run_pending()
                 await sleep(1)
             except Exception as exc:
-                _LOGGER.exception(f'Exception during run_pending: {exc}')
+                _LOGGER.warning(
+                    'Exception during run_pending', extra={'exception': exc}
+                )
 
 
 async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
@@ -133,8 +137,6 @@ async def run_startup_tasks(server: PodServer, youtube_import_service_id: int,
     await check_network_links(server)
 
     await upload_content_keys(server)
-
-    await upload_origin_mapping(server)
 
     await run_youtube_startup_tasks(server, youtube_import_service_id)
 

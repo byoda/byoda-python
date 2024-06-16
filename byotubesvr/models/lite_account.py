@@ -20,6 +20,8 @@ from pydantic import SecretStr
 from pydantic import Field
 from pydantic import HttpUrl
 
+from byoda.datatypes import IdType
+
 from byoda import config
 
 from byotubesvr.auth.password import hash_password
@@ -33,6 +35,9 @@ class LiteAuthApiModel(BaseModel):
 
 class LiteAuthApiResponseModel(BaseModel):
     auth_token: str
+    member_id: UUID
+    id_type: IdType
+    token_type: str
 
 
 class LiteAppAuthApiResponseModel(BaseModel):
@@ -87,7 +92,7 @@ class LiteAccountSqlModel:
         email TEXT NOT NULL,
         handle TEXT,
         hashed_password TEXT NOT NULL,
-        is_enabled BOOL DEFAULT FALSE,
+        is_enabled BOOL DEFAULT TRUE,
         is_funded BOOL DEFAULT FALSE,
         created_timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         nickname TEXT,

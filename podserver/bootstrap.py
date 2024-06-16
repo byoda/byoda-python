@@ -81,7 +81,7 @@ async def main(argv) -> None:
         # use tools like call_data_api.py to debug the server
         os.umask(0o0000)
     else:
-        os.umask(0x0077)
+        os.umask(0o0022)
 
     log_file = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER

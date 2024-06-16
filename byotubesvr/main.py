@@ -56,6 +56,7 @@ _LOGGER = None
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator:
     config_file: str = os.environ.get('CONFIG_FILE', 'config-byotube.yml')
+    print(f'Using config file: {config_file}')
     with open(config_file) as file_desc:
         svc_config: dict[str, str | int | bool | None] = yaml_safe_loader(
             file_desc

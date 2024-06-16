@@ -53,6 +53,7 @@ from svcserver.routers import member as MemberRouter
 from svcserver.routers import search as SearchRouter
 from svcserver.routers import status as StatusRouter
 
+
 from tests.lib.util import get_test_uuid
 
 
@@ -148,7 +149,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 MemberRouter,
                 SearchRouter,
                 StatusRouter,
-                DataRouter
             ],
             lifespan=None, trace_server=config.trace_server,
         )

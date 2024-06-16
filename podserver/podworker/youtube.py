@@ -195,9 +195,9 @@ async def youtube_update_task(server: PodServer, service_id: int) -> None:
         os.remove(LOCK_FILE)
 
     except Exception as exc:
-        _LOGGER.exception(
-            f'Exception during Youtube metadata update: {exc}',
-            extra=log_extra
+        _LOGGER.debug(
+            'Exception during Youtube metadata update',
+            extra=log_extra | {'exception': str(exc)}
         )
 
     # Release memory used by the import run

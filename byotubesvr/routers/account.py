@@ -22,6 +22,8 @@ from fastapi.responses import ORJSONResponse
 
 from fastapi_limiter.depends import RateLimiter
 
+from byoda.datatypes import IdType
+
 from byoda import config
 
 from byotubesvr.datamodel.email import EmailVerificationMessage
@@ -207,8 +209,10 @@ async def auth_token(request: Request, auth_request: LiteAuthApiModel,
     auth_token: str = jwt.create_auth_token(account.lite_id, account.is_funded)
 
     return {
-        "auth_token": auth_token,
-        "token_type": "bearer",
+        'auth_token': auth_token,
+        'token_type': 'Bearer',
+        'id_type': IdType.BTLITE,
+        'member_id': account.lite_id
     }
 
 AuthDep = Annotated[LiteRequestAuth, Depends(LiteRequestAuth)]

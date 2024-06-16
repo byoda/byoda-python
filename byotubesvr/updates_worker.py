@@ -84,44 +84,47 @@ async def main() -> None:
 
     service, server = await setup_server()
 
-    _LOGGER.debug(
-        f'Starting service worker for service ID: {service.service_id}'
-    )
+    log_data: dict[str, any] = {'service_id': service.service_id}
+
+    _LOGGER.debug('Starting service worker for service ID', extra=log_data)
 
     member_db: MemberDb = server.member_db
     wait_time: float = 0.0
     members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
+        log_data['members_seen'] = members_seen
         # Set up the listeners for the members that are already in the cache
-        _LOGGER.debug('Start up member reconciliation')
+        _LOGGER.debug('Start up reconciliation for members', extra=log_data)
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
             task_group
         )
         while True:
-            _LOGGER.debug(
-                f'Members seen: {len(members_seen)}'
-            )
+            log_data['members_seen'] = len(members_seen)
+            _LOGGER.debug('Members seen', extra=log_data)
             wait_time = MAX_WAIT
 
             member_id: UUID | None = None
             try:
                 member_id = await member_db.get_next(timeout=MAX_WAIT)
                 if not member_id:
-                    _LOGGER.debug('No member available in list of members')
+                    _LOGGER.debug(
+                        'No member available in list of members',
+                        extra=log_data
+                    )
                     await sleep(1)
                     continue
 
+                log_data['remote_member_id'] = member_id
                 if is_test_uuid(member_id):
                     _LOGGER.debug(
-                        f'Not processing member with test UUID: {member_id}'
+                        'Not processing member with test UUID', extra=log_data
                     )
                     continue
 
-                _LOGGER.debug(f'Processing member_id {member_id}')
+                _LOGGER.debug('Processing member_id', extra=log_data)
 
-                _LOGGER.debug(f'Members seen: {len(members_seen)}')
                 await reconcile_member_listeners(
                     member_db, members_seen, service, ASSET_CLASS,
                     server.asset_cache, task_group
@@ -137,7 +140,9 @@ async def main() -> None:
                 # We need to catch any exception to make sure we can try
                 # adding the member_id back to the list of member_ids in the
                 # MemberDb
-                _LOGGER.exception(f'Got exception: {exc}')
+                _LOGGER.debug(
+                    'Got exception', extra=log_data | {'exception': str(exc)}
+                )
 
             if not wait_time:
                 wait_time = 1
@@ -171,10 +176,15 @@ async def reconcile_member_listeners(
     '''
 
     member_ids: list[UUID] = await member_db.get_members()
-    _LOGGER.debug(
-        f'Reconciling member listeners (currently {len(members_seen)}) '
-        f'with members (currently {len(member_ids)})'
-    )
+
+    log_data: dict[str, any] = {
+        'asset_class': asset_class_name,
+        'service_id': service.service_id,
+        'member_count': len(member_ids),
+        'members_seen': len(members_seen)
+    }
+
+    _LOGGER.debug('Reconciling member listeners', extra=log_data)
 
     metrics: dict[str, Counter | Gauge] = config.metrics
     metrics['svc_updates_total_members'].set(len(member_ids))
@@ -183,24 +193,24 @@ async def reconcile_member_listeners(
         m_id for m_id in member_ids
         if m_id not in members_seen and not is_test_uuid(m_id)
     ]
-    _LOGGER.debug(
-        f'Seen members: {len(members_seen)}, '
-        f'Unseen members: {len(unseen_members)}'
-    )
+    log_data['members_not_yet_seen'] = len(unseen_members)
 
     metrics['svc_updates_unseen_members'].set(len(unseen_members))
 
     network: Network = service.network
     member_id: UUID
     for member_id in unseen_members:
-        _LOGGER.debug(f'Adding new {member_id} to list of members')
+        log_data['remote_member_id'] = member_id
+        _LOGGER.debug('Adding new member to list of members', extra=log_data)
 
         listener: UpdateListenerService = await UpdateListenerService.setup(
             asset_class_name, service.service_id, member_id,
             network.name, service.tls_secret, asset_cache
         )
 
-        _LOGGER.debug(f'Initiating sync and listener for member {member_id}')
+        _LOGGER.debug(
+            'Initiating sync and listener for member', extra=log_data
+        )
         await listener.get_all_data()
         await listener.setup_listen_assets(task_group)
 
@@ -238,9 +248,12 @@ async def update_member(service: Service, member_id: UUID, member_db: MemberDb
         await update_member_info(service, member_db, member_id)
 
     except (HTTPError, ConnectError, ByodaRuntimeError) as exc:
-        _LOGGER.info(
-            f'Not adding member back to the list because we failed '
-            f'to get data from member: {member_id}: {exc}'
+        _LOGGER.debug(
+            'Not adding member back to the list because we failed '
+            'to get data from member', extra={
+                'remote_member_id': member_id,
+                'exception': str(exc)
+            }
         )
         return None
 

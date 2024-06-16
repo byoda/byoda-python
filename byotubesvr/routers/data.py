@@ -18,6 +18,8 @@ from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import EdgeResponse
 from byoda.models.data_api_models import QueryResponseModel
+from byoda.models.data_api_models import ChannelShortcutResponse
+from byoda.models.data_api_models import ChannelShortcutValueResponseModel
 
 from byoda.datacache.asset_cache import AssetCache
 from byoda.datacache.channel_cache import ChannelCache
@@ -129,7 +131,12 @@ async def get_channel(request: Request, creator: str, member_id: UUID
 
     channel_cache: ChannelCache = config.channel_cache
 
-    _LOGGER.debug(f'GET Channel API called from {request.client.host}')
+    log_data: dict[str, str] = {
+        'remote_addr': request.client.host,
+        'member_id': member_id,
+        'creator': creator,
+    }
+    _LOGGER.debug('GET Channel API called', extra=log_data)
 
     try:
         edge: EdgeResponse[Channel] | None = await channel_cache.get_channel(
@@ -147,3 +154,69 @@ async def get_channel(request: Request, creator: str, member_id: UUID
         )
 
     return edge
+
+
+@router.get('/channel/shortcut', status_code=200)
+async def get_channel_shortcut(request: Request, shortcut: str
+                               ) -> ChannelShortcutResponse:
+    '''
+    Returns the member_id and creator name for the shortcut
+
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy (TODO: security)
+    '''
+
+    log_data: dict[str, str] = {
+        'shortcut': shortcut,
+        'remote_addr': request.client.host
+    }
+
+    channel_cache: ChannelCache = config.channel_cache
+
+    _LOGGER.debug('GET Channel shortcut API called', extra=log_data)
+
+    try:
+        member_id: UUID
+        creator: str
+        member_id, creator = await channel_cache.get_shortcut(shortcut)
+        log_data['member_id'] = member_id
+        log_data['creator'] = creator
+    except FileNotFoundError:
+        _LOGGER.debug('Shortcut does not exist', extra=log_data)
+        raise HTTPException(status_code=404, detail='Unknown channel shortcut')
+    except ValueError as exc:
+        _LOGGER.debug(
+            'Invalid shortcut', extra=log_data | {'exception': str(exc)}
+        )
+        raise HTTPException(status_code=400, detail='Invalid shortcut')
+    except Exception as exc:
+        _LOGGER.debug(
+            'Shortcut lookup failure', extra=log_data | {'exception': str(exc)}
+        )
+
+    if not member_id or not creator:
+        _LOGGER.debug('No data found for shortcut', extra=log_data)
+
+    return ChannelShortcutResponse(member_id=member_id, creator=creator)
+
+
+@router.get('/channel/shortcut_by_value', status_code=200)
+def get_channel_shortcut_value(request: Request, member_id: UUID, creator: str
+                               ) -> ChannelShortcutValueResponseModel:
+    '''
+    Returns the value of the shortcut for the given member_id and creator
+
+    This API does not require authentication, it needs to be rate
+    limited by the reverse proxy (TODO: security)
+    '''
+
+    log_data: dict[str, str] = {
+        'member_id': member_id,
+        'creator': creator,
+        'remote_addr': request.client.host
+    }
+
+    shortcut: str = ChannelCache.get_shortcut_value(member_id, creator)
+    log_data['shortcut'] = shortcut
+    _LOGGER.debug('Got request to generate shortcut', extra=log_data)
+    return {'shortcut': shortcut}

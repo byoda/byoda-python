@@ -247,14 +247,16 @@ class FileStorage:
         if isinstance(data, str) and file_mode == FileMode.BINARY:
             data = data.encode('utf-8')
 
+        dirpath: str
+        filename: str
         dirpath, filename = self.get_full_path(
             filepath, storage_type=storage_type
         )
 
         os.makedirs(dirpath, exist_ok=True)
 
-        updated_filepath = f'{dirpath}/{filename}'
-        openmode = f'w{file_mode.value}'
+        updated_filepath: str = f'{dirpath}/{filename}'
+        openmode: str = f'w{file_mode.value}'
 
         if file_descriptor:
             data = file_descriptor.read()
@@ -262,8 +264,11 @@ class FileStorage:
         with open(updated_filepath, openmode) as file_desc:
             file_desc.write(data)
 
+        os.chmod(updated_filepath, 0o644)
+
         _LOGGER.debug(
-            f'Wrote {len(data or [])} bytes to local file {updated_filepath}'
+            'Wrote to local file',
+            extra={'bytes': len(data or []), 'filepath': updated_filepath}
         )
 
     def append(self, filepath: str, data: str,

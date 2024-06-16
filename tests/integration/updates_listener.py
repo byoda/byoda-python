@@ -182,6 +182,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             account.document_store.backend, service.members_ca, get_test_uuid()
         )
         await member.load_secrets()
+        auth_header: str
         auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
 
         #

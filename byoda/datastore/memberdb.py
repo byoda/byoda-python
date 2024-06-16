@@ -135,15 +135,21 @@ class MemberDb:
         Adds (or overwrites) an entry
         '''
 
+        log_data: dict[str, any] = {
+            'member_id': str(member_id),
+            'remote_addr': str(remote_addr),
+            'member_status': status.name,
+        }
+
         # TODO: lookup in list is not scalable.
         if await self.pos(member_id) is None:
-            _LOGGER.debug(f'Adding member {member_id} to the list')
+            _LOGGER.debug('Adding member to the list', extra=log_data)
             await self.add_member(member_id)
 
         mid: str = MEMBER_ID_META_FORMAT.format(member_id=str(member_id))
+        log_data['member_meta_id'] = mid
         _LOGGER.debug(
-            f'Adding metadata for member {member_id} with key {mid} to '
-            'the MemberDB'
+            'Adding metadata for member to the MemberDB', extra=log_data
         )
 
         kvcache: KVCache = self.kvcache
@@ -170,9 +176,15 @@ class MemberDb:
         kvcache: KVCache = self.kvcache
         data = await kvcache.get(mid)
 
+        last_seen: datetim = datetime.fromisoformat(data['last_seen'])
+        log_data: dict[str, any] = {
+            'member_id': str(member_id),
+            'member_meta_id': mid,
+            'last_seen': last_seen,
+        }
         _LOGGER.debug(
-            f'Got metadata for member {member_id} with key {mid} from'
-            'the MemberDB'
+            'Got metadata for member with key from the MemberDB',
+            extra=log_data
         )
 
         if not data:
@@ -183,7 +195,7 @@ class MemberDb:
             'remote_addr': ip_address(data['remote_addr']),
             'schema_version': int(data['schema_version']),
             'data_secret': data['data_secret'],
-            'last_seen': datetime.fromisoformat(data['last_seen']),
+            'last_seen': last_seen,
             'status': MemberStatus[data['status']],
         }
 
@@ -203,10 +215,14 @@ class MemberDb:
 
         exists = ret != 0
 
+        log_data: dict[str, any] = {
+            'member_id': member_id,
+            'exists': exists,
+        }
         if exists:
-            _LOGGER.debug(f'Deleted the metadata for member {member_id}')
+            _LOGGER.debug('Deleted the metadata for member', extra=log_data)
         else:
-            _LOGGER.debug(f'Member {member_id} not found')
+            _LOGGER.debug('Member not found', extra=log_data)
 
         return exists
 
@@ -215,7 +231,10 @@ class MemberDb:
         Adds a member to the end of the list of members
         '''
 
-        _LOGGER.debug(f'Adding member f{member_id} to MEMBERS_LIST')
+        _LOGGER.debug(
+            'Adding member to MEMBERS_LIST',
+            extra={'member_id': str(member_id)}
+        )
         kvcache: KVCache = self.kvcache
         await kvcache.push(MEMBERS_LIST, str(member_id))
 
@@ -227,7 +246,19 @@ class MemberDb:
         kvcache: KVCache = self.kvcache
         members: list[str] = await kvcache.get_list(MEMBERS_LIST)
 
-        return [UUID(member) for member in members if member]
+        normalized_members: list[UUID] = []
+        for member in members:
+            member_val = member
+            if isinstance(member, bytes):
+                member_val: UUID = UUID(member.decode('utf-8'))
+            normalized_members.append(member_val)
+
+        _LOGGER.debug(
+            'Retrieved the list of members',
+            extra={'members_count': len(normalized_members)}
+        )
+
+        return normalized_members
 
     async def delete_members_list(self):
         '''
@@ -237,9 +268,9 @@ class MemberDb:
         '''
 
         kvcache: KVCache = self.kvcache
-        ret = await kvcache.delete(MEMBERS_LIST)
+        ret: int = await kvcache.delete(MEMBERS_LIST)
 
-        exists = ret != 0
+        exists: bool = ret != 0
 
         if exists:
             _LOGGER.debug('Deleted the list of members')
@@ -258,7 +289,7 @@ class MemberDb:
         :raises: (none)
         '''
 
-        mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
 
         kvcache: KVCache = self.kvcache
         ret = await kvcache.set(mid, data)
@@ -272,9 +303,9 @@ class MemberDb:
         :raises: KeyError if the member is not in the database
         '''
 
-        mid = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
+        mid: str = MEMBER_ID_DATA_FORMAT.format(member_id=str(member_id))
         kvcache: KVCache = self.kvcache
-        data = await kvcache.get(mid)
+        data: dict = await kvcache.get(mid)
 
         return data
 

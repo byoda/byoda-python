@@ -405,8 +405,8 @@ async def get_network_link_updates(
                 task_group.start_soon(listener.get_updates)
                 existing_listeners[remote_member_id] = listener
         except Exception as exc:
-            _LOGGER.exception(
-                f'Update failure for append: {exc}'
+            _LOGGER.warning(
+                'Update failure for append', extra={'exception': str(exc)}
             )
 
 

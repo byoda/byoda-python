@@ -141,19 +141,24 @@ async def upload_origin_mapping(server: PodServer) -> None:
     account: Account = server.account
     network: Network = account.network
 
-    _LOGGER.info('Uploading Origin mapping')
-
     cdn_app_id: str | None = os.environ.get('CDN_APP_ID')
     if not cdn_app_id:
         _LOGGER.debug('No CDN App ID defined, skipping')
         return
 
+    log_extra: dict[str, any] = {
+        'network': network.name,
+        'cdn_app_id': cdn_app_id,
+        'account_id': account.account_id
+    }
+    _LOGGER.debug('Starting upload of origin mappings', extra=log_extra)
+
     member: Member
     for member in account.memberships.values():
-        log_extra: dict[str, str | UUID] = {
-            'service_id': member.service_id,
-            'member_id': member.member_id
-        }
+        log_extra['service_id'] = member.service_id,
+        log_extra['member_id'] = member.member_id
+
+        _LOGGER.info('Uploading Origin mapping')
 
         document_store: DocumentStore = account.document_store
         filestore: FileStorage = document_store.backend

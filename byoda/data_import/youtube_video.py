@@ -39,6 +39,8 @@ from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.claim import Claim
 from byoda.datamodel.claim import ClaimRequest
+from byoda.datamodel.monetization import Monetizations
+from byoda.datamodel.monetization import BurstMonetization
 
 from byoda.datatypes import ClaimStatus
 from byoda.datatypes import StorageType
@@ -124,6 +126,7 @@ class YouTubeVideo:
         'annotations': 'annotations',
         'view_count': 'publisher_views',
         'like_count': 'publisher_likes',
+        'monetizations': 'monetizations',
     }
 
     def __init__(self) -> None:
@@ -157,6 +160,7 @@ class YouTubeVideo:
 
         self.chapters: list[YouTubeVideoChapter] = []
         self.tags: list[str] = []
+        self.monetizations: Monetizations | None = None
 
         # Data for the Byoda table with assets
         self.publisher = 'YouTube'
@@ -535,6 +539,11 @@ class YouTubeVideo:
                             extra=log_data
                         )
 
+                    self.monetizations: Monetizations = \
+                        Monetizations.from_monetization_instance(
+                            BurstMonetization()
+                        ).as_dict()
+
                     # We now set state to PUBLISHED because we need that value
                     # to be written to the database
                     if self.ingest_status != unavailable:
@@ -547,9 +556,9 @@ class YouTubeVideo:
                             'Test case, not bothering about moderation failure'
                         )
                     else:
-                        _LOGGER.exception(
-                            f'Ingesting asset for YouTube video failed: {exc}',
-                            extra=log_data
+                        _LOGGER.debug(
+                            'Ingesting asset for YouTube video failed',
+                            extra=log_data | {'exception': str(exc)}
                         )
                         raise
 
@@ -613,17 +622,24 @@ class YouTubeVideo:
         # the app server sends out notifications to subscribers. Our
         # worker process can not write to the named pipes of Nng.
         query_id: UUID = uuid4()
-        resp: HttpResponse = await DataApiClient.call(
-            member.service_id, data_class.name, DataRequestType.APPEND,
-            secret=auth_secret, network=network.name, headers=auth_header,
-            member_id=member.member_id, data={'data': asset},
-            query_id=query_id, app=app
-        )
+        try:
+            resp: HttpResponse = await DataApiClient.call(
+                member.service_id, data_class.name, DataRequestType.APPEND,
+                secret=auth_secret, network=network.name, headers=auth_header,
+                member_id=member.member_id, data={'data': asset},
+                query_id=query_id, app=app
+            )
 
-        if resp.status_code != 200:
+            if resp.status_code != 200:
+                _LOGGER.warning(
+                    f'Failed to ingest video with query_id {query_id}: '
+                    f'{resp.status_code}', extra=log_data
+                )
+                return None
+        except Exception as exc:
             _LOGGER.warning(
-                f'Failed to ingest video with query_id {query_id}: '
-                f'{resp.status_code}', extra=log_data
+                f'Failed to ingest video with query_id {query_id}: {exc}',
+                extra=log_data
             )
             return None
 
@@ -809,9 +825,9 @@ class YouTubeVideo:
                 storage_type=StorageType.RESTRICTED, exist_ok=True
             )
         except Exception as exc:
-            _LOGGER.exception(
-                f'Ingesting asset for YouTube video failed: {exc}',
-                extra=log_data
+            _LOGGER.debug(
+                'Ingesting asset for YouTube video failed',
+                extra=log_data | {'exception': str(exc)}
             )
             self._transition_state(IngestStatus.UNAVAILABLE)
             return None

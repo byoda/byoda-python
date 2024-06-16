@@ -165,15 +165,22 @@ class AppDataSecret(DataSecret):
         :raises: (none)
         '''
 
+        log_data: dict[str, any] = {
+            'fingerprint': fingerprint,
+            'app_id': self.app_id,
+            'id_type': self.id_type,
+        }
         cert_cache: dict[str, dict[IdType, Certificate]] = config.data_certs
         if (fingerprint in cert_cache
                 and self.id_type in cert_cache[fingerprint]):
-            return cert_cache[fingerprint][self.id_type]
+            self.cert = cert_cache[fingerprint][self.id_type]
+            _LOGGER.debug('Got data cert from cache', extra=log_data)
+            return
 
         url: str = self.paths.get(
             Paths.APP_DATACERT_DOWNLOAD, app_id=self.app_id
         )
-
+        log_data['url'] = url
         cert_data: str | None = await super().download(
             url, fingerprint=fingerprint
         )
@@ -182,4 +189,5 @@ class AppDataSecret(DataSecret):
         if fingerprint not in cert_cache:
             cert_cache[fingerprint] = {}
 
-        cert_cache[fingerprint][self.id_type] = self
+        _LOGGER.debug('Adding data cert to cache', extra=log_data)
+        cert_cache[fingerprint][self.id_type] = self.cert

@@ -12,6 +12,7 @@ RUN mkdir -p \
     /etc/angie/ssl \
     /var/cache/angie/proxy_temp \
     /var/cache/angie/objectstorage \
+    /var/www/wwwroot \
     /var/log/angie \
     /var/log/byoda \
     /etc/angie/conf.d
@@ -22,8 +23,7 @@ RUN set -x \
         ca-certificates lsb-release curl inotify-tools \
     && curl -o /etc/apt/trusted.gpg.d/angie-signing.gpg \
         https://angie.software/keys/angie-signing.gpg \
-    && echo "deb https://download.angie.software/angie/ubuntu/ `lsb_release \
-         -cs` main" > /etc/apt/sources.list.d/angie.list \
+    && echo "deb https://download.angie.software/angie/$(. /etc/os-release && echo "$ID/$VERSION_ID $VERSION_CODENAME") main"  > /etc/apt/sources.list.d/angie.list \
     && apt-get update \
     && apt-get install --no-install-recommends --no-install-suggests -y \
         angie angie-module-geoip2 angie-module-njs angie-console-light  \
@@ -38,7 +38,11 @@ COPY podserver/files/angie/angie-reloader.sh /usr/local/bin/angie-reloader.sh
 COPY podserver/files/angie/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY podserver/files/angie/angie.conf /etc/angie
 COPY podserver/files/angie/dhparam.pem /etc/angie/ssl
+
+# /var/www/wwwroot is may be volume-mounted but in case it is not, we create it
 COPY podserver/files/angie/robots.txt /var/www/wwwroot/
+COPY podserver/files/angie/index.html /var/www/wwwroot/
+COPY podserver/files/angie/error.html /var/www/wwwroot/
 
 RUN chmod +x /usr/local/bin/angie-reloader.sh /usr/local/bin/docker-entrypoint.sh \
     && rm -f /etc/angie/conf.d/default.conf

@@ -65,7 +65,6 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         config.server = await ServiceServer.setup(network, app_config)
 
         member_db = config.server.member_db
-        member_db.service_id = app_config['svcserver']['service_id']
         await member_db.delete_meta(TEST_MEMBER_UUID)
         await member_db.delete_members_list()
 
