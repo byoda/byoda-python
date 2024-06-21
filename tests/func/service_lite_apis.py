@@ -10,6 +10,7 @@ import os
 import sys
 import yaml
 import shutil
+import base64
 import unittest
 
 from uuid import UUID
@@ -57,6 +58,10 @@ from byotubesvr.routers import status as StatusRouter
 from byotubesvr.routers import account as AccountRouter
 from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
+from byotubesvr.routers import support as SupportRouter
+
+from byotubesvr.routers.support import EMAIL_SALT
+from byotubesvr.routers.support import SUBSCRIPTIONS_FILE
 
 from tests.lib.util import get_test_uuid
 
@@ -80,6 +85,11 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         try:
             shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        try:
+            os.remove(SUBSCRIPTIONS_FILE)
         except FileNotFoundError:
             pass
 
@@ -129,6 +139,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 AccountRouter,
                 NetworkLinkRouter,
                 AssetReactionRouter,
+                SupportRouter,
             ],
             lifespan=None, trace_server=config.trace_server,
         )
@@ -169,6 +180,66 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await ApiClient.close_all()
         await config.network_link_store.close()
         await config.asset_reaction_store.close()
+
+    async def test_mailinglist_apis(self) -> None:
+        test_email_address: str = 'test_mailinglist_apis@test.com'
+        listname: str = 'creator-announcements'
+        base_url: str = 'http://localhost:8000/api/v1/support'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                f'{base_url}/subscribe', params={
+                    'email': test_email_address, 'listname': listname,
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(
+                resp.text.strip('"'), (
+                    f'You have subscribed to list {listname} '
+                    f'with email address {test_email_address}'
+                )
+            )
+
+            encoded: str = base64.urlsafe_b64encode(
+                f'{EMAIL_SALT}:{test_email_address}'.encode('utf-8')
+            ).decode('utf-8')
+
+            resp: HttpResponse = await client.get(
+                f'{base_url}/unsubscribe', params={
+                    'data': encoded, 'listname': listname,
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            result: str = resp.text.strip('"')
+            self.assertEqual(
+                result, (
+                    f'You have unsubscribed email address {test_email_address}'
+                    f' from list {listname}'
+                )
+            )
+            self.assertTrue(os.path.exists(SUBSCRIPTIONS_FILE))
+            with open(SUBSCRIPTIONS_FILE) as file_desc:
+                line: str = file_desc.readline()
+                action: str
+                timestamp: str
+                email: str
+                incoming_listname: str
+                action, timestamp, incoming_listname, email = line.strip(
+                ).split(',')
+                self.assertEqual(action, 'subscribe')
+                self.assertEqual(incoming_listname, listname)
+                self.assertEqual(email, test_email_address)
+                self.assertTrue(
+                    isinstance(datetime.fromisoformat(timestamp), datetime)
+                )
+                line = file_desc.readline()
+                action, timestamp, incoming_listname, email = line.strip(
+                ).split(',')
+                self.assertEqual(action, 'unsubscribe')
+                self.assertEqual(incoming_listname, listname)
+                self.assertEqual(email, test_email_address)
+                self.assertTrue(
+                    isinstance(datetime.fromisoformat(timestamp), datetime)
+                )
 
     async def test_account_failures(self) -> None:
         lite_db: SqlStorage = config.lite_db
@@ -344,7 +415,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             #
 
             # avoid getting a 429
-            sleep(10)
+            sleep(15)
             resp: HttpResponse = await client.post(
                 f'{BASE_URL}/api/v1/lite/account/signup',
                 json={

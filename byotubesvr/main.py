@@ -49,6 +49,7 @@ from byotubesvr.routers import data as DataRouter
 from byotubesvr.routers import account as AccountRouter
 from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
+from byotubesvr.routers import support as SupportRouter
 
 _LOGGER = None
 
@@ -151,6 +152,7 @@ app: FastAPI = setup_api(
         SearchRouter,
         NetworkLinkRouter,
         AssetReactionRouter,
+        SupportRouter,
     ],
     lifespan=lifespan, trace_server=config.trace_server,
     cors=svc_config['svcserver']['cors_origins']
