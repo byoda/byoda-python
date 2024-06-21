@@ -59,6 +59,7 @@
                         "permissions": ["read", "update", "delete", "subscribe"]
                     }
                 },
+                "type": "object",
                 "properties": {
                     "nick": {
                         "description": "Your nickname, used for comments, etc.",
