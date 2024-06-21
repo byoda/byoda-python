@@ -372,7 +372,9 @@ class MemberData(dict):
         required_fields: list[str] = await MemberData.get_required_field_names(
             member.service_id, class_name
         )
-        cursor = Table.get_cursor_hash(data, member.member_id, required_fields)
+        cursor: str = Table.get_cursor_hash(
+            data, member.member_id, required_fields
+        )
 
         schema: Schema = member.schema
         data_class: SchemaDataArray = schema.data_classes[MARKER_DATA_LOGS]
@@ -555,6 +557,14 @@ class MemberData(dict):
                 )
 
                 all_data.append(edge_data)
+
+            if remote_member_id:
+                # Recursive queries specifying remote_member_id should
+                # not include data from our own pod so we're done here
+                _LOGGER.debug(
+                    'Got items from remote member', extra=log_extra
+                )
+                return all_data
 
         # We ask for 'query.first + 1) as we want to know if there are
         # more items available for pagination
