@@ -84,7 +84,7 @@
                         "description": "Your email address, can be used by the BYO.Tube service to contact you",
                         "type": "string",
                         "format": "email"
-                    },
+                    }
             },
             "network_links": {
                 "#accesscontrol": {
