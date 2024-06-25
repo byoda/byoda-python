@@ -34,6 +34,7 @@ from byoda.storage.filestorage import FileStorage
 from byoda import config
 
 from byoda.servers.pod_server import PodServer
+from byoda.util.paths import Paths
 
 from ..dependencies.pod_api_request_auth import AuthDep
 
@@ -281,22 +282,39 @@ async def post_member_upload(request: Request, files: list[UploadFile],
         storage_type: StorageType = StorageType.PRIVATE
 
     locations: list[str] = []
+    cdn_urls: list[str] = []
     for file in files:
         _LOGGER.debug(f'Uploading file {file.filename}')
-        filepath = f'{asset_id}/{file.filename}'
+        filepath: str = f'{asset_id}/{file.filename}'
         await storage_driver.write(
             filepath, data=None,
             file_descriptor=file.file, storage_type=storage_type
         )
 
-        location = storage_driver.get_url(
+        location: str = storage_driver.get_url(
             filepath=filepath, storage_type=storage_type
         )
         locations.append(location)
+
+        cdn_url: str | None = None
+        if storage_type != StorageType.PRIVATE:
+            paths: Paths = member.paths
+            cdn_url_template: str = paths.PUBLIC_ASSET_CDN_URL
+            if storage_type == StorageType.RESTRICTED:
+                cdn_url_template = paths.RESTRICTED_ASSET_CDN_URL
+
+            cdn_url: str = cdn_url_template.format(
+                cdn_fqdn=server.cdn_fqdn,
+                cdn_origin_site_id=server.cdn_origin_site_id,
+                service_id=service_id, member_id=member.member_id,
+                asset_id=asset_id, filename=file.filename
+            )
+            cdn_urls.append(cdn_url)
 
     _LOGGER.debug(f'Returning info about file uploaded to {location}')
     return {
         'service_id': service_id,
         'asset_id': asset_id,
         'locations': locations,
+        'cdn_urls': cdn_urls
     }

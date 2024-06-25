@@ -88,6 +88,10 @@ async def main(argv) -> None:
 
     account: Account = await setup_account(sys.argv)
     server: PodServer = config.server
+
+    server.cdn_fqdn = data.get('cdn_fqdn')
+    server.cdn_origin_site_id = data.get('cdn_origin_site_id')
+
     cache_store: CacheStore = server.cache_store
     data_store: DataStore = server.data_store
 

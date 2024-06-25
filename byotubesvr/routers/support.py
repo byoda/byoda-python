@@ -20,7 +20,7 @@ from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
-router: APIRouter = APIRouter(prefix='/api/v1/support', dependencies=[])
+router: APIRouter = APIRouter(prefix='/api/v1/service/support', dependencies=[])
 
 LISTS: list[str] = ['creator-announcements']
 EMAIL_SALT: str = 'byotube'

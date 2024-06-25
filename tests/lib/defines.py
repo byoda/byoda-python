@@ -26,6 +26,7 @@ MODTEST_FQDN: str = 'modtest.byoda.io'
 MODTEST_APP_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')
 
 CDN_APP_ID: UUID = UUID('928ef3d7-f4fd-4b41-b6c8-2bc4a201b2e8')
+CDN_FQDN: str = 'cdn.byo.host'
 CDN_ORIGIN_SITE_ID: str | None = 'xx'
 
 AZURE_POD_ACCOUNT_ID: str = '6e31dd43-fc13-426f-a689-a401915c29cd'
@@ -56,6 +57,10 @@ HOME_POD_ACCOUNT_ID: str = '1dbe1eb8-0421-424f-b5bf-411265630ad4'
 HOME_POD_MEMBER_ID: str = 'b06e1928-57ef-4e22-a022-7c82be091674'
 HOME_POD_MEMBER_FQDN: str = f'{HOME_POD_MEMBER_ID}.members-{ADDRESSBOOK_SERVICE_ID}.byoda.net'
 HOME_POD_CUSTOM_DOMAIN: str = 'home.byoda.me'
+
+DATHES_POD_ACCOUNT_ID: str = ''
+DATHES_POD_MEMBER_ID: str = '83f94060-2648-4046-80f1-9a3eb189ca95'
+DATHES_POD_MEMBER_FQDN: str = f'{DATHES_POD_MEMBER_ID}.members-{BYOTUBE_SERVICE_ID}.byoda.net'
 
 TEST_IDS: dict[str, dict[str, str]] = {
     'azure': {

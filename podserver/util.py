@@ -43,6 +43,7 @@ def get_environment_vars() -> dict:
       - shared_webserver: bool
       - manage_custom_domain_cert: bool
       - cdn_app_id: str
+      - cdn_fqdn: str
       - cdn_origin_site_id: str
       - moderation_fqdn: str
       - moderation_app_id: str
@@ -71,6 +72,7 @@ def get_environment_vars() -> dict:
             os.environ.get('MANAGE_CUSTOM_DOMAIN_CERT') is not None,
         'roles': ['pod'],
         'cdn_app_id': os.environ.get('CDN_APP_ID'),
+        'cdn_fqdn': os.environ.get('CDN_FQDN'),
         'cdn_origin_site_id': os.environ.get('CDN_ORIGIN_SITE_ID'),
         'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
         'moderation_app_id': os.environ.get('MODERATION_APP_ID'),

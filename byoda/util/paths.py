@@ -127,12 +127,12 @@ class Paths:
     CDN_ORIGINS_API         = 'https://{fqdn}/api/v1/cdn/origins'                                                     # noqa
 
     # Content download URLs
-    RESTRICTED_ASSET_POD_URL = 'https://{custom_domain}/restricted/{asset_id}/{filename}'                                               # noqa
-    PUBLIC_ASSET_POD_URL     = 'https://{custom_domain}/public/{asset_id}/{filename}'                                                   # noqa
-    PUBLIC_THUMBNAIL_POD_URL = 'https://{custom_domain}/public/{asset_id}/{filename}{ext}'                                              # noqa
-    RESTRICTED_ASSET_CDN_URL = 'https://cdn.byo.host/restricted/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'    # noqa
-    PUBLIC_ASSET_CDN_URL     = 'https://cdn.byo.host/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
-    PUBLIC_THUMBNAIL_CDN_URL = 'https://cdn.byo.host/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}{ext}'   # noqa
+    RESTRICTED_ASSET_POD_URL = 'https://{custom_domain}/restricted/{asset_id}/{filename}'                                             # noqa
+    PUBLIC_ASSET_POD_URL     = 'https://{custom_domain}/public/{asset_id}/{filename}'                                                 # noqa
+    PUBLIC_THUMBNAIL_POD_URL = 'https://{custom_domain}/public/{asset_id}/{filename}{ext}'                                            # noqa
+    RESTRICTED_ASSET_CDN_URL = 'https://{cdn_fqdn}/restricted/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'    # noqa
+    PUBLIC_ASSET_CDN_URL     = 'https://{cdn_fqdn}/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}'        # noqa
+    PUBLIC_THUMBNAIL_CDN_URL = 'https://{cdn_fqdn}/public/{cdn_origin_site_id}/{service_id}/{member_id}/{asset_id}/{filename}{ext}'   # noqa
 
     def __init__(self, root_directory: str = _ROOT_DIR,
                  account: str = None,

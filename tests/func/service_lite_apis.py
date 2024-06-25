@@ -184,7 +184,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_mailinglist_apis(self) -> None:
         test_email_address: str = 'test_mailinglist_apis@test.com'
         listname: str = 'creator-announcements'
-        base_url: str = 'http://localhost:8000/api/v1/support'
+        base_url: str = 'http://localhost:8000/api/v1/service/support'
         async with AsyncClient(app=config.app) as client:
             resp: HttpResponse = await client.get(
                 f'{base_url}/subscribe', params={

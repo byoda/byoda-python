@@ -542,6 +542,7 @@ class MemberData(dict):
         all_data: list[edge_class_ref] = []
 
         if depth:
+            _LOGGER.debug('Got recursive query', extra=log_extra)
             remote_data: list[dict[str, object]] = \
                 await MemberData._get_data_from_pods_recursively(
                     member, class_name, query, sending_member_id

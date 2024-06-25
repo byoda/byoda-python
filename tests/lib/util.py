@@ -60,7 +60,8 @@ async def call_data_api(service_id: int, class_name: str,
                         data: dict[str, object] | None = None,
                         auth_header: str = None, expect_success: bool = True,
                         app: FastAPI = None, test=None, internal: bool = True,
-                        member: Member | None = None
+                        member: Member | None = None,
+                        remote_member_id: UUID | None = None,
                         ) -> dict[str, object] | int | None:
     '''
     Wrapper for REST Data API for test cases
@@ -89,6 +90,7 @@ async def call_data_api(service_id: int, class_name: str,
         service_id=service_id, class_name=class_name, action=action,
         first=first, after=after, depth=depth, fields=fields,
         data_filter=data_filter, data=data, member_id=member_id,
+        remote_member_id=remote_member_id,
         headers=auth_header, app=app, internal=internal
     )
 

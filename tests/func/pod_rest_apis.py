@@ -77,6 +77,8 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         config.disable_pubsub = True
 
         server: PodServer = config.server
+        server.cdn_fqdn = 'cdn.byo.host'
+        server.cdn_origin_site_id = 'xx'
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account: Account = await setup_account(
@@ -413,6 +415,20 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(location in expected_locations)
             self.assertTrue(os.path.exists(location))
 
+        expected_urls: list[str] = [
+            (
+                'https://cdn.byo.host/public/xx/4294929430'
+                f'/{member.member_id}/{asset_id}/ls.bin'
+            ),
+            (
+                'https://cdn.byo.host/public/xx/4294929430/'
+                f'{member.member_id}/{asset_id}/date.bin'
+            )
+        ]
+
+        for cdn_url in data['cdn_urls']:
+            self.assertTrue(cdn_url in expected_urls)
+
         asset_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
         API = (
             BASE_URL +
@@ -434,6 +450,20 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         for location in data['locations']:
             self.assertTrue(location in expected_locations)
             self.assertTrue(os.path.exists(location))
+
+        expected_urls: list[str] = [
+            (
+                'https://cdn.byo.host/restricted/xx/4294929430'
+                f'/{member.member_id}/{asset_id}/ls.bin'
+            ),
+            (
+                'https://cdn.byo.host/restricted/xx/4294929430/'
+                f'{member.member_id}/{asset_id}/date.bin'
+            )
+        ]
+
+        for cdn_url in data['cdn_urls']:
+            self.assertTrue(cdn_url in expected_urls)
 
     async def test_auth_token_request(self) -> None:
         account: Account = config.server.account

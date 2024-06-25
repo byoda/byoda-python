@@ -69,11 +69,16 @@ class App:
 
 
 class CdnApp(App):
-    def __init__(self, app_id: UUID, service: Service, cdn_origin_site_id: str
-                 ) -> None:
+    def __init__(self, app_id: UUID, service: Service, cdn_fqdn: str,
+                 cdn_origin_site_id: str) -> None:
         super().__init__(app_id, service)
 
         self.app_type = AppType.CDN
+
+        if not cdn_fqdn or not isinstance(cdn_fqdn, str):
+            raise ValueError('cdn_fqdn string is required')
+
+        self.cdn_fqdn: str = cdn_fqdn
 
         if not cdn_origin_site_id or not isinstance(cdn_origin_site_id, str):
             raise ValueError('cdn_origin_site_id string is required')

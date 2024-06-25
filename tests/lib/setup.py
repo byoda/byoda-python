@@ -38,6 +38,7 @@ from tests.lib.util import get_test_uuid
 from tests.lib.defines import MODTEST_FQDN
 from tests.lib.defines import MODTEST_APP_ID
 from tests.lib.defines import CDN_APP_ID
+from tests.lib.defines import CDN_FQDN
 from tests.lib.defines import CDN_ORIGIN_SITE_ID
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
@@ -77,6 +78,7 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     os.environ['MODERATION_FQDN'] = MODTEST_FQDN
     os.environ['MODERATION_APP_ID'] = str(MODTEST_APP_ID)
     os.environ['CDN_APP_ID'] = str(CDN_APP_ID)
+    os.environ['CDN_FQDN'] = CDN_FQDN
     os.environ['CDN_ORIGIN_SITE_ID'] = CDN_ORIGIN_SITE_ID
 
     with open('tests/collateral/local/test_postgres_db') as file_desc:
