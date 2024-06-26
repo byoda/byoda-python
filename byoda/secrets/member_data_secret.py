@@ -8,6 +8,7 @@ Cert manipulation for data of an account
 
 from uuid import UUID
 from copy import copy
+from typing import Self
 from typing import TypeVar
 from logging import getLogger
 from byoda.util.logger import Logger
@@ -31,7 +32,7 @@ Account = TypeVar('Account')
 
 
 class MemberDataSecret(DataSecret):
-    __slots__ = ['member_id', 'network', 'service_id']
+    __slots__: list[str] = ['member_id', 'network', 'service_id']
 
     def __init__(self, member_id: UUID, service_id: int,
                  account: Account | None = None):
@@ -60,7 +61,7 @@ class MemberDataSecret(DataSecret):
 
         network: Network = config.server.network
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = service_id
+        self.paths.service_id = service_id
 
         # secret.review_commonname requires self.network to be string
         self.network: str = config.server.network.name
@@ -142,7 +143,7 @@ class MemberDataSecret(DataSecret):
 
     @staticmethod
     async def download(member_id: UUID, service_id: int,
-                       network: Network | str):
+                       network: Network | str) -> Self:
         '''
         Downloads the member-data secret from the remote member
 
@@ -156,11 +157,11 @@ class MemberDataSecret(DataSecret):
         member_data_secret = MemberDataSecret(member_id, service_id)
 
         try:
-            url = Paths.resolve(
+            url: str = Paths.resolve(
                 Paths.MEMBER_DATACERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            cert_data = await DataSecret.download(
+            cert_data: str | None = await DataSecret.download(
                 member_data_secret, url, network_name=network
             )
             _LOGGER.debug(

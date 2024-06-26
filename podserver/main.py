@@ -165,7 +165,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
                 and network_data.get('cdn_origin_site_id')):
             cdn_app: CdnApp = CdnApp(
                 network_data['cdn_app_id'], member.service,
-                network_data.get['cdn_fqdn'],
+                network_data.get('cdn_fqdn'),
                 network_data.get('cdn_origin_site_id')
             )
             server.apps[cdn_app.app_id] = cdn_app

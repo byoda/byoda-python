@@ -9,10 +9,10 @@ Class for modeling a social network
 import os
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import passgen
 
+from httpx import Response
 
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
@@ -30,8 +30,11 @@ from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.service_secret import ServiceSecret
 
-from byoda.util.api_client.api_client import ApiClient
 from byoda.util.paths import Paths
+
+from byoda.util.api_client.api_client import ApiClient
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -340,7 +343,7 @@ class Network:
                 try:
                     await self.data_secret.load(with_private_key=False)
                 except FileNotFoundError:
-                    resp = await ApiClient.call(
+                    resp: Response = await ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )
                     if resp.status_code != 200:

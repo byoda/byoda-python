@@ -12,6 +12,7 @@ These tests use the BYO.Tube service and the 'Dathes' POD
 
 import os
 import sys
+
 import unittest
 
 from uuid import UUID
@@ -23,13 +24,9 @@ from fastapi import FastAPI
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
-from byoda.datatypes import IdType
 from byoda.datatypes import DataRequestType
 
-from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
-from byoda.util.api_client.api_client import HttpResponse
-from byoda.util.api_client.restapi_client import HttpMethod
 
 from byoda.servers.pod_server import PodServer
 
@@ -45,7 +42,7 @@ from podserver.routers import authtoken as AuthTokenRouter
 from podserver.routers import accountdata as AccountDataRouter
 
 from tests.lib.auth import get_member_auth_header
-
+from tests.lib.auth import get_pod_jwt
 from tests.lib.util import get_test_uuid
 from tests.lib.util import call_data_api
 
@@ -53,10 +50,9 @@ from tests.lib.setup import setup_network
 from tests.lib.setup import setup_account
 from tests.lib.setup import mock_environment_vars
 
-from tests.lib.defines import BASE_URL
 from tests.lib.defines import BYOTUBE_SERVICE_ID
 from tests.lib.defines import DATHES_POD_MEMBER_ID
-from tests.lib.defines import DATHES_POD_MEMBER_FQDN
+from tests.lib.defines import BASE_URL
 
 # Settings must match config.yml used by directory server
 NETWORK: str = config.DEFAULT_NETWORK
@@ -111,7 +107,94 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_pod_rest_data_api_recursive_append(self) -> None:
+    async def test_pod_rest_data_api_remote_append(self) -> None:
+        account: Account = config.server.account
+        service_id: int = BYOTUBE_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
+        member_id: UUID = member.member_id
+
+        member_auth_header: dict[str, str] = await get_member_auth_header(
+            service_id, APP, self
+        )
+
+        # First we add a comment to our own pod
+        comment: dict[str, str | UUID] = {
+            'message_id': get_test_uuid(),
+            'contents': 'This is a test comment',
+            'sender_id': member_id,
+            'created_timestamp': datetime.now(tz=UTC).isoformat(),
+        }
+
+        result: dict[str, object] | int | None = await call_data_api(
+            BYOTUBE_SERVICE_ID, 'messages', action=DataRequestType.APPEND,
+            data={'data': comment}, auth_header=member_auth_header, app=APP,
+            member=member
+        )
+
+        # Let's read back that comment from our own pod
+        self.assertEqual(result, 1)
+        data: dict[str, object] | int | None = await call_data_api(
+            BYOTUBE_SERVICE_ID, 'messages', action=DataRequestType.QUERY,
+            auth_header=member_auth_header, app=APP, member=member
+        )
+        self.assertIsNotNone(data)
+        self.assertEqual(data['total_count'], 1)
+        edge = data['edges'][0]
+        self.assertEqual(edge['origin'], str(member_id))
+        node = edge['node']
+        self.assertEqual(node['sender_id'], str(member_id))
+
+        # Add comment to remote pod 'dathes
+        comment = {
+            'message_id': get_test_uuid(),
+            'contents': 'This is a proxied test comment',
+            'sender_id': member_id,
+            'created_timestamp': datetime.now(tz=UTC).isoformat(),
+        }
+        result: dict[str, object] | int | None = await call_data_api(
+            BYOTUBE_SERVICE_ID, 'messages', action=DataRequestType.APPEND,
+            data={'data': comment}, auth_header=member_auth_header, app=APP,
+            member=member, depth=1, remote_member_id=DATHES_POD_MEMBER_ID
+        )
+        self.assertEqual(result, 1)
+
+        # Get the comments from the remote pod, should not include
+        # comments from our own pod
+        result: dict[str, object] | int | None = await call_data_api(
+            BYOTUBE_SERVICE_ID, 'messages', action=DataRequestType.QUERY,
+            auth_header=member_auth_header, member=member, app=APP,
+            depth=1, remote_member_id=DATHES_POD_MEMBER_ID
+        )
+        self.assertTrue(isinstance(result, dict))
+        self.assertGreaterEqual(result['total_count'], 1)
+        edges: list[dict[str, any]] = result['edges']
+
+        origins: set[str] = set([edge['node']['sender_id'] for edge in edges])
+        self.assertTrue(DATHES_POD_MEMBER_ID in origins)
+        self.assertTrue(str(member_id) in origins)
+
+        dathes_auth_header: str
+        pod_fqdn: str
+        dathes_auth_header, pod_fqdn = await get_pod_jwt(
+            account, 'dathes', TEST_DIR, DATHES_POD_MEMBER_ID,
+            BYOTUBE_SERVICE_ID
+        )
+
+        self.assertIsNotNone(dathes_auth_header)
+        self.assertIsNotNone(pod_fqdn)
+
+        dathes_member: Member = Member(
+            BYOTUBE_SERVICE_ID, account=account, member_id=DATHES_POD_MEMBER_ID
+        )
+        result: dict[str, object] | int | None = await call_data_api(
+            BYOTUBE_SERVICE_ID, 'messages', action=DataRequestType.DELETE,
+            auth_header=dathes_auth_header, member=dathes_member,
+            data_filter={'sender_id': {'eq': str(member_id)}},
+            internal=False
+        )
+        self.assertEqual(result, 1)
+
+    async def test_pod_rest_data_api_remote_member_query(self) -> None:
         account: Account = config.server.account
         service_id: int = BYOTUBE_SERVICE_ID
         member: Member = await account.get_membership(service_id)
@@ -158,6 +241,12 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(result)
         origins: set[str] = set([edge['origin'] for edge in result['edges']])
         self.assertFalse(member_id in origins)
+
+        await call_data_api(
+            BYOTUBE_SERVICE_ID, 'public_assets', action=DataRequestType.APPEND,
+            data={'data': asset}, auth_header=member_auth_header, app=APP,
+            member=member
+        )
 
 
 if __name__ == '__main__':

@@ -370,7 +370,11 @@ class ApiClient:
                 break
             except (RequestError, TransportError, SSLCertVerificationError
                     ) as exc:
-                raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
+                client.extra['api'] = api
+                _LOGGER.debug(
+                    f'Error connecting to: {exc}', extra=client.extra
+                )
+                raise ByodaRuntimeError(f'Error connecting to {api}')
             except RuntimeError as exc:
                 _LOGGER.debug(f'RuntimeError: {exc}', extra=client.extra)
                 if is_data_api_query and 'Event loop is closed' in str(exc):
@@ -384,6 +388,8 @@ class ApiClient:
                     data_dict: dict[str, object] = orjson.loads(processed_data)
                     data_dict['query_id'] = uuid4()
                     processed_data = orjson.dumps(data_dict)
+            except Exception as exc:
+                _LOGGER.debug(f'Exception: {exc}', extra=client.extra)
 
                 client.create_session()
                 if retries == 0:

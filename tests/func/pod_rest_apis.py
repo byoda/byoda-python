@@ -8,7 +8,7 @@ the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023, 2024
-:license
+:license    : GPLv3
 '''
 
 import os
@@ -717,5 +717,4 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
     unittest.main()

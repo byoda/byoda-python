@@ -188,7 +188,7 @@ class Paths:
         if '{account_id}' in path_template and not account_id:
             raise ValueError('No account specified')
 
-        path = path_template.format(
+        path: str = path_template.format(
             network=self._network,
             account=self._account,
             service_id=service_id,

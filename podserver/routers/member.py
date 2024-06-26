@@ -58,7 +58,11 @@ async def get_member(request: Request, service_id: int, auth: AuthDep):
     server: PodServer = config.server
     account: Account = server.account
 
-    _LOGGER.debug(f'GET Member API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'service_id': service_id,
+    }
+    _LOGGER.debug('GET Member API called', extra=log_data)
     await auth.authenticate(account)
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
@@ -69,6 +73,7 @@ async def get_member(request: Request, service_id: int, auth: AuthDep):
     member: Member = await account.get_membership(service_id)
 
     if not member:
+        _LOGGER.debug('Not a member of service', extra=log_data)
         raise HTTPException(
             status_code=404,
             detail=f'Not a member of service with ID {service_id}'
@@ -92,7 +97,12 @@ async def post_member(request: Request, service_id: int, version: int,
     server: PodServer = config.server
     account: Account = server.account
 
-    _LOGGER.debug(f'Post Member API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'service_id': service_id,
+        'schema_version': version,
+    }
+    _LOGGER.debug('Post Member API called', extra=log_data)
     await auth.authenticate(account)
 
     local_storage: FileStorage = server.local_storage
@@ -105,6 +115,7 @@ async def post_member(request: Request, service_id: int, version: int,
     member: Member = await account.get_membership(service_id)
 
     if member:
+        _LOGGER.debug('Already a member of the service', extra=log_data)
         raise HTTPException(
             status_code=409,
             detail=(
@@ -112,11 +123,11 @@ async def post_member(request: Request, service_id: int, version: int,
             )
         )
 
-    _LOGGER.debug(f'Joining service {service_id}')
+    _LOGGER.debug('Joining service', extra=log_data)
     # TODO: restart the gunicorn webserver when we join a service
     member = await account.join(service_id, version, local_storage)
 
-    _LOGGER.debug(f'Returning info about joined service {service_id}')
+    _LOGGER.debug('Returning info about joined service', extra=log_data)
     return member.as_dict()
 
 
@@ -134,7 +145,13 @@ async def put_member(request: Request, service_id: int, version: int,
     server: PodServer = config.server
     account: Account = server.account
 
-    _LOGGER.debug(f'Put Member API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'service_id': service_id,
+        'schema_version': version,
+    }
+
+    _LOGGER.debug('Put Member API called', extra=log_data)
     await auth.authenticate(account)
 
     # Authorization: handled by PodApiRequestsAuth, which checks the
@@ -144,17 +161,24 @@ async def put_member(request: Request, service_id: int, version: int,
     member: Member = await account.get_membership(service_id)
 
     if not member:
+        _LOGGER.debug('Not a member of service', extra=log_data)
         raise HTTPException(
             status_code=404,
             detail=f'Not a member of service with ID {service_id}'
         )
 
-    current_version = member.schema.version
+    current_version: int = member.schema.version
+    log_data['current_schema_version'] = current_version
     if current_version == version:
         if member.tls_secret and member.tls_secret.cert:
+            _LOGGER.debug('Updating registraton', extra=log_data)
             await member.update_registration()
             return member.as_dict()
         else:
+            _LOGGER.debug(
+                'Already a member of service with matching schema version',
+                extra=log_data
+            )
             raise HTTPException(
                 status_code=409,
                 detail=(
@@ -164,6 +188,7 @@ async def put_member(request: Request, service_id: int, version: int,
             )
 
     if current_version > version:
+        _LOGGER.debug('Can not downgrade membership', extra=log_data)
         raise HTTPException(
             status_code=409, detail=(
                 'Can not downgrade membership from version '
@@ -174,8 +199,9 @@ async def put_member(request: Request, service_id: int, version: int,
     # Get the latest list of services from the directory server
     await server.get_registered_services()
     network: Network = account.network
-    service_summary = network.service_summaries.get(service_id)
+    service_summary: dict[str, any] = network.service_summaries.get(service_id)
     if not service_summary:
+        _LOGGER.debug('Service not available in network', extra=log_data)
         raise HTTPException(
             status_code=404,
             detail=(
@@ -185,26 +211,33 @@ async def put_member(request: Request, service_id: int, version: int,
         )
 
     if service_summary['version'] != version:
+        log_data['network_version'] = service_summary['version']
+        _LOGGER.debug(
+            'Service version not available in network', extra=log_data
+        )
         raise HTTPException(
             status_code=404,
             detail=(
-                f'Version {version} for service {service_id} not known in '
-                'the network'
+                'Version for service not known in the network'
             )
         )
 
     service: Service = network.services.get(service_id)
     if not service:
-        raise ValueError(f'Service {service_id} not found in the membership')
+        _LOGGER.debug('Service not found in network', extra=log_data)
+        raise ValueError(f'Service {service_id} not found in the network')
 
     if not service.schema:
+        _LOGGER.debug('Schema for service not loaded', extra=log_data)
         raise ValueError(f'Schema for service {service_id} not loaded')
 
     if service.schema.version != version:
-        text = service.dowload_schema(save=False)
-        contract_data = orjson.loads(text)
+        text: str = service.dowload_schema(save=False)
+        contract_data: dict[str, any] = orjson.loads(text)
         contract_version = contract_data['version']
+        log_data['downloaded_schema_version'] = contract_version
         if contract_data['version'] != version:
+            _LOGGER.debug('Service version not available', extra=log_data)
             raise HTTPException(
                 status_code=404,
                 detail=(
@@ -220,7 +253,7 @@ async def put_member(request: Request, service_id: int, version: int,
 
         # We create a new instance of the Service as to make sure
         # we fully initialize all the applicable data structures
-        new_service = Service.get_service(network)
+        new_service: Service = await Service.get_service(network)
         network.services[service_id] = new_service
 
         # BUG: any additional workers also need to join the service
@@ -245,22 +278,31 @@ async def post_member_upload(request: Request, files: list[UploadFile],
     server: PodServer = config.server
     account: Account = server.account
 
-    _LOGGER.debug(f'Post Member Upload API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'service_id': service_id,
+        'asset_id': asset_id,
+        'visibility': visibility,
+        'file_count': len(files),
+    }
+    _LOGGER.debug('Post Member Upload API called', extra=log_data)
 
     await auth.authenticate(account, service_id=service_id)
+    log_data['authenticating_member_id'] = auth.member_id
 
     member: Member = await account.get_membership(service_id)
 
     if not member:
+        _LOGGER.debug('Not a member of service')
         raise HTTPException(status_code=401, detail='Authentication failure')
 
+    log_data['member_id'] = member.member_id
     # Authorization: handled by PodApiRequestsAuth, which checks the
     # cert / JWT was for an account and its member_id ID matches that
     # of the pod
     if auth.member_id != member.member_id:
         _LOGGER.warning(
-            f'Member REST API called by a member {auth.member_id}'
-            f'that is not us ({member.member_id})'
+            'Member REST API called by a different member', extra=log_data
         )
         raise HTTPException(
             status_code=401, detail='Authentication failure'
@@ -269,10 +311,7 @@ async def post_member_upload(request: Request, files: list[UploadFile],
     # Make sure we have the latest updates of memberships
     storage_driver: FileStorage = config.server.storage_driver
 
-    _LOGGER.debug(
-        f'Uploading {len(files)} files for asset {asset_id} for '
-        'service {service_id} with visibility {visibility}'
-    )
+    _LOGGER.debug('Uploading files', extra=log_data)
 
     if visibility in (VisibilityType.KNOWN, VisibilityType.PUBLIC):
         storage_type: StorageType = StorageType.PUBLIC
@@ -284,7 +323,8 @@ async def post_member_upload(request: Request, files: list[UploadFile],
     locations: list[str] = []
     cdn_urls: list[str] = []
     for file in files:
-        _LOGGER.debug(f'Uploading file {file.filename}')
+        log_data['provided_filename'] = file.filename
+        _LOGGER.debug('Uploading file', extra=log_data)
         filepath: str = f'{asset_id}/{file.filename}'
         await storage_driver.write(
             filepath, data=None,
@@ -311,7 +351,8 @@ async def post_member_upload(request: Request, files: list[UploadFile],
             )
             cdn_urls.append(cdn_url)
 
-    _LOGGER.debug(f'Returning info about file uploaded to {location}')
+    _LOGGER.debug('Returning info about uploaded file(s)', extra=log_data)
+
     return {
         'service_id': service_id,
         'asset_id': asset_id,
