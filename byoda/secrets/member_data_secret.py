@@ -83,7 +83,7 @@ class MemberDataSecret(DataSecret):
         self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBER_DATA
 
-    async def create(self, expire: int = 109500):
+    async def create(self, expire: int = 109500) -> None:
         '''
         Creates an RSA private key and X.509 cert
 
@@ -94,7 +94,7 @@ class MemberDataSecret(DataSecret):
 
         '''
 
-        common_name = MemberDataSecret.create_common_name(
+        common_name: str = MemberDataSecret.create_common_name(
             self.member_id, self.service_id, self.network
         )
         await super().create(
@@ -113,7 +113,7 @@ class MemberDataSecret(DataSecret):
                                 a private key or cert
         '''
 
-        common_name = MemberDataSecret.create_common_name(
+        common_name: str = MemberDataSecret.create_common_name(
             self.member_id, self.service_id, self.network
         )
 

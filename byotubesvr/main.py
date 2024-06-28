@@ -24,12 +24,21 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
+from byoda.datamodel.network import Network
+
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
 from byoda.datacache.channel_cache import ChannelCache
 
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.fastapi import setup_api
+
+from byoda.util.paths import Paths
 
 from byoda.util.logger import Logger
 
@@ -50,6 +59,7 @@ from byotubesvr.routers import account as AccountRouter
 from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
 from byotubesvr.routers import support as SupportRouter
+from byotubesvr.routers import proxy as ProxyRouter
 
 _LOGGER = None
 
@@ -128,6 +138,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         )
     config.jwt_asym_secrets = [(cert, key)]
 
+    # Setting up Byoda service and network needed for /api/v1/lite/proxy
+    network: Network = Network(svc_config['svcserver'], {})
+    network.paths = Paths(
+        network=network.name, root_directory=network.root_dir
+    )
+    root_ca = NetworkRootCaSecret(paths=network.paths)
+    await root_ca.load(with_private_key=False)
+    network.root_ca = root_ca
+
+    service_secret = ServiceSecret(
+        svc_config['svcserver']['service_id'], network
+    )
+    await service_secret.load(
+        password=svc_config['svcserver']['private_key_password']
+    )
+    config.service_secret = service_secret
+
     _LOGGER.info('Starting server')
 
     yield
@@ -153,6 +180,7 @@ app: FastAPI = setup_api(
         NetworkLinkRouter,
         AssetReactionRouter,
         SupportRouter,
+        ProxyRouter,
     ],
     lifespan=lifespan, trace_server=config.trace_server,
     cors=svc_config['svcserver']['cors_origins']

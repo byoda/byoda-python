@@ -41,6 +41,7 @@ AssetReactionStore = TypeVar('AssetReactionStore')
 FastAPI = TypeVar('FastAPI')
 AssetCache = TypeVar('AssetCache')
 ChannelCache = TypeVar('ChannelCache')
+Secret = TypeVar('Secret')
 
 # Enable various debugging options in the pod, including
 # whether the OpenAPI web pages should be enabled.
@@ -124,6 +125,9 @@ email_queue: Queue | None = None
 
 # (Symmetric) secrets for BYOtube.lite JWTs
 jwt_secrets: list[str] = []
+
+# Secret for calling APIs on pods
+service_secret: Secret | None = None
 
 # Assymetric secret for BYOTube.lite 3rd-party / App JWTs
 jwt_asym_secrets: list[tuple[x509.Certificate, RSAPrivateKey]] = []

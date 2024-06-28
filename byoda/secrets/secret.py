@@ -503,15 +503,15 @@ class Secret:
                 'Secret already has certificate and/or private key'
             )
 
-        if await self.storage_driver.exists(self.cert_file):
-            cert_data: str = await self.storage_driver.read(self.cert_file)
+        if await storage_driver.exists(self.cert_file):
+            cert_data: str = await storage_driver.read(self.cert_file)
             _LOGGER.debug(
                 f'Loading cert from {self.cert_file}, '
                 f'got {len(cert_data)} bytes'
             )
         else:
             filepath: str = "/".join(
-                self.storage_driver.get_full_path(self.cert_file)
+                storage_driver.get_full_path(self.cert_file)
             )
             raise FileNotFoundError(f'cert file not found: {filepath}')
 
@@ -554,7 +554,7 @@ class Secret:
                 _LOGGER.debug(
                     f'Reading private key from {self.private_key_file}'
                 )
-                data: str = await self.storage_driver.read(
+                data: str = await storage_driver.read(
                     self.private_key_file, file_mode=FileMode.BINARY
                 )
 

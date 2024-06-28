@@ -411,7 +411,8 @@ class MemberData(dict):
                   timestamp: float, origin_member_id: UUID,
                   origin_signature: Base64Str, signature_format_version: int,
                   query: QueryModel, remote_addr: str, auth: RequestAuth,
-                  class_ref: callable, edge_class_ref: callable
+                  class_ref: callable, edge_class_ref: callable,
+                  log_data: dict[str, any] = {}
                   ) -> list[EdgeResponse]:
         '''
         Extracts the requested data object.
@@ -442,32 +443,28 @@ class MemberData(dict):
         :param auth: provides information on the authentication for the request
         :param class_ref: the Pydantic-derived data class to validate the data
         :param edge_class_ref: the data class to normalize the results to
+        :param log_data: additional data to log
         :returns: list of 'edge responses', as defined in the Request Modeling
         Jinja templates for each data class
         :raises: ValueError
         '''
 
-        _LOGGER.debug(f'Got REST GET Data API query for {class_name}')
+        _LOGGER.debug('Got REST GET Data API query', extra=log_data)
 
         server: PodServer = config.server
 
         account: Account = server.account
         member: Member = await account.get_membership(service_id)
 
-        log_extra: dict[str, str | int | UUID] = {
-            'class': class_name, 'query_id': query_id,
-            'service_id': service_id, 'depth': depth,
-            'first': first, 'after': after,
-            'remote_member_id': remote_member_id,
-        }
-
         # We want to know who send us the query so that if we have to
         # proxy, we don't proxy the message back to the sender
         sending_member_id: UUID = auth.member_id
+        log_data['sending_member_id'] = sending_member_id
 
         if query_id:
-            _LOGGER.debug('Query received with query_id', extra=log_extra)
+            _LOGGER.debug('Query received with query_id', extra=log_data)
             if not await member.query_cache.set(query_id, auth.id):
+                _LOGGER.debug('Received duplicate query_id', extra=log_data)
                 raise ByodaValueError(f'Duplicate query id: {query_id}')
 
         if origin_member_id or origin_signature:
@@ -487,7 +484,7 @@ class MemberData(dict):
             if timestamp - datetime.now(timezone.utc) > QUERY_EXPIRATION:
                 _LOGGER.debug(
                     f'TTL of {RECURSIVE_QUERY_TTL} seconds expired, '
-                    'not proxying this request', extra=log_extra
+                    'not proxying this request', extra=log_data
                 )
                 depth = 0
         elif depth > 0:
@@ -506,7 +503,7 @@ class MemberData(dict):
 
         schema: Schema = member.schema
         data_class: SchemaDataItem = schema.data_classes[class_name]
-        _LOGGER.debug('Collecting data', extra=log_extra)
+        _LOGGER.debug('Collecting data', extra=log_data)
 
         filter_set = DataFilterSet(data_filter, data_class=data_class)
 
@@ -528,10 +525,7 @@ class MemberData(dict):
             required_fields = data_class.required_fields
         else:
             required_fields = None
-            _LOGGER.warning(
-                f'Unrecognized data structure {data_class.name}',
-                extra=log_extra
-            )
+            _LOGGER.warning('Unrecognized data structure', extra=log_data)
 
         if fields:
             # We intentionally do not update the query.fields before
@@ -542,10 +536,10 @@ class MemberData(dict):
         all_data: list[edge_class_ref] = []
 
         if depth:
-            _LOGGER.debug('Got recursive query', extra=log_extra)
+            _LOGGER.debug('Got recursive query', extra=log_data)
             remote_data: list[dict[str, object]] = \
                 await MemberData._get_data_from_pods_recursively(
-                    member, class_name, query, sending_member_id
+                    member, class_name, query, sending_member_id, log_data
                 )
             data_item: dict[str, object]
             for data_item in remote_data:
@@ -563,7 +557,8 @@ class MemberData(dict):
                 # Recursive queries specifying remote_member_id should
                 # not include data from our own pod so we're done here
                 _LOGGER.debug(
-                    'Got items from remote member', extra=log_extra
+                    'Got items from remote member',
+                    extra=log_data | {'items_retrieved': len(all_data)}
                 )
                 return all_data
 
@@ -576,9 +571,9 @@ class MemberData(dict):
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
-                log_extra['items_retrieved'] = len(data)
+                log_data['items_retrieved'] = len(data)
                 _LOGGER.debug(
-                    'Got items from the cache store', extra=log_extra
+                    'Got items from the cache store', extra=log_data
                 )
             else:
                 data_store: DataStore = server.data_store
@@ -586,9 +581,9 @@ class MemberData(dict):
                     member.member_id, data_class, filter_set,
                     first + 1, after, fields
                 ) or []
-                log_extra['items_retrieved'] = len(data)
+                log_data['items_retrieved'] = len(data)
                 _LOGGER.debug(
-                    'Got items from the data store', extra=log_extra
+                    'Got items from the data store', extra=log_data
                 )
 
         with TRACER.start_as_current_span('MemberData.get collect'):
@@ -602,14 +597,14 @@ class MemberData(dict):
                 )
                 # results for queries for 'objects' may not have a cursor
                 cursor: str = meta_data.get('cursor', '')
-                log_extra['cursor'] = cursor
+                log_data['cursor'] = cursor
                 edge_data = edge_class_ref(
                     cursor=cursor, origin=member.member_id, node=modeled_data
                 )
                 all_data.append(edge_data)
-                _LOGGER.debug('Adding item to results', extra=log_extra)
+                _LOGGER.debug('Adding item to results', extra=log_data)
 
-            _LOGGER.debug('Got total items from data', extra=log_extra)
+            _LOGGER.debug('Got total items from data', extra=log_data)
 
         return all_data
 
@@ -617,7 +612,8 @@ class MemberData(dict):
     @staticmethod
     async def _get_data_from_pods_recursively(
             member: Member, class_name: str, query: QueryModel,
-            sending_member_id: UUID) -> list[dict[str, object]]:
+            sending_member_id: UUID, log_data: dict[str, any]
+    ) -> list[dict[str, object]]:
         '''
         Gets data from other pods, as requested by recursive query
 
@@ -627,6 +623,7 @@ class MemberData(dict):
         :param class_name: the name of the class in the query
         :param query: the received query object
         :param sending_member_id: the member id of the member that sent the
+        :param log_data: additional data to log
         query
         '''
 
@@ -640,15 +637,16 @@ class MemberData(dict):
 
             query.origin_signature = proxy.create_signature(
                 member.service_id, query.relations, query.filter,
-                query.timestamp, query.origin_member_id
+                query.timestamp, query.origin_member_id, log_data=log_data
             )
 
         all_data: list[dict[str, any]] = await proxy.proxy_query_request(
-            class_name, query, sending_member_id
+            class_name, query, sending_member_id, log_data
         )
 
         _LOGGER.debug(
-            f'Collected {len(all_data)} items from the network'
+            'Collected items from the network',
+            extra=log_data | {'items': len(all_data)}
         )
 
         return all_data
@@ -679,10 +677,17 @@ class MemberData(dict):
         '''
 
         remote_addr: str = websocket.client.host
-
+        log_data: dict[str, any] = {
+            'remote_addr': remote_addr,
+            'data_class': class_name,
+            'service_id': service_id,
+            'depth': depth,
+            'query_id': query_id,
+            'auth_id': auth.id,
+            'auth_id_type': auth.id_type,
+        }
         _LOGGER.debug(
-            f'Received Data Updates API request for {class_name} '
-            f'from host {remote_addr}'
+            'Received Data Updates API request', extra=log_data
         )
 
         server: PodServer = config.server
@@ -705,7 +710,9 @@ class MemberData(dict):
             messages = await sub.recv(
                 expected_class_name=data_class.referenced_class.name
                 )
-            _LOGGER.debug(f'Received {len(messages or [])} messages')
+            _LOGGER.debug(
+                'Received messages', extra={'messages': len(messages)}
+            )
 
             message: PubSubDataMessage
             for message in messages or []:
@@ -721,7 +728,8 @@ class MemberData(dict):
                         data_class.referenced_class
                     )
                 _LOGGER.debug(
-                    f'Still have {len(filtered_items)} after filtering'
+                    'Still have items after filtering',
+                    extra=log_data | {'filtered_items': len(filtered_items)}
                 )
                 for item in filtered_items:
                     data = {
@@ -735,14 +743,16 @@ class MemberData(dict):
                         'hops': 0,
                     }
 
-                    _LOGGER.debug(f'Sending update for class {class_name}')
+                    _LOGGER.debug('Sending update for class', extra=log_data)
 
                     text: str = orjson.dumps(data).decode('utf-8')
                     try:
                         await websocket.send_text(text)
                     except (ConnectionClosedOK, ConnectionClosedError,
                             ClientDisconnected) as exc:
-                        _LOGGER.debug(f'WebSocket connection closed: {exc}')
+                        _LOGGER.debug(
+                            f'WebSocket connection closed: {exc}',
+                            extra=log_data)
                         return
 
     @staticmethod
@@ -767,10 +777,18 @@ class MemberData(dict):
         '''
 
         remote_addr: str = websocket.client.host
+        log_data: dict[str, any] = {
+            'remote_addr': remote_addr,
+            'data_class': class_name,
+            'service_id': service_id,
+            'depth': depth,
+            'query_id': query_id,
+            'auth_id': auth.id,
+            'auth_id_type': auth.id_type,
+        }
 
         _LOGGER.debug(
-            f'Received REST Data Updates API request for {class_name} '
-            f'from host {remote_addr}'
+            'Received REST Data Updates API request', extra=log_data
         )
 
         server: PodServer = config.server
@@ -799,7 +817,10 @@ class MemberData(dict):
         # TODO: never nest!
         while True:
             messages: list[dict[str, any]] = await sub.recv()
-            _LOGGER.debug(f'Received {len(messages or [])} messages')
+            _LOGGER.debug(
+                'Received messages',
+                extra=log_data | {'messages': len(messages)}
+            )
 
             for message in messages or []:
                 matches_filter = True
@@ -809,10 +830,11 @@ class MemberData(dict):
                             matches_filter = False
 
                 if not matches_filter:
-                    _LOGGER.debug('Message did not match filter')
+                    _LOGGER.debug(
+                        'Message did not match filter', extra=log_data)
                     continue
 
-                _LOGGER.debug('Message matched filter')
+                _LOGGER.debug('Message matched filter', extra=log_data)
 
                 counter_value: int = await counter_cache.get(
                     class_name, counter_filter
@@ -825,8 +847,9 @@ class MemberData(dict):
                     }
 
                     _LOGGER.debug(
-                        f'Sending counter update for {class_name} '
-                        f'with value {counter_value}'
+                        'Sending counter update for', extra=log_data | {
+                            'counter': counter_value
+                        }
                     )
 
                     text: str = orjson.dumps(data).decode('utf-8')
@@ -834,7 +857,10 @@ class MemberData(dict):
                         await websocket.send_text(text)
                     except (ConnectionClosedOK, ConnectionClosedError,
                             ClientDisconnected) as exc:
-                        _LOGGER.debug(f'WebSocket connection closed: {exc}')
+                        _LOGGER.debug(
+                            f'WebSocket connection closed: {exc}',
+                            extra=log_data
+                        )
                         return
 
     @staticmethod
@@ -842,7 +868,8 @@ class MemberData(dict):
     async def mutate(service_id, class_name: str, data: dict[str, object],
                      query_id: UUID, remote_addr: str, auth: RequestAuth,
                      origin_id: UUID | None = None,
-                     origin_id_type: IdType | None = None) -> int:
+                     origin_id_type: IdType | None = None,
+                     log_data: dict[str, any] = {}) -> int:
         '''
         Mutates the provided data for a dict
 
@@ -851,11 +878,14 @@ class MemberData(dict):
         :param mutate_data: the data to mutate
         :param remote_addr: host that originated the Data query
         :param auth: provides information on the authentication for the request
+        :param log_data: additional data to include in log messages
         :returns: number of items affected by the mutation
         :raises: ValueError
         '''
 
-        _LOGGER.debug(f'Got Rest Data API mutation for object {class_name}')
+        _LOGGER.debug(
+            'Got Rest Data API mutation for object', extra=log_data
+        )
 
         server: PodServer = config.server
         account: Account = server.account
@@ -872,17 +902,16 @@ class MemberData(dict):
         )
 
         return await MemberData.mutate_data(
-            server, member, class_name, data, origin_id, origin_id_type
+            server, member, class_name, data, origin_id, origin_id_type,
+            log_data=log_data
         )
 
     async def mutate_data(server: PodServer, member: Member, class_name: str,
                           data: dict[str, object], origin_id: UUID,
-                          origin_id_type: IdType) -> int:
+                          origin_id_type: IdType, log_data: dict[str, any] = {}
+                          ) -> int:
 
-        schema: Schema = member.schema
-        data_class: SchemaDataArray = schema.data_classes[class_name]
-
-        _LOGGER.debug(f'Mutating data for data_class {data_class.name}')
+        _LOGGER.debug('Mutating data for data_class', extra=log_data)
 
         data_store: DataStore = server.data_store
 
@@ -902,7 +931,8 @@ class MemberData(dict):
                      remote_addr: str, auth: RequestAuth,
                      origin_id: UUID | None = None,
                      origin_id_type: IdType | None = None,
-                     origin_class_name: str | None = None
+                     origin_class_name: str | None = None,
+                     log_data: dict[str, any] = {}
                      ) -> int:
         '''
         Appends the provided data
@@ -926,12 +956,13 @@ class MemberData(dict):
         not specified, auth.id_type will be used
         :param origin_class_name: the name of the class from which the data
         was sourced, used for cache-only data classes
+        :param log_data: additional data for logging messages
         :returns: the number of objects appended
         :raises: ValueError
         '''
 
         _LOGGER.debug(
-            f'Got REST Data API call to append to {class_name}'
+            'Got REST Data API call to append', extra=log_data
         )
 
         server: PodServer = config.server
@@ -967,8 +998,7 @@ class MemberData(dict):
 
         if remote_member_id and remote_member_id != member.member_id:
             _LOGGER.debug(
-                'Received append request with remote member ID: '
-                f'{remote_member_id} and depth {depth}'
+                'Received remote-append request', extra=log_data
             )
             if depth != 1:
                 raise ValueError(
@@ -988,7 +1018,7 @@ class MemberData(dict):
 
         result: int = await MemberData.append_data(
             server, member, class_name, data, origin_id, origin_id_type,
-            origin_class_name
+            origin_class_name, log_data=log_data
         )
 
         return result
@@ -996,7 +1026,8 @@ class MemberData(dict):
     @staticmethod
     async def append_data(server: PodServer, member: Member, class_name: str,
                           data: dict[str, object], origin_id: UUID,
-                          origin_id_type: IdType, origin_class_name: str
+                          origin_id_type: IdType, origin_class_name: str,
+                          log_data: dict[str, any] = {}
                           ) -> int:
         '''
         Appends the data to the table for the class, updates counters,
@@ -1012,6 +1043,7 @@ class MemberData(dict):
         not specified, auth.id_type will be used
         :param origin_class_name: the name of the class from which the data was
         sourced, used for cache-only data classes
+        :param log_data: additional data for logging messages
         :returns: the number of objects appended
         :raises: ValueError
         '''
@@ -1026,7 +1058,7 @@ class MemberData(dict):
                 'classes'
             )
 
-        _LOGGER.debug(f'Appending data for data_class {data_class.name}')
+        _LOGGER.debug('Appending data', extra=log_data)
 
         required_field_names: list[str] = \
             await MemberData.get_required_field_names(
@@ -1039,7 +1071,7 @@ class MemberData(dict):
 
         if data_class.cache_only:
             _LOGGER.debug(
-                f'Using cache for read-only class {data_class.name}'
+                'Using cache for read-only class', extra=log_data
             )
             cache_store: CacheStore = server.cache_store
             object_count: int = await cache_store.append(
@@ -1057,7 +1089,10 @@ class MemberData(dict):
             table: Table = data_store.get_table(member_id, class_name)
 
         if config.debug and config.disable_pubsub:
-            _LOGGER.debug('Not performing pubsub updates for test cases')
+            _LOGGER.debug(
+                'Not performing pubsub updates for test cases',
+                extra=log_data
+            )
             return object_count
 
         # Update the counter for the top-level array
@@ -1085,7 +1120,7 @@ class MemberData(dict):
         else:
             _LOGGER.debug(
                 'Not sending PubSubAppend message as there is no pubsub '
-                'instance'
+                'instance', extra=log_data
             )
 
         return object_count
@@ -1099,7 +1134,8 @@ class MemberData(dict):
                      remote_addr: str, auth: RequestAuth,
                      origin_id: UUID | None = None,
                      origin_id_type: IdType | None = None,
-                     origin_class_name: str | None = None) -> int:
+                     origin_class_name: str | None = None,
+                     log_data: dict[str, any] = {}) -> int:
         '''
         Updates the data matching the filter
 
@@ -1119,6 +1155,7 @@ class MemberData(dict):
         not specified, auth.id_type will be used
         :param origin_class_name: the name of the class from which the data
         was sourced, used for cache-only data classes
+        :param log_data: additional data for logging messages
         :returns: the number of objects updated
         :raises: ValueError
         '''
@@ -1133,8 +1170,7 @@ class MemberData(dict):
             raise ValueError('Remote updates are not supported yet')
 
         _LOGGER.debug(
-            f'Got REST Data API call to update {class_name} '
-            f'from {auth.id_type}:{auth.id}'
+            'Got REST Data API call to update', extra=log_data
         )
 
         server: PodServer = config.server
@@ -1159,7 +1195,7 @@ class MemberData(dict):
 
         return await MemberData.update_data(
             server, member, data_class, data, data_filter_set,
-            origin_id, origin_id_type, origin_class_name
+            origin_id, origin_id_type, origin_class_name, log_data
         )
 
     @staticmethod
@@ -1167,7 +1203,8 @@ class MemberData(dict):
                           data_class: SchemaDataArray, data: dict[str, object],
                           data_filter_set: DataFilterSet,
                           origin_id: UUID, origin_id_type: IdType,
-                          origin_class_name) -> int:
+                          origin_class_name, log_data: dict[str, any] = {}
+                          ) -> int:
         '''
         Performs the actual update to the data
 
@@ -1179,16 +1216,18 @@ class MemberData(dict):
         :param origin_id_type: the ID type from which the data originates.
         :param origin_class_name: the name of the class from which the data
         was sourced, used for cache-only data classes
+        :param log_data: additional info to add to log messages
         :returns: the number of objects updated
         :raises: ValueError
         '''
 
-        _LOGGER.debug('Received update request with no remote member ID')
-
         member_id: UUID = member.member_id
         service_id: int = member.service_id
 
-        _LOGGER.debug(f'Updating data for data_class {data_class.name}')
+        _LOGGER.debug(
+            'Received update request with no remote member ID',
+            extra=log_data
+        )
 
         required_field_names: list[str] = \
             await MemberData.get_required_field_names(
@@ -1206,7 +1245,7 @@ class MemberData(dict):
 
         if data_class.cache_only:
             _LOGGER.debug(
-                f'Using cache for read-only class {data_class.name}'
+                'Using cache for read-only class', extra=log_data
             )
             cache_store: CacheStore = server.cache_store
             object_count: int = await cache_store.mutate(
@@ -1220,9 +1259,10 @@ class MemberData(dict):
                 origin_id, origin_id_type, data_filter_set
             )
 
+        log_data['objects_updated'] = object_count
         _LOGGER.debug(
-            f'Saving {len(update_data or [])} fields of data after mutation '
-            f'of {data_class.name}'
+            'Saving fields of data after mutation',
+            extra=log_data | {'fields': len(update_data or [])}
         )
 
         if object_count == 0:
@@ -1247,7 +1287,7 @@ class MemberData(dict):
     async def delete(service_id: int, class_name: str,
                      data_filter: DataFilterType, query_id: UUID,
                      remote_member_id: UUID, depth: int, remote_addr: str,
-                     auth: RequestAuth) -> int:
+                     auth: RequestAuth, log_data: dict[str, any] = {}) -> int:
         '''
         Deletes one or more objects from an array.
 
@@ -1263,10 +1303,11 @@ class MemberData(dict):
         :param remote_addr: host that originated the Data query
         :param auth: provides information on the authentication for the request
         :param filters: filters to select the data to be deleted
+        :param log_data: additional data to include in log messages
         :returns: number of objects deleted
         '''
 
-        _LOGGER.debug(f'Got Rest Data Delete API invocation for {class_name}')
+        _LOGGER.debug('Got Rest Data Delete API invocation', extra=log_data)
 
         if not data_filter:
             raise ValueError(
@@ -1295,14 +1336,15 @@ class MemberData(dict):
         )
 
         result: int = await MemberData.delete_data(
-            server, member, data_class, data_filter_set
+            server, member, data_class, data_filter_set, log_data=log_data
         )
         return result
 
     @staticmethod
     async def delete_data(server: PodServer, member: Member,
                           data_class: SchemaDataItem,
-                          data_filter: DataFilterSet) -> int:
+                          data_filter: DataFilterSet,
+                          log_data: dict[str, any] = {}) -> int:
         '''
         Deletes the data and updates counters.
 
@@ -1312,16 +1354,17 @@ class MemberData(dict):
         :param member: our membership
         :param data_class: the data class for which to delete data
         :param data_filter: the filter to select the data to be deleted
+        :param log_data: additional data for logging messages
         :returns: number of objects deleted
         '''
 
-        _LOGGER.debug(f'Deleting data for data_class {data_class.name}')
+        _LOGGER.debug('Deleting data for data_class', extra=log_data)
 
         member_id: UUID = member.member_id
 
         if data_class.cache_only:
             _LOGGER.debug(
-                f'Using cache for read-only class {data_class.name}'
+                'Using cache for read-only class', extra=log_data
             )
             cache_store: CacheStore = server.cache_store
             object_count: int = await cache_store.delete(
@@ -1336,7 +1379,9 @@ class MemberData(dict):
             table: Table = data_store.get_table(member_id, data_class.name)
 
         if config.debug and config.disable_pubsub:
-            _LOGGER.debug('Not performing pubsub updates for test-cases')
+            _LOGGER.debug(
+                'Not performing pubsub updates for test-cases', extra=log_data
+            )
             return object_count
 
         # Update the counter for the top-level array
@@ -1367,8 +1412,9 @@ class MemberData(dict):
             )
             if counter_data_filter and filter_value:
                 _LOGGER.debug(
-                    f'Filtering on counter field {field.name} with '
-                    f'value {filter_value}'
+                    'Filtering on counter field', extra=log_data | {
+                        'field': field.name, 'value': filter_value
+                    }
                 )
                 filter_data[field.name] = filter_value
 
@@ -1412,9 +1458,17 @@ class MemberData(dict):
         '''
 
         # TODO: create test cases for this code
-        keys = MemberData._get_counter_key_permutations(data_class, data)
+        keys: set[str] = MemberData._get_counter_key_permutations(
+            data_class, data
+        )
+        log_data: dict[str, any] = {
+            'data_class': data_class.name,
+            'delta': delta,
+            'keys': len(keys),
+        }
         for key in keys:
-            _LOGGER.debug(f'Updating counter {key} for append')
+            log_data['key'] = key
+            _LOGGER.debug('Updating counter for append', extra=log_data)
             await counter_cache.update(key, delta, table)
 
     @staticmethod
@@ -1433,7 +1487,7 @@ class MemberData(dict):
         referenced_class: SchemaDataObject = data_class.referenced_class
         counter_fields = []
         if referenced_class:
-            counter_fields = [
+            counter_fields: list[str] = [
                 field.name for field in referenced_class.fields.values()
                 if field.is_counter and (not data or data.get(field.name))
             ]

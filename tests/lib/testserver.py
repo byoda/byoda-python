@@ -102,8 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ### Test change     # noqa: E266
     ###
-    config.test_case = "TEST_SERVER"
-
+    config.test_case = "TEST_CLIENT"
     if data['root_dir']:
         try:
             shutil.rmtree(data['root_dir'])

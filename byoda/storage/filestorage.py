@@ -13,13 +13,15 @@ import os
 import shutil
 
 from enum import Enum
+from typing import Self
 from typing import BinaryIO
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import StorageType
 from byoda.datatypes import ContentTypesByExtension
+
+from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -52,23 +54,27 @@ class FileStorage:
         # is derived from one of the cloud-storage classes
         self.cloud_type: CloudType = cloud_type
 
+        self.local_path: str
         if cloud_type != CloudType.LOCAL:
             if local_path:
-                self.local_path: str = '/' + local_path.strip('/') + '/'
+                self.local_path = '/' + local_path.strip('/') + '/'
             else:
-                self.local_path: str = '/tmp/'
+                self.local_path = '/tmp/'
         else:
-            if not local_path:
+            if local_path is None:
                 raise ValueError('Must specify local path')
+            elif not local_path:
+                self.local_path = ''
+            else:
+                self.local_path = '/' + local_path.strip('/') + '/'
 
-            self.local_path: str = '/' + local_path.strip('/') + '/'
+        if self.local_path:
+            os.makedirs(self.local_path, exist_ok=True)
 
-        os.makedirs(self.local_path, exist_ok=True)
-
-        _LOGGER.debug('Initialized file storage under %s', self.local_path)
+        _LOGGER.debug(f'Initialized file storage under {self.local_path}')
 
     @staticmethod
-    async def setup(root_dir: str):
+    async def setup(root_dir: str) -> Self:
         '''
         Factory for FileStorage
 
@@ -80,7 +86,7 @@ class FileStorage:
 
     @staticmethod
     async def get_storage(cloud: CloudType, private_bucket, restricted_bucket,
-                          public_bucket, root_dir: str):
+                          public_bucket, root_dir: str) -> Self:
         '''
         Factory for FileStorage and classes derived from it
 
