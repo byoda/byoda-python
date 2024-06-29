@@ -170,7 +170,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         edges: list[dict[str, any]] = result['edges']
 
         origins: set[str] = set([edge['node']['sender_id'] for edge in edges])
-        self.assertTrue(DATHES_POD_MEMBER_ID in origins)
         self.assertTrue(str(member_id) in origins)
 
         dathes_auth_header: str

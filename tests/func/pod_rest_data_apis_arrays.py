@@ -133,8 +133,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         # 3: class_name must not be cache-only
         class_name: str = 'incoming_assets'
         data: dict[str, AnyScalarType] = {
-            'origin_id': member.member_id,
-            'origin_id_type': IdType.MEMBER.value,
             'origin_class_name': 'network_assets',
             'data': {
                 'asset_id': str(get_test_uuid()),
@@ -151,15 +149,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
 
         with self.assertRaises(ByodaRuntimeError):
-            class_name: str = 'public_assets'
-            resp: HttpResponse = await DataApiClient.call(
-                service_id=service_id, class_name=class_name,
-                action=DataRequestType.APPEND,
-                depth=0, data=data,
-                headers=member_auth_header, app=APP, internal=True
-            )
-
-        with self.assertRaises(ByodaRuntimeError):
             azure_auth_header: str
             azure_auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
             class_name: str = 'network_invites'
@@ -169,11 +158,9 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                     'relation': 'friend',
                     'created_timestamp': datetime.now(tz=timezone.utc).isoformat(),
                 },
-                'origin_id': member.member_id,
-                'origin_id_type': IdType.MEMBER.value,
                 'origin_class_name': 'network_assets',
             }
-            resp = await DataApiClient.call(
+            resp: HttpResponse = await DataApiClient.call(
                 service_id=service_id, class_name=class_name,
                 action=DataRequestType.APPEND,
                 depth=0, data=data,

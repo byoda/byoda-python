@@ -253,18 +253,6 @@ class AppendModel(BaseModel, Generic[TypeX]):
             'if the member of the request is the member of the pod'
         )
     )
-    origin_id: UUID | None = Field(
-        default=None, description=(
-            'The UUID from which the data originates, if specified, must be '
-            'the ID used for authentication'
-        )
-    )
-    origin_id_type: IdType | None = Field(
-        default=None, description=(
-            'The IdType of the UUID from which the data originates, it must '
-            'match the IdType used for the authentication'
-        )
-    )
 
 
 class ProxyAppendModel(BaseModel, Generic[TypeX]):

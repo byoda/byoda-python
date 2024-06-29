@@ -948,10 +948,6 @@ class MemberData(dict):
         can be proxied to another pod
         :param remote_addr: host that originated the Data query
         :param auth: provides information on the authentication for the request
-        :param origin_id: the id of the member, service, or app from which the
-        data was sourced, used for cache-only data classes
-        :param origin_id_type: the ID type from which the data originates. If
-        not specified, auth.id_type will be used
         :param origin_class_name: the name of the class from which the data
         was sourced, used for cache-only data classes
         :param log_data: additional data for logging messages
@@ -969,24 +965,6 @@ class MemberData(dict):
 
         remote_member_id: UUID | None = append_model.remote_member_id
         depth: int = append_model.depth
-
-        if bool(append_model.origin_id) != bool(append_model.origin_id_type):
-            raise ByodaValueError(
-                'Both origin_id and origin_id_type must both be set or both '
-                'must not be set'
-            )
-
-        if (append_model.origin_id and (
-                append_model.origin_id != auth.id
-                or append_model.origin_id_type != auth.id_type)):
-            raise ByodaValueError(
-                'The provided origin_id and origin_id_type must match the '
-                'auth_id and auth_id_type'
-            )
-
-        if not append_model.origin_id:
-            append_model.origin_id = auth.id
-            append_model.origin_id_type = auth.id_type
 
         await member.data.add_log_entry(
             remote_addr, auth, DataRequestType.APPEND, 'REST Data', class_name,
@@ -1014,7 +992,7 @@ class MemberData(dict):
             raise ValueError('Must specify depth=0 for appending locally')
 
         result: int = await MemberData.append_data(
-            server, member, class_name, data, origin_id, origin_id_type,
+            server, member, class_name, data, auth.id, auth.id_type,
             origin_class_name, log_data=log_data
         )
 

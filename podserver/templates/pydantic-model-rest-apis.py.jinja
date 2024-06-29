@@ -212,8 +212,6 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
         'depth': append.depth,
         'remote_member_id': append.remote_member_id,
         'origin_class_name': append.origin_class_name,
-        'origin_id': append.origin_id,
-        'origin_id_type': append.origin_id_type,
         'auth_id': auth.id,
         'auth_id_type': auth.id_type,
     }
@@ -235,7 +233,7 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
             {{ data_class.service_id }}, '{{ data_class.name }}',
             append.query_id, append.depth, append.remote_member_id,
             append.data.model_dump(), append, host, auth,
-            append.origin_id, append.origin_id_type, append.origin_class_name,
+            append.origin_class_name,
             log_data=log_data
         )
     except ByodaValueError as exc:
