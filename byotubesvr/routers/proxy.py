@@ -84,13 +84,15 @@ async def append_proxy(request: Request, append: ProxyAppendModel,
 
     secret: Secret = config.service_secret
 
+    append_data = append.data
     resp: HttpResponse = await DataApiClient.call(
         config.SERVICE_ID, append.data_class, DataRequestType.APPEND,
-        data=append.model_dump(), secret=secret,
-        member_id=query.remote_member_id
+        query_id=append.query_id,
+        data={'data': append_data}, secret=secret,
+        member_id=append.remote_member_id
     )
     if resp.status_code != 200:
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    data = resp.json()
-    return data
+
+    return resp.text
 

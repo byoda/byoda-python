@@ -268,7 +268,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             # Let's switch to the 'messages' data_class, first we
             # query, then we append and then we query again
             data_class = 'messages'
-            base_url: str = 'http://localhost:8000/api/v1/lite/proxy'
             resp: HttpResponse = await client.post(
                 f'{base_url}/query', headers=auth_header, json={
                     'data_class': data_class,
@@ -281,6 +280,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(isinstance(data, dict))
             self.assertTrue('total_count' in data)
 
+            sender_id: str = str(get_test_uuid())
+            message_id: str = str(get_test_uuid())
+            resp: HttpResponse = await client.post(
+                f'{base_url}/append', headers=auth_header, json={
+                    'data_class': data_class,
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data': {
+                        'sender_id': sender_id,
+                        'message_id': message_id,
+                        'created_timestamp': datetime.now(tz=UTC).isoformat(),
+                        'contents': 'Test message'
+
+                    }
+                }
+            )
+            self.assertEqual(resp.status_code, 201)
 
     async def test_mailinglist_apis(self) -> None:
         test_email_address: str = 'test_mailinglist_apis@test.com'

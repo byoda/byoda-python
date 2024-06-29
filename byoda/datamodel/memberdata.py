@@ -937,8 +937,6 @@ class MemberData(dict):
         '''
         Appends the provided data
 
-        Only the this membership is allowed to call this API specifying
-        the origin_id, origin_id_type and origin_class_name fields.
 
         :param service_id: Service ID for which the Data API was called
         :param class_name: the name of the data class to which to append
@@ -972,24 +970,23 @@ class MemberData(dict):
         remote_member_id: UUID | None = append_model.remote_member_id
         depth: int = append_model.depth
 
-        if ((origin_id or origin_class_name) and
-                (auth.id != member.member_id
-                    or auth.id_type != IdType.MEMBER)):
+        if bool(append_model.origin_id) != bool(append_model.origin_id_type):
             raise ByodaValueError(
-                'Only the member itself can specify origin_id, origin_id_type '
-                'or origin_class_name'
+                'Both origin_id and origin_id_type must both be set or both '
+                'must not be set'
             )
 
-        if (origin_id or origin_class_name) and (depth or remote_member_id):
+        if (append_model.origin_id and (
+                append_model.origin_id != auth.id
+                or append_model.origin_id_type != auth.id_type)):
             raise ByodaValueError(
-                'origin_id, origin_id_type, and origin_class_name can not be '
-                'specified together with depth > 0 or remote_member_id'
+                'The provided origin_id and origin_id_type must match the '
+                'auth_id and auth_id_type'
             )
 
-        if not origin_id:
-            origin_id = auth.id
-        if not origin_id_type:
-            origin_id_type = auth.id_type
+        if not append_model.origin_id:
+            append_model.origin_id = auth.id
+            append_model.origin_id_type = auth.id_type
 
         await member.data.add_log_entry(
             remote_addr, auth, DataRequestType.APPEND, 'REST Data', class_name,

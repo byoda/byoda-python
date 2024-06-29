@@ -226,7 +226,8 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
         _LOGGER.debug('Authentication failed', extra=log_data)
         raise HTTPException(status_code=400, detail='Authentication failed')
 
-    _LOGGER.debug('Received append request', extra=log_data)
+    _LOGGER.debug('Received authenticated append request', extra=log_data)
+
     # We transmit the AppendModel as-is to MemberData.append() because it may
     # proxy the request if depth > 0
     try:
