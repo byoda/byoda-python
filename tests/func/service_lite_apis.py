@@ -275,6 +275,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(isinstance(paged_data, dict))
             self.assertTrue('total_count' in paged_data)
 
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data_filter': {
+                        'ingest_status': {'eq': 'published'}
+                    },
+                    'after': data['page_info']['end_cursor']
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            paged_data = resp.json()
+            self.assertIsNotNone(paged_data)
+            self.assertTrue(isinstance(paged_data, dict))
+            self.assertTrue('total_count' in paged_data)
+
             # Let's switch to the 'messages' data_class, first we
             # query, then we append and then we query again
             data_class = 'messages'
@@ -306,6 +322,22 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                 }
             )
             self.assertEqual(resp.status_code, 201)
+
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data_filter': {
+                        'message_asset_class': {'eq': 'public_assets'}
+                    },
+                    'after': data['page_info']['end_cursor']
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            paged_data = resp.json()
+            self.assertIsNotNone(paged_data)
+            self.assertTrue(isinstance(paged_data, dict))
+            self.assertTrue('total_count' in paged_data)
 
     async def test_mailinglist_apis(self) -> None:
         test_email_address: str = 'test_mailinglist_apis@test.com'

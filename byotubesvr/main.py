@@ -26,6 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from byoda.datamodel.network import Network
 
+from byoda.storage.filestorage import FileStorage
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
@@ -33,6 +34,8 @@ from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+
+from byoda.servers.server import Server
 
 from byoda.util.fastapi import setup_api
 
@@ -157,6 +160,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         password=svc_config['svcserver']['private_key_password']
     )
     config.service_secret = service_secret
+
+    storage_driver: FileStorage = FileStorage(network.root_dir)
+
+    config.server = Server(network)
+    config.server.local_storage = storage_driver
+    config.server.network = network
 
     _LOGGER.info('Starting server')
 
