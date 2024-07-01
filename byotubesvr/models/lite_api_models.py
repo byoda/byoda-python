@@ -17,7 +17,25 @@ from pydantic import Field
 from pydantic import BaseModel
 from pydantic import HttpUrl
 
-from byoda.models.data_api_models import Claim as ClaimModel
+
+class SettingsRequestModel(BaseModel):
+    nick: str = Field(
+        default=None, max_length=24, pattern=r'^[a-zA-Z0-9_\-\.]*$',
+        description='The nickname of the BYO.Tube-lite account'
+    )
+    show_external_assets: bool | None = Field(
+        default=None, description='Show videos streaming from other platforms'
+    )
+
+
+class SettingsResponseModel(BaseModel):
+    nick: str = Field(
+        default=None, max_length=24, pattern=r'^[a-zA-Z0-9_\-\.]*$',
+        description='The nickname of the BYO.Tube-lite account'
+    )
+    show_external_assets: bool | None = Field(
+        default=None, description='Show videos streaming from other platforms'
+    )
 
 
 class NetworkLinkRequestModel(BaseModel):

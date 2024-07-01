@@ -62,6 +62,7 @@ from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 
 from byotubesvr.database.network_link_store import NetworkLinkStore
 from byotubesvr.database.asset_reaction_store import AssetReactionStore
+from byotubesvr.database.settings_store import SettingsStore
 
 from byotubesvr.database.sql import SqlStorage
 
@@ -71,6 +72,7 @@ from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
 from byotubesvr.routers import support as SupportRouter
 from byotubesvr.routers import proxy as ProxyRouter
+from byotubesvr.routers import settings as SettingsRouter
 
 from byotubesvr.routers.support import EMAIL_SALT
 from byotubesvr.routers.support import SUBSCRIPTIONS_FILE
@@ -146,6 +148,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await asset_reaction_store.client.flushall()
         config.asset_reaction_store = asset_reaction_store
 
+        settings_store = SettingsStore(
+            svc_config['svcserver']['lite_store']
+        )
+        await settings_store.client.flushall()
+        config.settings_store = settings_store
+
         network_data: dict[str, str] = {
             'root_dir': '/',
             'private_key_password': 'dummy',
@@ -183,6 +191,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             [
                 StatusRouter,
                 AccountRouter,
+                SettingsRouter,
                 NetworkLinkRouter,
                 AssetReactionRouter,
                 SupportRouter,
@@ -225,6 +234,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await FastAPILimiter.close()
         await config.email_queue.close()
         await ApiClient.close_all()
+        await config.settings_store.close()
         await config.network_link_store.close()
         await config.asset_reaction_store.close()
 
@@ -643,6 +653,48 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 page_info.end_cursor, network_link.network_link_id
             )
+
+            # Get the membership settings for the Lite account
+            settings_url: str = f'{BASE_URL}/api/v1/lite/settings'
+            resp: HttpResponse = await client.get(
+                f'{settings_url}/member', headers=auth_header
+            )
+            self.assertEqual(resp.status_code, 404)
+
+            nick: str = 'test_nick'
+            show_external_assets: bool = True
+            resp: HttpResponse = await client.patch(
+                f'{settings_url}/member',
+                json={
+                    'nick': nick,
+                    'show_external_assets': show_external_assets
+                },
+                headers=auth_header,
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.text.lower(), 'true')
+
+            resp: HttpResponse = await client.get(
+                f'{settings_url}/member',
+                headers=auth_header
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['nick'], nick)
+            self.assertEqual(
+                data['show_external_assets'], show_external_assets
+            )
+
+            resp: HttpResponse = await client.patch(
+                f'{settings_url}/member',
+                json={
+                    'nick': nick,
+                    'show_external_assets': show_external_assets
+                },
+                headers=auth_header,
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.text.lower(), 'false')
 
             # Get a network_link based on member_id
             resp: HttpResponse = await client.get(

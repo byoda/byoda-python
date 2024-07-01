@@ -34,8 +34,6 @@ from byoda.datacache.channel_cache import ChannelCache
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 
-from byoda.storage.filestorage import FileStorage
-
 from byoda.util.fastapi import setup_api
 
 from byoda.util.paths import Paths
@@ -46,6 +44,7 @@ from byoda import config
 
 from .database.sql import SqlStorage
 
+from .database.settings_store import SettingsStore
 from .database.network_link_store import NetworkLinkStore
 from .database.asset_reaction_store import AssetReactionStore
 
@@ -60,6 +59,7 @@ from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
 from byotubesvr.routers import support as SupportRouter
 from byotubesvr.routers import proxy as ProxyRouter
+from byotubesvr.routers import settings as SettingsRouter
 
 _LOGGER = None
 
@@ -118,6 +118,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config.asset_reaction_store = AssetReactionStore(
         svc_config['svcserver']['lite_store']
     )
+    config.settings_store = SettingsStore(
+        svc_config['svcserver']['lite_store']
+    )
 
     redis_connection: redis.Redis = redis.from_url(
         redis_rw_url, encoding='utf-8'
@@ -174,9 +177,10 @@ app: FastAPI = setup_api(
     'network', 'v0.0.1',
     [
         StatusRouter,
-        AccountRouter,
         DataRouter,
         SearchRouter,
+        AccountRouter,
+        SettingsRouter,
         NetworkLinkRouter,
         AssetReactionRouter,
         SupportRouter,

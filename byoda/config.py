@@ -36,12 +36,15 @@ DEFAULT_NETWORK: str = 'byoda.net'
 SERVICE_ID: int = 16384
 
 HttpSession = TypeVar('HttpSession')
+
+SettingsStore = TypeVar('SettingsStore')
 NetworkLinkStore = TypeVar('NetworkLinkStore')
 AssetReactionStore = TypeVar('AssetReactionStore')
+
+Secret = TypeVar('Secret')
 FastAPI = TypeVar('FastAPI')
 AssetCache = TypeVar('AssetCache')
 ChannelCache = TypeVar('ChannelCache')
-Secret = TypeVar('Secret')
 
 # Enable various debugging options in the pod, including
 # whether the OpenAPI web pages should be enabled.
@@ -114,6 +117,7 @@ lite_db: SqlStorage | None = None
 # The Redis database for non-critical BYO.Tube Lite account data
 network_link_store: NetworkLinkStore = None
 asset_reaction_store: AssetReactionStore = None
+settings_store: SettingsStore = None
 
 # The Lite server generates verification urls with this variable
 verification_url: str = 'https://www.byo.tube/verify-email'
