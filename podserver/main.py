@@ -73,6 +73,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Remaining environment variables used:
     server.custom_domain = network_data['custom_domain']
     server.shared_webserver = network_data['shared_webserver']
+    server.cdn_fqdn = network_data.get('cdn_fqdn')
+    server.cdn_origin_site_id = network_data.get('cdn_origin_site_id')
 
     debug: bool = network_data.get('debug', False)
     if debug and str(debug).lower() in ('true', 'debug', '1'):
@@ -159,9 +161,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             overwrite=True
         )
 
-        if network_data.get('cdn_origin_site_id'):
+        if (network_data.get('cdn_fqdn')
+                and network_data.get('cdn_origin_site_id')):
             cdn_app: CdnApp = CdnApp(
                 network_data['cdn_app_id'], member.service,
+                network_data.get('cdn_fqdn'),
                 network_data.get('cdn_origin_site_id')
             )
             server.apps[cdn_app.app_id] = cdn_app

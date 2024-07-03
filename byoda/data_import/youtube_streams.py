@@ -43,6 +43,7 @@ class EncodingCategory(Enum):
 
 # Formats documented by yt-dlp, line 1184+ from
 # https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube.py
+# Also: https://gist.github.com/MartinEesmaa/2f4b261cb90a47e9c41ba115a011a4aa
 # These are the MPEG-DASH AV1 and H.264 streams that we want to download. We
 # try to download streams that have 'wanted' == True. If a video does not
 # have one of the wanted streams, then we will try to download the replacement.
@@ -71,8 +72,11 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool |  None]] = {
     '396': {'resolution': '360p', 'codec': 'AV1', 'wanted': True, 'replacement': '134', 'category': EncodingCategory.SD},
     '395': {'resolution': '240p', 'codec': 'AV1', 'wanted': True, 'replacement': '133', 'category': EncodingCategory.SD},
     '394': {'resolution': '144p', 'codec': 'AV1', 'wanted': True, 'replacement': '160', 'category': EncodingCategory.SD},
-    '617': {'resolution': '1080p', 'codec': 'VP9 HFR', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
-    '612': {'resolution': '720p', 'codec': 'VP9 HFR', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SEVENTWENTY},
+    '625': {'resolution': '4320p', 'codec': 'VP9', 'wanted': False, 'replacement': None, 'category': EncodingCategory.EIGHTK},
+    '620': {'resolution': '1440p', 'codec': 'VP9', 'wanted': False, 'replacement': '271', 'category': EncodingCategory.FOURK},
+    '617': {'resolution': '1080p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
+    '614': {'resolution': '1080p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
+    '612': {'resolution': '720p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SEVENTWENTY},
     '272': {'resolution': '4320p', 'codec': 'VP9', 'wanted': False, 'replacement': None, 'category': EncodingCategory.EIGHTK},
     '271': {'resolution': '1440', 'codec': 'VP9', 'wanted': False, 'replacement': '313', 'category': EncodingCategory.FOURK},
     '315': {'resolution': '2160p', 'codec': 'VP9 HFR', 'wanted': False, 'replacement': '401', 'category': EncodingCategory.FOURK},
@@ -81,22 +85,29 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool |  None]] = {
     '303': {'resolution': '1080p', 'codec': 'VP9 HFR', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
     '302': {'resolution': '720p', 'codec': 'VP9 HFR', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SEVENTWENTY},
     '248': {'resolution': '1920x1080', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
-    '247': {'resolution': '1280x720', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SEVENTWENTY},
-    '246': {'resolution': '854x480', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '245', 'category': EncodingCategory.SD},
-    '245': {'resolution': '854x480', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
-    '244': {'resolution': '854x480', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
-    '243': {'resolution': '640x360', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
-    '242': {'resolution': '426x240', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
-    '278': {'resolution': '256x144', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
-    '605': {'resolution': '640x360', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
-    '604': {'resolution': '426x240', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
-    '603': {'resolution': '256x144', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
+    '247': {'resolution': '720p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SEVENTWENTY},
+    '246': {'resolution': '480p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '245', 'category': EncodingCategory.SD},
+    '245': {'resolution': '480p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
+    '244': {'resolution': '480p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
+    '243': {'resolution': '360p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
+    '242': {'resolution': '240p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
+    '278': {'resolution': '144p', 'codec': 'VP9', 'wanted': False, 'target': 'DASH', 'replacement': '', 'category': EncodingCategory.SD},
+    '609': {'resolution': '1080p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.TENEIGHTY},
+    '606': {'resolution': '480p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
+    '605': {'resolution': '360p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
+    '604': {'resolution': '240p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
+    '603': {'resolution': '144p', 'codec': 'VP9', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
+    '602': {'resolution': '144p', 'codec': 'VP9 15fps', 'wanted': False, 'target': 'HLS', 'replacement': '', 'category': EncodingCategory.SD},
     '305': {'resolution': '2160p', 'codec': 'H.264 HFR', 'wanted': False, 'replacement': '266', 'category': EncodingCategory.FOURK},
     '304': {'resolution': '1440p', 'codec': 'H.264 HFR', 'wanted': False, 'replacement': '264', 'category': EncodingCategory.FOURK},
     '299': {'resolution': '1080p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
     '298': {'resolution': '720p', 'codec': 'H.264 HFR', 'wanted': True, 'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
     '266': {'resolution': '2160p', 'codec': 'H.264', 'wanted': False, 'replacement': None, 'category': EncodingCategory.FOURK},
     '264': {'resolution': '1440p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.FOURK},
+    '232': {'resolution': '720p', 'codec': 'H.264', 'wanted': False, 'replacement': None, 'category': EncodingCategory.FOURK},
+    '231': {'resolution': '480p', 'codec': 'H.264', 'wanted': False, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
+    '230': {'resolution': '360p', 'codec': 'H.264', 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
+    '229': {'resolution': '240p', 'codec': 'H.264', 'wanted': False, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
     '212': {'resolution': '480p', 'codec': 'H.264', 'wanted': True, 'replacement': '135', 'category': EncodingCategory.SD},
     '137': {'resolution': '1080p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
     '136': {'resolution': '720p', 'codec': 'H.264', 'wanted': True, 'replacement': None, 'category': EncodingCategory.SEVENTWENTY},
@@ -148,7 +159,7 @@ TARGET_AUDIO_STREAMS: dict[str, dict[str, str | int]] = {
 # 269, resolution: 256x144, AVC1.4D400C', 30fps, HLS
 # 229, resolution: 426x240, AVC1.4D4015, 30fps, HLS
 # 230: resolution: 640x360, AVC1.4D401E, 30fps, HLS
-# 18: resolution: 640x360, AVC1.42001E, 30fps, MP4
+# 18: video + audio, resolution: 640x360, AVC1.42001E, 30fps, MP4 + AAC-LC 44.1khz  
 # 231: resolution: 854x480, AVC1.4D401f, 30fps, HLS
 # 606: resolution: 854x480, AVC1, 30fps, HLS
 # 22: resolution: 1280x720, AVC1.64001F, 30fps, MP4, audio: mp4a.40.2, channels: 2, ASR: 44100

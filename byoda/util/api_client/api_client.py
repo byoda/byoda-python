@@ -194,10 +194,8 @@ class ApiClient:
             self.ca_filepath = (
                 storage.local_path + server.network.root_ca.cert_file
             )
-            _LOGGER.debug(
-                f'Set server cert validation to {self.ca_filepath}',
-                extra=self.extra
-            )
+            self.extra['ca_filepath'] = self.ca_filepath
+            _LOGGER.debug(f'Set server cert validation', extra=self.extra)
 
         if config.debug and parsed_url.hostname.endswith(network_name):
             # For tracing propagate the Span ID to remote hosts
@@ -363,15 +361,27 @@ class ApiClient:
         while retries < ApiClient.MAX_RETRIES:
             skip_sleep: bool = False
             try:
-                resp: HttpResponse = await client.session.request(
+                resp: HttpResponse =    await client.session.request(
                     method, api, params=params, content=processed_data,
                     headers=updated_headers, files=files
                 )
                 break
             except (RequestError, TransportError, SSLCertVerificationError
                     ) as exc:
-                raise ByodaRuntimeError(f'Error connecting to {api}: {exc}')
+                if app:
+                    # No retries for calls from httpx directly to FastAPI APP
+                    raise
+
+                client.extra['api'] = api
+                _LOGGER.debug(
+                    f'Error connecting to: {exc}', extra=client.extra
+                )
+                raise ByodaRuntimeError(f'Error connecting to {api}')
             except RuntimeError as exc:
+                if app:
+                    # No retries for calls from httpx directly to FastAPI APP
+                    raise
+
                 _LOGGER.debug(f'RuntimeError: {exc}', extra=client.extra)
                 if is_data_api_query and 'Event loop is closed' in str(exc):
                     # HACK: this deals with issue in test cases where HTTPX
@@ -384,6 +394,11 @@ class ApiClient:
                     data_dict: dict[str, object] = orjson.loads(processed_data)
                     data_dict['query_id'] = uuid4()
                     processed_data = orjson.dumps(data_dict)
+            except Exception as exc:
+                _LOGGER.debug(f'Exception: {exc}', extra=client.extra)
+                if app:
+                    # No retries for calls from httpx directly to FastAPI APP
+                    raise
 
                 client.create_session()
                 if retries == 0:

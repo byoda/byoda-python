@@ -216,7 +216,8 @@ class Member:
                     )
                 self.log_extra['filepath'] = filepath
                 _LOGGER.debug(
-                    'Setting service contract file', extra=self.log_extra)
+                    'Setting service contract file', extra=self.log_extra
+                )
 
             try:
                 _LOGGER.debug(
@@ -233,7 +234,7 @@ class Member:
                 # this membership then it should be downloaded at
                 # a later point
                 _LOGGER.info(
-                    f'Service contract file does not exist',
+                    'Service contract file does not exist',
                     extra=self.log_extra
                 )
                 self.service = Service(
@@ -257,10 +258,6 @@ class Member:
                 await self.service.download_schema(
                     save=True, filepath=filepath
                 )
-
-            self.schema: Schema = await self.load_schema(
-                filepath=filepath, verify_signatures=verify_signatures,
-            )
         except FileNotFoundError:
             # We do not have the schema file for a service that the pod did
             # not join yet
@@ -269,6 +266,10 @@ class Member:
                     'Did not find schema for a service we are already '
                     'a member of'
                 )
+        else:
+            self.schema: Schema = await self.load_schema(
+                filepath=filepath, verify_signatures=verify_signatures,
+            )
 
         # FIXME: 13 lines above this, we already downloaded the service
         # DataSecret and assigned it to self.service_data_secret
@@ -349,8 +350,13 @@ class Member:
                 'storage_driver and filepath parameters can only be used by '
                 'test cases'
             )
-
-        _LOGGER.debug('Creating membership')
+        log_data: dict[str, any] = {
+            'service_id': service.service_id,
+            'schema_version': schema_version,
+            'member_id': member_id,
+            'local_service_contract': local_service_contract,
+        }
+        _LOGGER.debug('Creating membership', extra=log_data)
         member = Member(
             service.service_id, account,
             local_service_contract=local_service_contract,
@@ -379,6 +385,7 @@ class Member:
             filepath = member.paths.get(member.paths.SERVICE_FILE)
 
         if (member.schema.version != schema_version):
+            _LOGGER.debug('Schema version mismatch', extra=member.log_extra)
             raise ValueError(
                 f'Downloaded schema for service_id {service.service_id} '
                 f'has version {member.schema.version} instead of version '

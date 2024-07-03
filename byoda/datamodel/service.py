@@ -154,16 +154,21 @@ class Service:
         Extracts the name and the service ID from the service contract.
         '''
 
-        _LOGGER.debug(f'Reviewing schema in {filepath}')
+        log_data: dict[str, any] = {
+            'filepath': filepath,
+            'service_id': self.service_id
+        }
+        _LOGGER.debug('Reviewing schema', extra=log_data)
 
-        raw_data = await self.storage_driver.read(filepath)
-        data = orjson.loads(raw_data)
-        service_id = data['service_id']
+        raw_data: str = await self.storage_driver.read(filepath)
+        data: dict[str, str | int] = orjson.loads(raw_data)
+        service_id: int | str = data['service_id']
 
         self.service_id = int(service_id)
         self.name = data['name']
 
-        _LOGGER.debug(f'Found service ID {service_id} for service {self.name}')
+        log_data['service_name'] = self.name
+        _LOGGER.debug('Found service ', extra=log_data)
 
     @classmethod
     async def get_service(cls, network: Network, filepath: str = None,

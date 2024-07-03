@@ -63,6 +63,8 @@ from byoda.util.merkletree import ByoMerkleTree
 
 from byoda.util.logger import Logger
 
+from byoda.servers.pod_server import PodServer
+
 from byoda.exceptions import ByodaRuntimeError
 
 from byoda import config
@@ -760,9 +762,12 @@ class YouTubeVideo:
         :raises: ValueError if the ingest status of the video is invalid
         '''
 
+        server: PodServer = config.server
         log_data: dict[str, str] = {
             'video_id': self.video_id, 'channel': self.channel_creator,
-            'ingest_status': self.ingest_status.value
+            'ingest_status': self.ingest_status.value,
+            'cdn_fqdn': server.cdn_fqdn,
+            'cdn_origin_site_id': server.cdn_origin_site_id
         }
 
         _LOGGER.debug('Ingesting AV for video', extra=log_data)
@@ -779,12 +784,13 @@ class YouTubeVideo:
                 current_status: str | IngestStatus = \
                     video_data[0][0].get('ingest_status')
 
+                log_data['ingest_status'] = current_status
                 if not isinstance(current_status, IngestStatus):
                     current_status = IngestStatus(current_status)
             except ValueError:
                 _LOGGER.warning(
-                    f'Video has an invalid ingest status '
-                    f'{current_status}, skipping ingest', extra=log_data
+                    f'Video has an invalid ingest status, {current_status}, '
+                    'skipping ingest', extra=log_data
                 )
                 raise
 
@@ -834,15 +840,13 @@ class YouTubeVideo:
         finally:
             self._delete_tempdir(storage_driver)
 
-        cdn_origin_site_id: str | None = os.environ.get('CDN_ORIGIN_SITE_ID')
-
-        if cdn_origin_site_id:
+        if server.cdn_fqdn and server.cdn_origin_site_id:
             _LOGGER.debug(
-                'Using CDN Origin Site ID for thumbnail: '
-                f'{cdn_origin_site_id}', extra=log_data
+                'Using CDN Origin for thumbnail', extra=log_data
             )
             self.url: str = Paths.RESTRICTED_ASSET_CDN_URL.format(
-                cdn_origin_site_id=cdn_origin_site_id,
+                cdn_fqdn=server.cdn_fqdn,
+                cdn_origin_site_id=server.cdn_origin_site_id,
                 member_id=member.member_id, service_id=member.service_id,
                 asset_id=self.asset_id, filename='video.mpd'
             )

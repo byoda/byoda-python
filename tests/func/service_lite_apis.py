@@ -10,6 +10,7 @@ import os
 import sys
 import yaml
 import shutil
+import base64
 import unittest
 
 from uuid import UUID
@@ -29,15 +30,26 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
+from byoda.datamodel.network import Network
+
 from byoda.models.data_api_models import PageInfoResponse
 from byoda.models.data_api_models import QueryResponseModel
 
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda.storage.message_queue import Queue
+
+from byoda.servers.server import Server
 
 from byoda.util.fastapi import setup_api
 
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
+
+from byoda.util.paths import Paths
 
 from byoda.util.logger import Logger
 
@@ -50,6 +62,7 @@ from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 
 from byotubesvr.database.network_link_store import NetworkLinkStore
 from byotubesvr.database.asset_reaction_store import AssetReactionStore
+from byotubesvr.database.settings_store import SettingsStore
 
 from byotubesvr.database.sql import SqlStorage
 
@@ -57,9 +70,17 @@ from byotubesvr.routers import status as StatusRouter
 from byotubesvr.routers import account as AccountRouter
 from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
+from byotubesvr.routers import support as SupportRouter
+from byotubesvr.routers import proxy as ProxyRouter
+from byotubesvr.routers import settings as SettingsRouter
+
+from byotubesvr.routers.support import EMAIL_SALT
+from byotubesvr.routers.support import SUBSCRIPTIONS_FILE
 
 from tests.lib.util import get_test_uuid
 
+from tests.lib.defines import DATHES_POD_MEMBER_ID
+from tests.lib.defines import BYOTUBE_SERVICE_ID
 
 CONFIG_FILE: str = 'config.yml-byotube'
 
@@ -80,6 +101,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         try:
             shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        try:
+            if os.path.exists(SUBSCRIPTIONS_FILE):
+                os.remove(SUBSCRIPTIONS_FILE)
         except FileNotFoundError:
             pass
 
@@ -121,14 +148,54 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await asset_reaction_store.client.flushall()
         config.asset_reaction_store = asset_reaction_store
 
+        settings_store = SettingsStore(
+            svc_config['svcserver']['lite_store']
+        )
+        await settings_store.client.flushall()
+        config.settings_store = settings_store
+
+        network_data: dict[str, str] = {
+            'root_dir': '/',
+            'private_key_password': 'dummy',
+        }
+        storage_driver: FileStorage = FileStorage('')
+        network: Network = Network(network_data, {})
+        network.paths = Paths(
+            network=config.DEFAULT_NETWORK, root_directory='/'
+        )
+        root_ca = NetworkRootCaSecret(paths=network.paths)
+        root_ca.cert_file = \
+            'tests/collateral/network-byoda.net-root-ca-cert.pem'
+        await root_ca.load(
+            with_private_key=False, storage_driver=storage_driver
+        )
+        service_secret_data: dict[str, str] = \
+            svc_config['svcserver']['proxy_service_secret']
+        service_secret = ServiceSecret(BYOTUBE_SERVICE_ID, network)
+        service_secret.cert_file = service_secret_data['cert_file']
+        service_secret.private_key_file = service_secret_data['key_file']
+
+        await service_secret.load(
+            password=service_secret_data['passphrase'],
+            storage_driver=storage_driver
+        )
+        service_secret.save_tmp_private_key()
+        config.service_secret = service_secret
+        config.server = Server(network)
+        config.server.local_storage = storage_driver
+        config.server.network.root_ca = root_ca
+
         config.app = setup_api(
             'Byoda test BYO.Tube-Lite server',
             'server for testing BYO.Tube-Lite APIs', 'v0.0.1',
             [
                 StatusRouter,
                 AccountRouter,
+                SettingsRouter,
                 NetworkLinkRouter,
                 AssetReactionRouter,
+                SupportRouter,
+                ProxyRouter,
             ],
             lifespan=None, trace_server=config.trace_server,
         )
@@ -167,8 +234,170 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await FastAPILimiter.close()
         await config.email_queue.close()
         await ApiClient.close_all()
+        await config.settings_store.close()
         await config.network_link_store.close()
         await config.asset_reaction_store.close()
+
+    async def test_lite_proxy_apis(self) -> None:
+        email: str = 'test2@byoda.org'
+        password: str = 'test123!'
+
+        async with AsyncClient(app=config.app) as client:
+            await self.sign_up(email, password)
+            auth_header: dict[str, str] = await self.get_auth_token(
+                client, email, password
+            )
+
+            self.assertIsNotNone(auth_header)
+            base_url: str = 'http://localhost:8000/api/v1/lite/proxy'
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertIsNotNone(data)
+            self.assertTrue(isinstance(data, dict))
+            self.assertTrue('total_count' in data)
+
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'after': data['page_info']['end_cursor']
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            paged_data = resp.json()
+            self.assertIsNotNone(paged_data)
+            self.assertTrue(isinstance(paged_data, dict))
+            self.assertTrue('total_count' in paged_data)
+
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data_filter': {
+                        'ingest_status': {'eq': 'published'}
+                    },
+                    'after': data['page_info']['end_cursor']
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            paged_data = resp.json()
+            self.assertIsNotNone(paged_data)
+            self.assertTrue(isinstance(paged_data, dict))
+            self.assertTrue('total_count' in paged_data)
+
+            # Let's switch to the 'messages' data_class, first we
+            # query, then we append and then we query again
+            data_class = 'messages'
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': data_class,
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertIsNotNone(data)
+            self.assertTrue(isinstance(data, dict))
+            self.assertTrue('total_count' in data)
+
+            sender_id: str = str(get_test_uuid())
+            message_id: str = str(get_test_uuid())
+            resp: HttpResponse = await client.post(
+                f'{base_url}/append', headers=auth_header, json={
+                    'data_class': data_class,
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data': {
+                        'sender_id': sender_id,
+                        'message_id': message_id,
+                        'created_timestamp': datetime.now(tz=UTC).isoformat(),
+                        'contents': 'Test message'
+
+                    }
+                }
+            )
+            self.assertEqual(resp.status_code, 201)
+
+            resp: HttpResponse = await client.post(
+                f'{base_url}/query', headers=auth_header, json={
+                    'data_class': 'public_assets',
+                    'remote_member_id': DATHES_POD_MEMBER_ID,
+                    'data_filter': {
+                        'message_asset_class': {'eq': 'public_assets'}
+                    },
+                    'after': data['page_info']['end_cursor']
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            paged_data = resp.json()
+            self.assertIsNotNone(paged_data)
+            self.assertTrue(isinstance(paged_data, dict))
+            self.assertTrue('total_count' in paged_data)
+
+    async def test_mailinglist_apis(self) -> None:
+        test_email_address: str = 'test_mailinglist_apis@test.com'
+        listname: str = 'creator-announcements'
+        base_url: str = 'http://localhost:8000/api/v1/service/support'
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.get(
+                f'{base_url}/subscribe', params={
+                    'email': test_email_address, 'listname': listname,
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(
+                resp.text.strip('"'), (
+                    f'You have subscribed to list {listname} '
+                    f'with email address {test_email_address}'
+                )
+            )
+
+            encoded: str = base64.urlsafe_b64encode(
+                f'{EMAIL_SALT}:{test_email_address}'.encode('utf-8')
+            ).decode('utf-8')
+
+            resp: HttpResponse = await client.get(
+                f'{base_url}/unsubscribe', params={
+                    'data': encoded, 'listname': listname,
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            result: str = resp.text.strip('"')
+            self.assertEqual(
+                result, (
+                    f'You have unsubscribed email address {test_email_address}'
+                    f' from list {listname}'
+                )
+            )
+            self.assertTrue(os.path.exists(SUBSCRIPTIONS_FILE))
+            with open(SUBSCRIPTIONS_FILE) as file_desc:
+                line: str = file_desc.readline()
+                action: str
+                timestamp: str
+                email: str
+                incoming_listname: str
+                action, timestamp, incoming_listname, email = line.strip(
+                ).split(',')
+                self.assertEqual(action, 'subscribe')
+                self.assertEqual(incoming_listname, listname)
+                self.assertEqual(email, test_email_address)
+                self.assertTrue(
+                    isinstance(datetime.fromisoformat(timestamp), datetime)
+                )
+                line = file_desc.readline()
+                action, timestamp, incoming_listname, email = line.strip(
+                ).split(',')
+                self.assertEqual(action, 'unsubscribe')
+                self.assertEqual(incoming_listname, listname)
+                self.assertEqual(email, test_email_address)
+                self.assertTrue(
+                    isinstance(datetime.fromisoformat(timestamp), datetime)
+                )
 
     async def test_account_failures(self) -> None:
         lite_db: SqlStorage = config.lite_db
@@ -344,7 +573,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             #
 
             # avoid getting a 429
-            sleep(10)
+            sleep(15)
             resp: HttpResponse = await client.post(
                 f'{BASE_URL}/api/v1/lite/account/signup',
                 json={
@@ -456,6 +685,48 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 page_info.end_cursor, network_link.network_link_id
             )
+
+            # Get the membership settings for the Lite account
+            settings_url: str = f'{BASE_URL}/api/v1/lite/settings'
+            resp: HttpResponse = await client.get(
+                f'{settings_url}/member', headers=auth_header
+            )
+            self.assertEqual(resp.status_code, 404)
+
+            nick: str = 'test_nick'
+            show_external_assets: bool = True
+            resp: HttpResponse = await client.patch(
+                f'{settings_url}/member',
+                json={
+                    'nick': nick,
+                    'show_external_assets': show_external_assets
+                },
+                headers=auth_header,
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.text.lower(), 'true')
+
+            resp: HttpResponse = await client.get(
+                f'{settings_url}/member',
+                headers=auth_header
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['nick'], nick)
+            self.assertEqual(
+                data['show_external_assets'], show_external_assets
+            )
+
+            resp: HttpResponse = await client.patch(
+                f'{settings_url}/member',
+                json={
+                    'nick': nick,
+                    'show_external_assets': show_external_assets
+                },
+                headers=auth_header,
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.text.lower(), 'false')
 
             # Get a network_link based on member_id
             resp: HttpResponse = await client.get(
@@ -666,6 +937,49 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         page_info.end_cursor = UUID(page_info.end_cursor)
 
         return query_response
+
+    async def sign_up(self, email: str, password: str) -> None:
+        # Make the signup API return the verification_url
+        config.test_case = True
+
+        lite_db: SqlStorage = config.lite_db
+
+        async with AsyncClient(app=config.app) as client:
+            resp: HttpResponse = await client.post(
+                f'{BASE_URL}/api/v1/lite/account/signup',
+                json={
+                    'email': email, 'password': password,
+                    'handle': 'testhandle'
+                }
+            )
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue('lite_id' in data)
+            self.assertEqual(data['email'], email)
+            verification_url: str | None = data.get('verification_url')
+            self.assertIsNotNone(verification_url)
+
+            # Stop making the signup API return the verification_url
+            config.test_case = False
+
+            account = await LiteAccountSqlModel.from_db(
+                lite_db, UUID(data['lite_id'])
+            )
+            self.assertIsNone(account.nickname)
+            self.assertIsNone(account.is_enabled)
+            self.assertFalse(account.is_funded)
+            self.assertIsNotNone(account.created_timestamp)
+            #
+            # Test verification of the email address
+
+            verification_url = verification_url.replace(
+                'https://www.byo.tube/verify-email',
+                'http://localhost/api/v1/lite/account/verify'
+            )
+            resp = await client.get(verification_url)
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertEqual(data['status'], 'enabled')
 
     async def get_auth_token(self, client, email, password) -> dict[str, str]:
         #

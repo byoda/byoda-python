@@ -95,10 +95,10 @@ class DataProxy:
         self.incoming_query = None
 
     @TRACER.start_as_current_span('DataProxy.request')
-    async def proxy_query_request(self, class_name: str,
-                                  query: QueryModel,
-                                  sending_member_id: UUID
-                                  ) -> list[dict[str, any]]:
+    async def proxy_query_request(
+        self, class_name: str, query: QueryModel, sending_member_id: UUID,
+        log_data: dict[str, any]
+    ) -> list[dict[str, any]]:
         '''
         Manipulates the original request to decrement the query depth by 1,
         sends the updated request to all network links that have one of the
@@ -131,12 +131,12 @@ class DataProxy:
         targets: list[UUID] = await self._get_proxy_targets(sending_member_id)
 
         if not targets:
-            _LOGGER.debug('No targets to proxy query to')
+            _LOGGER.debug('No targets to proxy query to', extra=log_data)
             return []
 
         _LOGGER.debug(
-            f'Pod to proxy query request to {len(targets)} pod(s): '
-            f'{",".join([str(target) for target in targets])}'
+            'Pod to proxy query request to pod(s)',
+            extra=log_data | {'targets': targets, 'target_count': len(targets)}
         )
 
         processed_data: list[ProxyResponse] = []
@@ -147,10 +147,11 @@ class DataProxy:
             async with create_task_group() as task_group:
                 for target in targets:
                     _LOGGER.debug(
-                        f'Creating task to proxy request to {target}'
+                        'Creating task to proxy request',
+                        extra=log_data | {'target': target}
                     )
                     task_group.start_soon(
-                        self._exec_data_query, target, send_stream
+                        self._exec_data_query, target, send_stream, log_data
                     )
                 async with receive_stream:
                     async for response in receive_stream:
@@ -159,11 +160,19 @@ class DataProxy:
 
         except* ByodaRuntimeError as exc_group:
             for exc in exc_group.exceptions:
-                _LOGGER.debug(f'Got exception connecting to a pod: {str(exc)}')
+                _LOGGER.debug(
+                    'Got exception connecting to a pod',
+                    extra=log_data | {'exception': exc}
+                )
 
         _LOGGER.debug(
-            f'Received data from {pod_responses} pods out of {len(targets)} '
-            f'total items received: {len(processed_data or [])}'
+            'Received data from pods',
+            extra=log_data | {
+                'pod_response_count': pod_responses,
+                'target_count': len(targets),
+                'total_items': len(processed_data or [])
+            }
+
         )
 
         if not processed_data:
@@ -299,19 +308,23 @@ class DataProxy:
         return data
 
     async def _exec_data_query(self, target: UUID,
-                               send_stream: MemoryObjectSendStream
+                               send_stream: MemoryObjectSendStream,
+                               log_data: dict[str, any]
                                ) -> tuple[UUID, list[dict]]:
         '''
         Execute the REST Data query
 
         :param target: the member ID of the pod to send the query to
         :param query: the query to send
+        :param log_data: additional data to log
         :returns:
         '''
 
         member: Member = self.member
         network: Network = member.network
         service_id: int = member.service_id
+
+        log_data['target'] = target
 
         fqdn: str = MemberSecret.create_commonname(
             target, service_id, network.name
@@ -332,16 +345,18 @@ class DataProxy:
         data: dict[str, any] = resp.json()
 
         if not data:
-            _LOGGER.debug(f'Did not get data back from target {target}')
+            _LOGGER.debug('Did not get data back from target', extra=log_data)
             return (target, None)
 
         if type(data) in (str, int, float, bool):
             _LOGGER.debug(
-                f'Data API request affected {data} item(s) at {target}'
+                'Data API request affected item(s)',
+                extra=log_data | {'item_count': data}
             )
         else:
             _LOGGER.debug(
-                f'Data API request returned {len(data)} data class: {data}'
+                'Data API request returned data class',
+                extra=log_data | {'data': data, 'item_count': len(data)}
             )
 
         await send_stream.send(ProxyResponse(target, data))
@@ -474,13 +489,17 @@ class DataProxy:
     def create_signature(self, service_id: int, relations: list[str] | None,
                          filters: dict[str, str] | None,
                          timestamp: datetime, origin_member_id: UUID | str,
-                         member_data_secret: MemberDataSecret = None) -> str:
+                         member_data_secret: MemberDataSecret = None,
+                         log_data: dict[str, any] = {}) -> str:
         '''
         Creates a signature for a recurisve request. This function returns
         the signature as a base64 encoded string so it can be included in
         a Data query
         '''
 
+        _LOGGER.debug(
+            'Creating signaturefor recursive request', extra=log_data
+        )
         plaintext: str = DataProxy._create_plaintext(
             service_id, relations, filters, timestamp, origin_member_id
         )

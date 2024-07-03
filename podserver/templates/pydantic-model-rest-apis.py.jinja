@@ -93,19 +93,33 @@ async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.
     if not query:
         query = QueryModel()
 
+    host: str = request.headers.get('x-forwarded-for', request.client.host)
+    log_data: dict[str, any] = {
+        'action': 'query',
+        'data_class': '{{ data_class.name }}',
+        'service_id': {{ data_class.service_id }},
+        'remote_addr': host,
+        'query_id': query.query_id,
+        'first': query.first,
+        'after': query.after,
+        'depth': query.depth,
+        'relations': query.relations,
+        'data_filter': str(query.filter),
+        'remote_member_id': query.remote_member_id,
+        'timestamp': query.timestamp,
+        'origin_member_id': query.origin_member_id,
+        'origin_format_version': query.signature_format_version,
+        'auth_id': auth.id,
+        'auth_id_type': auth.id_type,
+    }
     result: bool = await auth.review_data_request(
         {{ data_class.service_id }}, '{{ data_class.name }}',
         DataOperationType.READ, query.depth
     )
+    log_data['auth_result'] = result
     if not result:
         _LOGGER.debug(
-            'Authentication status for query for data from '
-{% if data_class.referenced_class %}
-            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
-{% else %}
-            f'object {{ data_class.name}}: '
-{% endif %}
-            f'{result}'
+            'Authentication status', extra=log_data
         )
         raise HTTPException(status_code=400, detail='Authentication failed')
 
@@ -115,7 +129,8 @@ async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.
             query.query_id, query.fields, query.filter, query.first, query.after,
             query.depth, query.relations, query.remote_member_id, query.timestamp,
             query.origin_member_id, query.origin_signature, query.signature_format_version,
-            query, request.client.host, auth, object_class, EdgeResponse[object_class]
+            query, host, auth, object_class, EdgeResponse[object_class],
+            log_data=log_data
         ) or []
     except ByodaValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -131,7 +146,7 @@ async def {{ data_class.name }}_query_{{ data_class.service_id }}_{{ data_class.
         end_cursor = data[-1].cursor
 
     page = PageInfoResponse(has_next_page=has_next_page, end_cursor=end_cursor)
-    resp = QueryResponseModel(
+    resp: QueryResponseModel = QueryResponseModel(
         total_count=len(data), edges=data, page_info=page
     )
 
@@ -149,20 +164,30 @@ async def {{ data_class.name }}_mutate_{{ data_class.service_id }}_{{ data_class
     if not mutate.data:
         raise ValueError('Request does not include data to mutate')
 
+    host: str = request.headers.get('x-forwarded-for', request.client.host)
+    log_data: dict[str, any] = {
+        'remote_addr': host,
+        'action': 'mutate',
+        'data_class': '{{ data_class.name }}',
+        'service_id': {{ data_class.service_id }},
+        'query_id': mutate.query_id,
+        'auth_id': auth.id,
+        'auth_id_type': auth.id_type,
+    }
+
     result: bool = await auth.review_data_request(
         {{ data_class.service_id }}, '{{ data_class.name }}',
         DataOperationType.UPDATE, 0
     )
+    log_data['auth_result'] = result
     if not result:
-        _LOGGER.debug(
-            'Authentication status for query for data from '
-            f'object {{ data_class.name}}: {result}'
-        )
+        _LOGGER.debug('Authentication status', extra=log_data)
         raise HTTPException(status_code=400, detail='Authentication failed')
 
+    _LOGGER.debug('Received mutate request', extra=log_data)
     object_count: int = await MemberData.mutate(
         {{ data_class.service_id }}, '{{ data_class.name }}', mutate.data.model_dump(),
-        mutate.query_id, request.client.host, auth,
+        mutate.query_id, host, auth,
     )
 
     return object_count
@@ -177,27 +202,39 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
     Append data to an 'array' data class
     '''
 
+    host: str = request.headers.get('x-forwarded-for', request.client.host)
+    log_data: dict[str, any] = {
+        'action': 'append',
+        'data_class': '{{ data_class.name }}',
+        'service_id': {{ data_class.service_id }},
+        'remote_addr': host,
+        'query_id': append.query_id,
+        'depth': append.depth,
+        'remote_member_id': append.remote_member_id,
+        'origin_class_name': append.origin_class_name,
+        'auth_id': auth.id,
+        'auth_id_type': auth.id_type,
+    }
     result: bool = await auth.review_data_request(
         {{ data_class.service_id }}, '{{ data_class.name }}',
         DataOperationType.APPEND, append.depth
     )
+    log_data['auth_result'] = result
     if not result:
-        _LOGGER.debug(
-            'Authentication status for appending data to '
-            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
-            f'{result}'
-        )
+        _LOGGER.debug('Authentication failed', extra=log_data)
         raise HTTPException(status_code=400, detail='Authentication failed')
 
-    host: str = request.client.host
+    _LOGGER.debug('Received authenticated append request', extra=log_data)
+
     # We transmit the AppendModel as-is to MemberData.append() because it may
     # proxy the request if depth > 0
     try:
-        object_count = await MemberData.append(
+        object_count: int = await MemberData.append(
             {{ data_class.service_id }}, '{{ data_class.name }}',
             append.query_id, append.depth, append.remote_member_id,
             append.data.model_dump(), append, host, auth,
-            append.origin_id, append.origin_id_type, append.origin_class_name,
+            append.origin_class_name,
+            log_data=log_data
         )
     except ByodaValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -208,25 +245,35 @@ async def {{ data_class.name }}_append_{{ data_class.service_id }}_{{ data_class
 @router.post('/update')
 async def {{ data_class.name }}_update_{{ data_class.service_id }}_{{ data_class.version }}(
         request: Request,  auth: AuthDep,
-        update_model: UpdateModel[object_class]) -> int:
+        update: UpdateModel[object_class]) -> int:
 
+    host: str = request.headers.get('x-forwarded-for', request.client.host)
+    log_data: dict[str, any] = {
+        'action': 'update',
+        'data_class': '{{ data_class.name }}',
+        'service_id': {{ data_class.service_id }},
+        'remote_addr': host,
+        'query_id': update.query_id,
+        'depth': update.depth,
+        'remote_member_id': update.remote_member_id,
+        'data_filter': str(update.filter),
+        'auth_id': auth.id,
+        'auth_id_type': auth.id_type,
+    }
     result: bool = await auth.review_data_request(
         {{ data_class.service_id }}, '{{ data_class.name }}',
-        DataOperationType.UPDATE, update_model.depth
+        DataOperationType.UPDATE, update.depth
     )
+    log_data['auth_result'] = result
     if not result:
-        _LOGGER.debug(
-            'Authentication status for appending data to '
-            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
-            f'{result}'
-        )
+        _LOGGER.debug('Authentication status', extra=log_data)
         raise HTTPException(status_code=400, detail='Authentication failed')
 
-    host: str = request.client.host
-    object_count = await MemberData.update(
+    object_count: int = await MemberData.update(
         {{ data_class.service_id }}, '{{ data_class.name }}',
-        update_model.query_id, update_model.filter, update_model.depth,
-        update_model.remote_member_id, update_model.data.model_dump(), host, auth
+        update.query_id, update.filter, update.depth,
+        update.remote_member_id, update.data.model_dump(),
+        host, auth, log_data=log_data
     )
 
     return object_count
@@ -234,26 +281,34 @@ async def {{ data_class.name }}_update_{{ data_class.service_id }}_{{ data_class
 
 @router.post('/delete')
 async def {{ data_class.name }}_delete_{{ data_class.service_id }}_{{ data_class.version }}(
-        request: Request, auth: AuthDep, delete_model: DeleteModel
+        request: Request, auth: AuthDep, delete: DeleteModel
         ) -> int:
 
+    host: str = request.headers.get('x-forwarded-for', request.client.host)
+    log_data: dict[str, any] = {
+        'action': 'delete',
+        'data_class': '{{ data_class.name }}',
+        'service_id': {{ data_class.service_id }},
+        'remote_addr': host,
+        'query_id': delete.query_id,
+        'depth': delete.depth,
+        'remote_member_id': delete.remote_member_id,
+        'data_filter': str(delete.filter),
+    }
     result: bool = await auth.review_data_request(
         {{ data_class.service_id }}, '{{ data_class.name }}',
-        DataOperationType.DELETE, delete_model.depth
+        DataOperationType.DELETE, delete.depth
     )
+    log_data['result'] = result
     if not result:
-        _LOGGER.debug(
-            'Authentication status for appending data to '
-            f'array {{ data_class.name }} of objects {{ data_class.referenced_class.name }}: '
-            f'{result}'
-        )
+        _LOGGER.debug('Authentication status', extra=log_data)
         raise HTTPException(status_code=400, detail='Authentication failed')
 
     host: str = request.client.host
-    object_count = await MemberData.delete(
+    object_count: int = await MemberData.delete(
         {{ data_class.service_id }}, '{{ data_class.name }}',
-        delete_model.filter, delete_model.query_id, delete_model.remote_member_id,
-        delete_model.depth, host, auth
+        delete.filter, delete.query_id, delete.remote_member_id,
+        delete.depth, host, auth
     )
 
     return object_count
@@ -268,10 +323,10 @@ async def {{ data_class.name }}_counter_{{ data_class.service_id }}_{{ data_clas
             websocket: WebSocket, auth: AuthWsDep) -> int:
     try:
         await websocket.accept()
-        host: str = websocket.client.host
+        host: str = websocket.headers.get('x-forwarded-for', websocket.client.host)
         _LOGGER.debug(f'Incoming websocket connection from host {host}')
 
-        resp = await websocket.receive_bytes()
+        resp: bytes = await websocket.receive_bytes()
         counter_request: dict[str, str | object] = orjson.loads(resp)
         counter_model: CounterModel = CounterModel.model_validate(
             counter_request
@@ -330,10 +385,10 @@ async def {{ data_class.name }}_updates_{{ data_class.service_id }}_{{ data_clas
             websocket: WebSocket, auth: AuthWsDep):
     try:
         await websocket.accept()
-        host: str = websocket.client.host
+        host: str = websocket.headers.get('x-forwarded-for', websocket.client.host)
         _LOGGER.debug(f'Incoming websocket connection from host {host}')
 
-        resp = await websocket.receive_bytes()
+        resp: bytes = await websocket.receive_bytes()
         updates_request: dict[str, str | object] = orjson.loads(resp)
         updates_model: UpdatesModel = UpdatesModel.model_validate(
             updates_request

@@ -36,8 +36,12 @@ DEFAULT_NETWORK: str = 'byoda.net'
 SERVICE_ID: int = 16384
 
 HttpSession = TypeVar('HttpSession')
+
+SettingsStore = TypeVar('SettingsStore')
 NetworkLinkStore = TypeVar('NetworkLinkStore')
 AssetReactionStore = TypeVar('AssetReactionStore')
+
+Secret = TypeVar('Secret')
 FastAPI = TypeVar('FastAPI')
 AssetCache = TypeVar('AssetCache')
 ChannelCache = TypeVar('ChannelCache')
@@ -113,6 +117,7 @@ lite_db: SqlStorage | None = None
 # The Redis database for non-critical BYO.Tube Lite account data
 network_link_store: NetworkLinkStore = None
 asset_reaction_store: AssetReactionStore = None
+settings_store: SettingsStore = None
 
 # The Lite server generates verification urls with this variable
 verification_url: str = 'https://www.byo.tube/verify-email'
@@ -124,6 +129,9 @@ email_queue: Queue | None = None
 
 # (Symmetric) secrets for BYOtube.lite JWTs
 jwt_secrets: list[str] = []
+
+# Secret for calling APIs on pods
+service_secret: Secret | None = None
 
 # Assymetric secret for BYOTube.lite 3rd-party / App JWTs
 jwt_asym_secrets: list[tuple[x509.Certificate, RSAPrivateKey]] = []

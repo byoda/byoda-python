@@ -212,7 +212,7 @@ class DataApiClient:
         protocol: str = 'https'
         port: int = 443
 
-        extra: dict[str, any] = {
+        log_data: dict[str, any] = {
             'action': action.value,
             'service_id': service_id,
             'member_id': member_id,
@@ -225,33 +225,33 @@ class DataApiClient:
         if internal or app:
             if not app:
                 _LOGGER.debug(
-                    'Calling Data API via internal port', extra=extra
+                    'Calling Data API via internal port', extra=log_data
                 )
             else:
                 _LOGGER.debug(
-                    'Calling Data API via test case', extra=extra
+                    'Calling Data API via test case', extra=log_data
                 )
 
             port = DataApiClient.INTERNAL_HTTP_PORT
             protocol = 'http'
 
-            extra['port'] = port
-            extra['protocol'] = protocol
+            log_data['port'] = port
+            log_data['protocol'] = protocol
             data_url = api_template.format(
                 protocol=protocol, fqdn='127.0.0.1', port=port,
                 service_id=service_id, class_name=class_name,
                 action=action.value
             )
         elif custom_domain:
-            extra['custom_domain'] = custom_domain
-            _LOGGER.debug('Using custom_domain', extra=extra)
+            log_data['custom_domain'] = custom_domain
+            _LOGGER.debug('Using custom_domain', extra=log_data)
             data_url = api_template.format(
                 protocol=protocol, fqdn=custom_domain, port=port,
                 service_id=service_id, class_name=class_name,
                 action=action.value
             )
         elif use_proxy:
-            _LOGGER.debug('Using proxy for member', extra=extra)
+            _LOGGER.debug('Using proxy for member', extra=log_data)
             if not member_id:
                 raise ValueError('Member ID must be provided when using proxy')
 
@@ -270,9 +270,9 @@ class DataApiClient:
                 # This must be a test case calling a pod with a JWT
                 port = 443
 
-            extra['host'] = host
-            extra['port'] = port
-            _LOGGER.debug('Calling Data API of pod', extra=extra)
+            log_data['host'] = host
+            log_data['port'] = port
+            _LOGGER.debug('Calling Data API of pod', extra=log_data)
 
             data_url: str = api_template.format(
                 protocol=protocol, fqdn=host, port=port,

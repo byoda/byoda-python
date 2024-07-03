@@ -152,6 +152,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         config.app = APP
 
         server: PodServer = config.server
+        server.cdn_fqdn = 'cdn.byo.host'
+        server.cdn_origin_site_id = 'xx'
+        
         data_store: DataStore = server.data_store
         cache_store: DataStore = server.cache_store
         for member in account.memberships.values():

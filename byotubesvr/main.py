@@ -24,12 +24,22 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
+from byoda.datamodel.network import Network
+
+from byoda.storage.filestorage import FileStorage
 from byoda.storage.message_queue import Queue
 
 from byoda.datacache.asset_cache import AssetCache
 from byoda.datacache.channel_cache import ChannelCache
 
+from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
+
+from byoda.servers.server import Server
+
 from byoda.util.fastapi import setup_api
+
+from byoda.util.paths import Paths
 
 from byoda.util.logger import Logger
 
@@ -37,6 +47,7 @@ from byoda import config
 
 from .database.sql import SqlStorage
 
+from .database.settings_store import SettingsStore
 from .database.network_link_store import NetworkLinkStore
 from .database.asset_reaction_store import AssetReactionStore
 
@@ -49,6 +60,9 @@ from byotubesvr.routers import data as DataRouter
 from byotubesvr.routers import account as AccountRouter
 from byotubesvr.routers import network_link as NetworkLinkRouter
 from byotubesvr.routers import asset_reaction as AssetReactionRouter
+from byotubesvr.routers import support as SupportRouter
+from byotubesvr.routers import proxy as ProxyRouter
+from byotubesvr.routers import settings as SettingsRouter
 
 _LOGGER = None
 
@@ -107,6 +121,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config.asset_reaction_store = AssetReactionStore(
         svc_config['svcserver']['lite_store']
     )
+    config.settings_store = SettingsStore(
+        svc_config['svcserver']['lite_store']
+    )
 
     redis_connection: redis.Redis = redis.from_url(
         redis_rw_url, encoding='utf-8'
@@ -127,6 +144,29 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         )
     config.jwt_asym_secrets = [(cert, key)]
 
+    # Setting up Byoda service and network needed for /api/v1/lite/proxy
+    network: Network = Network(svc_config['svcserver'], {})
+    network.paths = Paths(
+        network=network.name, root_directory=network.root_dir
+    )
+    root_ca = NetworkRootCaSecret(paths=network.paths)
+    await root_ca.load(with_private_key=False)
+    network.root_ca = root_ca
+
+    service_secret = ServiceSecret(
+        svc_config['svcserver']['service_id'], network
+    )
+    await service_secret.load(
+        password=svc_config['svcserver']['private_key_password']
+    )
+    config.service_secret = service_secret
+
+    storage_driver: FileStorage = FileStorage(network.root_dir)
+
+    config.server = Server(network)
+    config.server.local_storage = storage_driver
+    config.server.network = network
+
     _LOGGER.info('Starting server')
 
     yield
@@ -146,11 +186,14 @@ app: FastAPI = setup_api(
     'network', 'v0.0.1',
     [
         StatusRouter,
-        AccountRouter,
         DataRouter,
         SearchRouter,
+        AccountRouter,
+        SettingsRouter,
         NetworkLinkRouter,
         AssetReactionRouter,
+        SupportRouter,
+        ProxyRouter,
     ],
     lifespan=lifespan, trace_server=config.trace_server,
     cors=svc_config['svcserver']['cors_origins']

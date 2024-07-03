@@ -71,6 +71,7 @@ class UploadResponseModel(BaseModel):
     service_id: int
     asset_id: UUID
     locations: list[str]
+    cdn_urls: list[str]
 
     def __repr__(self):
         return (
@@ -83,5 +84,6 @@ class UploadResponseModel(BaseModel):
             'service_id': self.service_id,
             'asset_id': self.asset_id,
             'locations': self.locations,
+            'cdn_urls': self.cdn_urls
 
         }

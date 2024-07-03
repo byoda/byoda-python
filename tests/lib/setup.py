@@ -38,6 +38,7 @@ from tests.lib.util import get_test_uuid
 from tests.lib.defines import MODTEST_FQDN
 from tests.lib.defines import MODTEST_APP_ID
 from tests.lib.defines import CDN_APP_ID
+from tests.lib.defines import CDN_FQDN
 from tests.lib.defines import CDN_ORIGIN_SITE_ID
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
@@ -77,6 +78,7 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     os.environ['MODERATION_FQDN'] = MODTEST_FQDN
     os.environ['MODERATION_APP_ID'] = str(MODTEST_APP_ID)
     os.environ['CDN_APP_ID'] = str(CDN_APP_ID)
+    os.environ['CDN_FQDN'] = CDN_FQDN
     os.environ['CDN_ORIGIN_SITE_ID'] = CDN_ORIGIN_SITE_ID
 
     with open('tests/collateral/local/test_postgres_db') as file_desc:
@@ -89,6 +91,7 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     '''
 
     config.debug = True
+    config.test_case = True
 
     data: dict[str, str] = get_environment_vars()
 
@@ -118,9 +121,13 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     )
 
     network = Network(data, data)
+    os.makedirs(f'{data["root_dir"]}/network-byoda.net', exist_ok=True)
+    ca_file: str = 'network-byoda.net-root-ca-cert.pem'
+    shutil.copyfile(
+        f'tests/collateral/{ca_file}',
+        f'{data['root_dir']}/network-byoda.net/{ca_file}'
+    )
     await network.load_network_secrets()
-
-    config.test_case = True
 
     server.network = network
 
