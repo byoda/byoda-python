@@ -102,8 +102,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ### Test change     # noqa: E266
     ###
-    config.test_case = "TEST_SERVER"
-
+    config.test_case = "TEST_CLIENT"
     if data['root_dir']:
         try:
             shutil.rmtree(data['root_dir'])
@@ -127,6 +126,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     # Remaining environment variables used:
     server.custom_domain = data['custom_domain']
     server.shared_webserver = data['shared_webserver']
+    server.cdn_fqdn = data.get('cdn_fqdn')
+    server.cdn_origin_site_id = data.get('cdn_origin_site_id')
 
     if str(data['debug']).lower() in ('true', 'debug', '1'):
         config.debug = True
@@ -264,9 +265,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             overwrite=True
         )
 
-        if data.get('cdn_origin_site_id'):
+        if data.get('cdn_fqdn') and data.get('cdn_origin_site_id'):
             cdn_app: CdnApp = CdnApp(
                 data['cdn_app_id'], member.service,
+                data.get('cdn_fqdn'),
                 data.get('cdn_origin_site_id')
             )
             server.apps[cdn_app.app_id] = cdn_app

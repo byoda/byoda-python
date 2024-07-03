@@ -79,6 +79,9 @@ class PodServer(Server):
         self.server_type = ServerType.POD
         self.cloud: CloudType = cloud_type
 
+        self.cdn_fqdn: str | None = None
+        self.cdn_origin_site_id: str | None = None
+
         # TODO: don't believe we use self.service_summaries. We only use
         # (self.)network.service_summaries
         self.service_summaries: dict[int:dict[str, str | int | None]] = {}

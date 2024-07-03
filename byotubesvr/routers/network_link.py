@@ -44,8 +44,18 @@ async def create_network_link(request: Request, link: NetworkLinkRequestModel,
     Create a new BYO.Tube-lite network link
     '''
 
+    log_data: dict[str, any] = {
+        'method': 'POST',
+        'API': 'networklink',
+        'remote_addr': request.client.host,
+        'lite_id': auth.lite_id,
+        'member_id': link.member_id,
+        'relation': link.relation,
+        'annotations': link.annotations
+    }
+
     _LOGGER.debug(
-        f'Request from {request.client.host} with LiteID: {auth.lite_id}'
+        'POST NetworkLink request received', extra=log_data
     )
 
     link_store: NetworkLinkStore = config.network_link_store
@@ -58,7 +68,10 @@ async def create_network_link(request: Request, link: NetworkLinkRequestModel,
 
         return network_link_id
     except Exception as exc:
-        _LOGGER.exception(f'Failed to add network_link: {exc}')
+        _LOGGER.debug(
+            'Failed to add network_link',
+            extra=log_data | {'exception': str(exc)}
+        )
         raise HTTPException(
             status_code=500, detail='Failed to add network_link'
         )
@@ -73,8 +86,18 @@ async def get_network_links(request: Request, auth: AuthDep,
     Get all network links for a given LiteID
     '''
 
+    log_data: dict[str, any] = {
+        'method': 'GET',
+        'API': 'networklink',
+        'remote_addr': request.client.host,
+        'member_id': member_id,
+        'relation': relation,
+        'first': first,
+        'after': after
+    }
+
     _LOGGER.debug(
-        f'Request from {request.client.host} with LiteID: {auth.lite_id}'
+        'GET Networklinks request received', extra=log_data
     )
 
     link_store: NetworkLinkStore = config.network_link_store
@@ -84,7 +107,10 @@ async def get_network_links(request: Request, auth: AuthDep,
                 auth.lite_id, remote_member_id=member_id, relation=relation
             )
     except Exception as exc:
-        _LOGGER.exception(f'Failed to get network_links: {exc}')
+        _LOGGER.debug(
+            'Failed to get network_links',
+            extra=log_data | {'exception': str(exc)}
+        )
         raise HTTPException(
             status_code=500, detail='Failed to get network_links'
         )
@@ -137,8 +163,17 @@ async def delete_networklink(request: Request, auth: AuthDep,
     Delete a network link for a given LiteID
     '''
 
+    log_data: dict[str, any] = {
+        'method': 'DELETE',
+        'API': 'networklink',
+        'remote_addr': request.client.host,
+        'lite_id': auth.lite_id,
+        'member_id': member_id,
+        'relation': relation,
+        'annotation': annotation
+    }
     _LOGGER.debug(
-        f'Request from {request.client.host} with LiteID: {auth.lite_id}'
+        'DELETE NetworkLink request', extra=log_data
     )
 
     link_store: NetworkLinkStore = config.network_link_store

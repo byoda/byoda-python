@@ -28,6 +28,10 @@ from byoda.datatypes import MonetizationType
 from byoda.datacache.asset_cache import AssetCache
 from byoda.datacache.channel_cache import ChannelCache
 
+from byoda.secrets.secret import Secret
+
+from byoda.storage.filestorage import FileStorage
+
 from byoda.util.fastapi import setup_api
 
 from byoda.util.api_client.api_client import ApiClient
@@ -87,6 +91,18 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             app_config['svcserver']['asset_cache']
         )
         config.asset_cache = asset_cache
+
+        service_secret_data: dict[str, str] = \
+            app_config['svcserver']['proxy_service_secret']
+        config.service_secret = Secret(
+            cert_file=service_secret_data['cert_file'],
+            key_file=service_secret_data['key_file']
+        )
+
+        await config.service_secret.load(
+            password=service_secret_data['passphrase'],
+            storage_driver=FileStorage('')
+        )
 
         config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server

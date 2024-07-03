@@ -222,6 +222,11 @@ async def setup_worker(argv: list[str]) -> PodServer:
         )
         config.server = server
 
+        server.custom_domain = data['custom_domain']
+        server.shared_webserver = data['shared_webserver']
+        server.cdn_fqdn = data.get('cdn_fqdn')
+        server.cdn_origin_site_id = data.get('cdn_origin_site_id')
+
         await server.set_document_store(
             DocumentStoreType.OBJECT_STORE, server.cloud,
             private_bucket=data['private_bucket'],

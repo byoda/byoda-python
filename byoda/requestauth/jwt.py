@@ -337,10 +337,6 @@ class JWT:
             raise ValueError(f'Invalid issuer in JWT: {jwt.issuer}')
 
         jwt.audience = data['aud']
-        _LOGGER.debug(
-            f'Audience should include: {audience} '
-            f'Incoming audience: {jwt.audience}'
-        )
 
         if not isinstance(jwt.audience, list):
             jwt.audience = [jwt.audience]

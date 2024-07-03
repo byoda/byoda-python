@@ -74,6 +74,9 @@ async def setup_network(test_dir: str | None) -> dict[str, str]:
         db_connection_string=data.get('db_connection')
     )
 
+    config.server.cdn_fqdn = data.get('cdn_fqdn')
+    config.server.cdn_origin_site_id = data.get('cdn_origin_site_id')
+
     await config.server.set_document_store(
         DocumentStoreType.OBJECT_STORE, config.server.cloud,
         private_bucket=data['private_bucket'],

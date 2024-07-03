@@ -22,11 +22,12 @@ from prometheus_client import Gauge
 from byoda.datamodel.metrics import Metrics
 
 from byoda.models.data_api_models import Channel
-from byoda.util.logger import Logger
 
 from byoda.models.data_api_models import EdgeResponse as Edge
 
 from byoda.datacache.searchable_cache import SearchableCache
+
+from byoda.util.logger import Logger
 
 from byoda import config
 

@@ -9,10 +9,10 @@ Class for modeling a social network
 import os
 
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import passgen
 
+from httpx import Response
 
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource
@@ -30,8 +30,11 @@ from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.service_secret import ServiceSecret
 
-from byoda.util.api_client.api_client import ApiClient
 from byoda.util.paths import Paths
+
+from byoda.util.api_client.api_client import ApiClient
+
+from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -57,7 +60,7 @@ class Network:
     key of the network.
     '''
 
-    __slots__ = [
+    __slots__: list[str] = [
         'accounts_ca', 'services_ca', 'tls_secret',
         'services', 'service_summaries',
         'service_ca', 'member_ca', 'root_ca',
@@ -72,7 +75,7 @@ class Network:
     # Pods should only accept test service IDs when running in DEBUG mode
     MIN_TEST_SERVICE_ID = 4293918720
 
-    def __init__(self, server: dict, application: dict):
+    def __init__(self, server: dict, application: dict) -> None:
         '''
         Set up the network
 
@@ -340,7 +343,7 @@ class Network:
                 try:
                     await self.data_secret.load(with_private_key=False)
                 except FileNotFoundError:
-                    resp = await ApiClient.call(
+                    resp: Response = await ApiClient.call(
                         Paths.NETWORK_DATACERT_DOWNLOAD, network_name=self.name
                     )
                     if resp.status_code != 200:

@@ -113,7 +113,8 @@ class MemberSecret(Secret):
         return await super().create_csr(common_name, ca=self.ca, renew=renew)
 
     @staticmethod
-    def create_commonname(member_id: UUID, service_id: int, network: str) -> str:
+    def create_commonname(member_id: UUID, service_id: int, network: str
+                          ) -> str:
         '''
         generates the FQDN for the common name in the Member TLS secret
         '''
@@ -130,7 +131,7 @@ class MemberSecret(Secret):
                 f'Network parameter must be a string, not a {type(network)}'
             )
 
-        common_name = (
+        common_name: str = (
             f'{member_id}.{IdType.MEMBER.value}{service_id}.{network}'
         )
 

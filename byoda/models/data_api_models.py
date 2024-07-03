@@ -175,6 +175,51 @@ class QueryModel(BaseModel):
     ] = Field(default=None, description='signature format version')
 
 
+class ProxyQueryModel(BaseModel):
+    # Used by BYO.Tube Lite Query proxy. This is a subset of the fields of
+    # the QueryModel as BT Lite API proxy does not support recursive queries
+    data_class: str = Field(
+        description='The class for the data to query'
+    )
+
+    fields: Annotated[set[str] | None, AfterValidator(check_fields)] = Field(
+        default=None,
+        description=(
+            'Fields that must be included in the returned data. If this list '
+            'is empty, data for all fields will be returned. If one or more'
+            'fields are specified, the data for these fields will be included '
+            'but the response may contain data for additional fields. The '
+            'primary use case for this parameter is to leave out fields that '
+            'are arrays of objects, which can be very large. Specification of '
+            'fields not defined in schema will be ignored.'
+        )
+    )
+
+    query_id: UUID | None = Field(
+        default=None,
+        description='query id, required for queries with depth > 0'
+    )
+
+    filter: DataFilterType | None = Field(
+        default=None,
+        description='filter to apply to the results of the query'
+    )
+
+    first: Annotated[int | None, AfterValidator(check_positive_or_none)] = \
+        Field(
+            default=DEFAULT_PAGE_LENGTH,
+            description='number of records to return'
+        )
+
+    after: Annotated[str | None, AfterValidator(check_hash)] = Field(
+        default=None, description='cursor to return records after'
+    )
+
+    remote_member_id: UUID | None = Field(
+        default=None, description='remote member id to send recursive query to'
+    )
+
+
 TypeX = TypeVar('TypeX')
 
 
@@ -208,18 +253,13 @@ class AppendModel(BaseModel, Generic[TypeX]):
             'if the member of the request is the member of the pod'
         )
     )
-    origin_id: UUID | None = Field(
-        default=None, description=(
-            'The UUID from which the data originates, can only be specified '
-            'if the member of the request is the member of the pod'
-        )
-    )
-    origin_id_type: IdType | None = Field(
-        default=IdType.MEMBER, description=(
-            'The IdType of the UUID from which the data originates, can only '
-            'if the member of the request is the member of the pod'
-        )
-    )
+
+
+class ProxyAppendModel(BaseModel, Generic[TypeX]):
+    data: TypeX
+    data_class: str
+    query_id: UUID | None = None
+    remote_member_id: UUID | None = None
 
 
 class MutateModel(BaseModel, Generic[TypeX]):

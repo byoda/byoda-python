@@ -145,10 +145,18 @@ class YouTubeThumbnail:
 
         server: PodServer = config.server
 
+        log_extra: dict[str, str | UUID] = {
+            'video_id': video_id,
+            'custom_domain': custom_domain,
+            'member_id': member.member_id,
+            'cdn_fqdn': server.cdn_fqdn,
+            'cdn_origin_site_id': server.cdn_origin_site_id,
+        }
         if not self.youtube_url:
             self.youtube_url = self.url
+        log_extra['youtube_url'] = self.youtube_url
 
-        _LOGGER.debug(f'Downloading thumbnail {self.youtube_url}')
+        _LOGGER.debug(f'Downloading thumbnail', extra=log_extra)
 
         try:
             parsed_url: ParseResult = urlparse(self.url)
@@ -161,7 +169,7 @@ class YouTubeThumbnail:
                             file_desc.write(chunk)
         except Exception as exc:
             _LOGGER.debug(
-                f'Failed to download thumbnail {self.youtube_url}: {exc}'
+                f'Failed to download thumbnail: {exc}', extra=log_extra
             )
             raise ByodaRuntimeError(
                 f'Thumbnail download failure: {self.youtube_url}'
@@ -175,20 +183,21 @@ class YouTubeThumbnail:
         else:
             ext = ''
 
-        cdn_origin_site_id: str | None = os.environ.get('CDN_ORIGIN_SITE_ID')
-
-        if cdn_origin_site_id:
+        if server.cdn_fqdn and server.cdn_origin_site_id:
             _LOGGER.debug(
-                'Using CDN Origin Site ID for thumbnail: '
-                f'{cdn_origin_site_id}'
+                'Using CDN FQDN and CDN Origin Site ID for thumbnail',
+                extra=log_extra
             )
             self.url: str = Paths.PUBLIC_THUMBNAIL_CDN_URL.format(
-                cdn_origin_site_id=cdn_origin_site_id,
+                cdn_fqdn=server.cdn_fqdn,
+                cdn_origin_site_id=server.cdn_origin_site_id,
                 service_id=member.service_id, member_id=member.member_id,
                 asset_id=video_id, filename=filename, ext=ext
             )
         else:
-            _LOGGER.debug('No CDN app configured for the server')
+            _LOGGER.debug(
+                'No CDN app configured for the server', extra=log_extra
+            )
 
             if not custom_domain:
                 raise ValueError(
@@ -196,7 +205,7 @@ class YouTubeThumbnail:
                 )
 
             _LOGGER.debug(
-                f'Using POD custom domain for thumbnail: {custom_domain}'
+                f'Using POD custom domain for thumbnail', extra=log_extra
             )
             self.url = Paths.PUBLIC_THUMBNAIL_POD_URL.format(
                 custom_domain=custom_domain, asset_id=video_id,

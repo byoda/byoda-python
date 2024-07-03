@@ -53,6 +53,42 @@
                 "type": "object",
                 "required": ["joined", "member_id"]
             },
+            "settings": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "subscribe"]
+                    }
+                },
+                "type": "object",
+                "properties": {
+                    "nick": {
+                        "description": "Your nickname, used for comments, etc.",
+                        "type": "string"
+                    },
+                    "avatar_url": {
+                        "description": "URL for your avatar",
+                        "type": "string",
+                        "format": "iri"
+                    },
+                    "show_external_assets": {
+                        "description": "Should the pod show assets from other social media services?",
+                        "type": "boolean"
+                    },
+                    "email_address": {
+                        "#accesscontrol": {
+                            "member": {
+                                "permissions": ["read", "update", "delete", "subscribe"]
+                            },
+                            "service": {
+                                "permissions": ["read"]
+                            }
+                        },
+                        "description": "Your email address, can be used by the BYO.Tube service to contact you",
+                        "type": "string",
+                        "format": "email"
+                    }
+                }
+            },
             "network_links": {
                 "#accesscontrol": {
                     "member": {

@@ -24,8 +24,8 @@ PRIVATE_KEY_SECRET: secret to protect the private key
 LOGLEVEL: DEBUG, INFO, WARNING, ERROR, CRITICAL
 ROOT_DIR: where files need to be cached (if object storage is used) or stored
 CDN_APP_ID: the UUID of the CDN app
+CDN_FQDN: the fqdn of the CDN origin site
 CDN_ORIGIN_SITE_ID: the two- or three letter site_id for the CDN origin site
-
 (*) Because Azure Storage Accounts work different than AWS/GCP S3 buckets, for
 Azure we use a single storage account with three containers instead of 3
 buckets
@@ -170,7 +170,9 @@ async def main(argv) -> None:
         # Remaining environment variables used:
         server.custom_domain = data['custom_domain']
         server.shared_webserver = data['shared_webserver']
-
+        server.cdn_fqdn = data.get('cdn_fqdn')
+        server.cdn_origin_site_id = data.get('cdn_origin_site_id')
+        
         angie_config = AngieConfig(
             directory=ANGIE_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
