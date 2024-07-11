@@ -78,6 +78,8 @@ profanity-check = "*"
 beautifulsoup4 = "*"
 idna = "*"
 perflint = "*"
+pyktok = "*"
+pip = "*"
 
 [dev-packages]
 flake8 = "*"
