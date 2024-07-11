@@ -13,11 +13,15 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import asyncio
 import unittest
 
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
+from multiprocessing import Process
+
+import uvicorn
 
 import httpx
 
@@ -65,6 +69,8 @@ NETWORK = config.DEFAULT_NETWORK
 # This must match the test directory in tests/lib/testserver.p
 TEST_DIR = '/tmp/byoda-tests/pod-rest-apis'
 
+TEST_PORT: int = 8000
+
 APP: FastAPI | None = None
 
 
@@ -108,9 +114,24 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
                 APP, server.data_store, server.cache_store
             )
 
+        # TestPodApis.PROCESS = Process(
+        #     target=uvicorn.run,
+        #     args=(APP,),
+        #     kwargs={
+        #         'host': '127.0.0.1',
+        #         'port': TEST_PORT,
+        #         'log_level': 'debug'
+        #     },
+        #     daemon=True
+        # )
+        # TestPodApis.PROCESS.start()
+        # await asyncio.sleep(2)
+
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+        # TestPodApis.PROCESS.kill()
+        # await asyncio.sleep(2)
 
     async def test_prometheus_metrics(self) -> None:
 

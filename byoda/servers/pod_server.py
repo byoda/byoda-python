@@ -293,7 +293,8 @@ class PodServer(Server):
                 f'Podserver does not support JWTs for {jwt.issuer_type}'
             )
 
-    async def get_jwt_secret(self, jwt: JWT):
+    async def get_jwt_secret(self, jwt: JWT
+                             ) -> AccountSecret | MemberSecret | None:
         '''
         Load the public key for the secret that was used to sign the jwt.
         '''
@@ -301,18 +302,18 @@ class PodServer(Server):
         account: Account = self.account
 
         if jwt.issuer_type == IdType.ACCOUNT:
-            secret: AccountSecret = account.tls_secret
+            return account.tls_secret
         elif jwt.issuer_type == IdType.MEMBER:
             member: Member = await account.get_membership(jwt.service_id)
 
             if member and member.member_id == jwt.issuer_id:
-                secret: MemberSecret = member.data_secret
+                return member.data_secret
             else:
                 raise ValueError(
                     'JWTs can not be used to query pods other than our own'
                 )
 
-        return secret
+        return None
 
     def get_app_by_type(self, app_type: AppType, service_id: int
                         ) -> App | None:
