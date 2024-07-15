@@ -19,6 +19,9 @@ from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
+DEFAULT_DB_CONNECTION_STRING: str = \
+    'postgresql://postgres:byoda@postgres/byoda'
+
 
 def get_environment_vars() -> dict:
     '''
@@ -77,7 +80,7 @@ def get_environment_vars() -> dict:
         'moderation_fqdn': os.environ.get('MODERATION_FQDN'),
         'moderation_app_id': os.environ.get('MODERATION_APP_ID'),
         'db_connection': os.environ.get(
-            'DB_CONNECTION', 'postgresql://postgres:byoda@postgres'
+            'DB_CONNECTION', DEFAULT_DB_CONNECTION_STRING
         ),
         'join_service_ids': [
             int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',')
@@ -86,7 +89,7 @@ def get_environment_vars() -> dict:
     }
 
     if not data['db_connection']:
-        data['db_connection'] = 'postgresql://postgres:byoda@postgres'
+        data['db_connection'] = DEFAULT_DB_CONNECTION_STRING
 
     if data['cdn_app_id']:
         data['cdn_app_id'] = UUID(data['cdn_app_id'])

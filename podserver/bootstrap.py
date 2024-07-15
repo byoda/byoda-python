@@ -172,7 +172,7 @@ async def main(argv) -> None:
         server.shared_webserver = data['shared_webserver']
         server.cdn_fqdn = data.get('cdn_fqdn')
         server.cdn_origin_site_id = data.get('cdn_origin_site_id')
-        
+
         angie_config = AngieConfig(
             directory=ANGIE_SITE_CONFIG_DIR,
             filename='virtualserver.conf',
@@ -228,10 +228,12 @@ async def main(argv) -> None:
             await member.create_angie_config()
 
     except Exception:
-        _LOGGER.exception('Exception during startup')
+        _LOGGER.exception('Exception during bootstrap')
+        logging.shutdown()
         raise
 
     logging.shutdown()
+    _LOGGER.info('Bootstrap completed successfully')
 
 
 async def run_bootstrap_tasks(account: Account) -> None:
