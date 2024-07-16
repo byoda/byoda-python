@@ -38,6 +38,7 @@ def get_environment_vars() -> dict:
       - worker_loglevel: None, 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRIT'
       - log_queries: bool
       - root_dir: str
+      - host_root_dir: str
       - roles: ['pod']
       - debug: bool
       - bootstrap: bool
@@ -52,6 +53,7 @@ def get_environment_vars() -> dict:
       - moderation_app_id: str
       - join_service_ids: list[int]
       - db_connection: str
+      - http_port: int
     '''
 
     data: dict[str, str | bool | int] = {
@@ -67,7 +69,8 @@ def get_environment_vars() -> dict:
         'loglevel': os.environ.get('LOGLEVEL', 'WARNING'),
         'logdir': os.environ.get('LOGDIR', None),
         'worker_loglevel': os.environ.get('WORKER_LOGLEVEL', 'WARNING'),
-        'root_dir': os.environ.get('ROOT_DIR'),
+        'root_dir': os.environ.get('ROOT_DIR', '/byoda'),
+        'host_root_dir': os.environ.get('HOST_ROOT_DIR', '/byoda'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
         'custom_domain': os.environ.get('CUSTOM_DOMAIN'),
         'shared_webserver': os.environ.get('SHARED_WEBSERVER') is not None,
@@ -82,6 +85,7 @@ def get_environment_vars() -> dict:
         'db_connection': os.environ.get(
             'DB_CONNECTION', DEFAULT_DB_CONNECTION_STRING
         ),
+        'http_port': int(os.environ.get('HTTP_PORT', 8000)),
         'join_service_ids': [
             int(x) for x in os.environ.get('JOIN_SERVICE_IDS', '').split(',')
             if x

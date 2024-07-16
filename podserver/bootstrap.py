@@ -99,7 +99,9 @@ async def main(argv) -> None:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
             bootstrapping=bool(data.get('bootstrap')),
-            db_connection_string=data.get('db_connection')
+            db_connection_string=data.get('db_connection'),
+            http_port=data.get('http_port'),
+            host_root_dir=data.get('host_root_dir')
         )
         config.server = server
 
@@ -195,8 +197,8 @@ async def main(argv) -> None:
                 storage_type=StorageType.PRIVATE
             ),
             cloud=server.cloud.value,
-            port=PodServer.HTTP_PORT,
-            root_dir=server.network.paths.root_directory,
+            port=server.http_port,
+            root_dir=server.host_root_dir,
             custom_domain=server.custom_domain,
             shared_webserver=server.shared_webserver,
             public_bucket=network.paths.storage_driver.get_bucket(

@@ -63,7 +63,9 @@ class PodServer(Server):
     def __init__(self, network: Network = None,
                  cloud_type: CloudType = CloudType.LOCAL,
                  bootstrapping: bool = False,
-                 db_connection_string: str | None = None) -> None:
+                 db_connection_string: str | None = None,
+                 http_port: int = 8000,
+                 host_root_dir: str = '/byoda') -> None:
         '''
         Sets up data structures for a pod server
 
@@ -72,6 +74,12 @@ class PodServer(Server):
         :param bootstrapping: are we allowed to create secrets
         or database files from scratch when a download from
         object storage fails.
+        :param db_connection_string: the DB to connect to
+        :param http_port: The port to listen on for HTTP and websocket requests
+        :param host_root_dir: The root directory on the host running the
+        container
+        :returns: (none)
+        :raises: (none)
         '''
 
         super().__init__(network, cloud_type=cloud_type)
@@ -93,6 +101,13 @@ class PodServer(Server):
         self.cache_store: CacheStore | None = None
 
         self.account: Account | None = None
+
+        # TCP port that the pod server listens on, used in configuration files
+        # generated for the webserver
+        self.http_port: int = http_port
+
+        # The root directory on the host running the container
+        self.host_root_dir: str = host_root_dir
 
         self.apps: dict[UUID, App] = {}
 

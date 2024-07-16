@@ -25,7 +25,7 @@ angie = AngieConfig(
     'private_cloud_endpoint', cloud='Azure', service_id=999, port=444,
     public_bucket='public_bucket', restricted_bucket='restricted_bucket'
 )
-data = angie.create()
+data: None = angie.create()
 
 angie = AngieConfig(
     TEST_DIR, 'testfile', get_test_uuid(), 'members-999',

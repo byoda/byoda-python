@@ -351,7 +351,9 @@ async def setup_account(argv) -> Account:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
             bootstrapping=bool(data.get('bootstrap')),
-            db_connection_string=data.get('db_connection')
+            db_connection_string=data.get('db_connection'),
+            http_port=data['http_port'],
+            host_root_dir=data['host_root_dir']
         )
         config.server = server
 

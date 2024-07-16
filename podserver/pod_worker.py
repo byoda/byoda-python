@@ -218,7 +218,9 @@ async def setup_worker(argv: list[str]) -> PodServer:
         server: PodServer = PodServer(
             cloud_type=CloudType(data['cloud']),
             bootstrapping=bool(data.get('bootstrap')),
-            db_connection_string=data.get('db_connection')
+            db_connection_string=data.get('db_connection'),
+            http_port=data.get('http_port'),
+            host_root_dir=data.get('host_root_dir')
         )
         config.server = server
 
