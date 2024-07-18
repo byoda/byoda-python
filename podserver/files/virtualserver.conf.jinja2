@@ -1,23 +1,24 @@
 {% if subdomain == 'accounts' %}
-    upstream python_app {
+    upstream app_{{ custom_domain|replace('.', '_') }} {
         zone python_app 32k;
-        server byoda:{{ port }};
+        server {{ custom_domain }}:{{ port }};
         keepalive 1024;
     }
 
-    acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory;
-    acme_client_path /etc/letsencrypt;
+    acme_client {{ custom_domain|replace('.', '_') }} https://acme-v02.api.letsencrypt.org/directory;
 
     server {
         listen 80;
         server_name {{ custom_domain }};
-        acme letsencrypt;
+
+        acme {{ custom_domain|replace('.', '_') }};
+
         location /robots.txt {
             allow 127.0.0.1/32;
             allow 10.0.0.0/8;
             allow 172.16.0.0/12;
             allow 192.168.0.0/16;
-            allow 47.153.143.96/32;         # Steven - Frontier DSL
+            allow 47.143.206.108;         # Steven - Frontier DSL
         }
         location / {
             return 444;
@@ -38,8 +39,8 @@ server {
 {% if subdomain == 'accounts' and custom_domain %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
-        ssl_certificate $acme_cert_letsencrypt;
-        ssl_certificate_key $acme_cert_key_letsencrypt;
+    ssl_certificate $acme_cert_{{ custom_domain|replace('.', '_') }};
+    ssl_certificate_key $acme_cert_key_{{ custom_domain|replace('.', '_') }};
 
     ssl_stapling on;
     ssl_stapling_verify on;
@@ -70,22 +71,22 @@ server {
         status_zone openapi_docs;
         set $cors "0";
         satisfy any;
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /redoc {
         status_zone openapi_docs;
         set $cors "0";
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /openapi.json {
         status_zone openapi_docs;
         set $cors "0";
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /console {
@@ -93,7 +94,7 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.153.143.96/32;         # Steven - Frontier DSL
+        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
 
         alias /usr/share/angie-console-light/html;
@@ -109,7 +110,7 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.153.143.96/32;         # Steven - Frontier DSL
+        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
         api /status/;
     }
@@ -121,8 +122,8 @@ server {
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
         set $cors "0";
-        proxy_pass http://byoda:8000;
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
 
@@ -139,8 +140,8 @@ server {
 
     location /api/ {
         status_zone api_browser_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header Early-Data $ssl_early_data;
@@ -158,8 +159,8 @@ server {
 
     location /ws-api/ {
         status_zone ws-api_browser_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:8000/api/;
-        set $cloud_path 'http://byoda:8000/api/';
+        proxy_pass http://{{ hostname }}:{{ port }}/api/;
+        set $cloud_path 'http://{{ hostname }}:{{ port }}/api/';
 
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -343,7 +344,7 @@ server {
     location /api/v1/pod/content/asset {
         status_zone api_browser_2_pod;
         internal;
-        proxy_pass http://byoda:8000/api/v1/pod/content/asset?&service_id=${service_id}&member_id=${member_id}&asset_id=${asset_id};
+        proxy_pass http://{{ hostname }}:{{ port }}/api/v1/pod/content/asset?&service_id=${service_id}&member_id=${member_id}&asset_id=${asset_id};
     }
 
 }
@@ -398,8 +399,8 @@ server {
 
     location /ws-api/ {
         status_zone ws-api_pod_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:8000/api/;
-        set $cloud_path 'http://byoda:8000/api/';
+        proxy_pass http://{{ hostname }}:{{ port }}/api/;
+        set $cloud_path 'http://{{ hostname }}:{{ port }}/api/';
 
         proxy_set_header Early-Data $ssl_early_data;
 
@@ -420,8 +421,8 @@ server {
     }
     location /api/ {
         status_zone api_pod_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header Early-Data $ssl_early_data;

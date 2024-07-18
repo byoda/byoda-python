@@ -198,7 +198,8 @@ async def main(argv) -> None:
             ),
             cloud=server.cloud.value,
             port=server.http_port,
-            root_dir=server.host_root_dir,
+            root_dir=config.server.network.paths.root_directory,
+            host_root_dir=server.host_root_dir,
             custom_domain=server.custom_domain,
             shared_webserver=server.shared_webserver,
             public_bucket=network.paths.storage_driver.get_bucket(
