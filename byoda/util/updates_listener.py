@@ -128,7 +128,7 @@ class UpdatesListener:
         _LOGGER.debug('Getting all assets from member', extra=log_extra)
 
         has_more_assets: bool = True
-        first: int = 100
+        first: int = 1000
         after: str | None = None
         assets_retrieved: int = 0
 

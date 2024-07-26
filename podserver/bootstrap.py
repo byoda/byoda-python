@@ -67,8 +67,6 @@ from podserver.util import get_environment_vars
 
 _LOGGER: Logger | None = None
 
-LOGFILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/bootstrap.log'
-
 
 async def main(argv) -> None:
     # Remaining environment variables used:
@@ -83,7 +81,7 @@ async def main(argv) -> None:
     else:
         os.umask(0o0022)
 
-    log_file = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
+    log_file: str = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER
     _LOGGER = Logger.getLogger(
         argv[0], json_out=True, debug=config.debug,
@@ -221,6 +219,10 @@ async def main(argv) -> None:
 
         await account.load_memberships()
 
+        hostnames: set[str] = set(
+            [account.tls_secret.common_name, server.custom_domain]
+        )
+
         for member in account.memberships.values():
             member.tls_secret.save_tmp_private_key()
             await member.tls_secret.save(
@@ -229,6 +231,10 @@ async def main(argv) -> None:
             )
             await member.update_registration()
             await member.create_angie_config()
+            hostnames.add(member.tls_secret.common_name)
+
+        if data.get('host_ip'):
+            update_hosts_file(data.get('host_ip'), hostnames)
 
     except Exception:
         _LOGGER.exception('Exception during bootstrap')
@@ -237,6 +243,41 @@ async def main(argv) -> None:
 
     logging.shutdown()
     _LOGGER.info('Bootstrap completed successfully')
+
+
+def update_hosts_file(host_ip: str, hostnames: set[str]) -> None:
+    '''
+    Updates the /etc/hosts file with the IP address and hostnames
+
+    The YouTube import logic calls the data API on the local pod using the
+    FQDN of the membership. To avoids requiring hairpin routing on the
+    first-hop router, we add the FQDN to the /etc/hosts file with the IP
+    address of the host running the container.
+
+    :param host_ip: IP address to add to the /etc/hosts file
+    :param hostnames: set of hostnames to add to or replace in the /etc/hosts
+    file
+    :return: (None)
+    :raises: (none)
+    '''
+
+    with open('/etc/hosts', 'r') as hosts_file:
+        lines: list[str] = hosts_file.readlines()
+
+    # Creating temp file and replacing /etc/hosts with it
+    # fails on 'resource busy' error so we just write directly to it
+    with open('/etc/hosts', 'w') as hosts_file:
+        line: str
+        for line in lines:
+            line = line.strip()
+            if host_ip in line and not line.startswith('#'):
+                continue
+
+            hosts_file.write(line + '\n')
+
+        hosts_file.write(f'{host_ip}\t{' '.join(hostnames)}\n')
+
+    # os.replace('/tmp/hosts', '/etc/hosts')
 
 
 async def run_bootstrap_tasks(account: Account) -> None:

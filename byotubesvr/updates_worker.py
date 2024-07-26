@@ -93,7 +93,7 @@ async def main() -> None:
     members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
-        log_data['members_seen'] = members_seen
+        log_data['members_seen'] = 0
         # Set up the listeners for the members that are already in the cache
         _LOGGER.debug('Start up reconciliation for members', extra=log_data)
         await reconcile_member_listeners(

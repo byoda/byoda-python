@@ -12,8 +12,8 @@ NAME=$1
 
 TARGET=
 
-#DOCKER=docker
-DOCKER=/home/steven/bin/nerdctl
+DOCKER=docker
+#DOCKER=/home/steven/bin/nerdctl
 
 # POD
 if [[ "${NAME}" == "pod" || "${NAME}" == "p" ]]; then
@@ -63,12 +63,13 @@ fi
 # Angie
 if [[ "${NAME}" == "angie" ]]; then
     TARGET="angie"
-    ${DOCKER} build . --file Dockerfile-${TARGET} --tag byoda/${TARGET}:${TAG} --build-arg TAG=${TAG}
+    ANGIE_TAG=latest
+    ${DOCKER} build . --file Dockerfile-${TARGET} --tag byoda/${TARGET}:${ANGIE_TAG} --build-arg TAG=${ANGIE_TAG}
     if [ "$?" -eq "0" ]; then
         export IMAGE_ID=$(${DOCKER} images --format='{{.ID}}'  | head -1)
         echo "Pushing image: $IMAGE_ID"
-        ${DOCKER} image tag ${IMAGE_ID} byoda/${TARGET}:${TAG}
-        ${DOCKER} push byoda/${TARGET}:${TAG}
+        ${DOCKER} image tag ${IMAGE_ID} byoda/${TARGET}:${ANGIE_TAG}
+        ${DOCKER} push byoda/${TARGET}:${ANGIE_TAG}
         echo "Docker build of Angie completed"
         exit 0
     else
@@ -82,13 +83,17 @@ if [ -z "${TARGET}" ]; then
     exit 1
 fi
 
+
 if [ -z "${TAG}" ]; then
     RESULT=$(git status | grep 'branch main')
     if [ "$?" -eq "0" ]; then
         export TAG=latest
     else
         if [[ "${TARGET}" == "pod" || "${TARGET}" == "p" ]]; then
-            export TAG=dev
+            # For now we always build latest if TAG is not specified
+            # because k8s only supports always_pull for tag 'latest'
+            # export TAG=dev
+            export TAG=latest
         else
             export TAG=latest
         fi

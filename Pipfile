@@ -40,7 +40,6 @@ aioschedule = {git = "https://github.com/ibrb/python-aioschedule"}
 pynng = "*"
 setuptools = "*"
  wheel = "*"
-install = "*"
 google-api-python-client = "*"
 yt-dlp = "*"
 pymerkle = "*"

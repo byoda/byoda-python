@@ -176,7 +176,7 @@ class MemberDb:
         kvcache: KVCache = self.kvcache
         data = await kvcache.get(mid)
 
-        last_seen: datetim = datetime.fromisoformat(data['last_seen'])
+        last_seen: datetime = datetime.fromisoformat(data['last_seen'])
         log_data: dict[str, any] = {
             'member_id': str(member_id),
             'member_meta_id': mid,
