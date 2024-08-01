@@ -150,7 +150,10 @@ class UpdatesListener:
                 if sleepy_time < max_sleepy_time:
                     metric = 'failed_get_all_data_request_exception'
                     if metrics and 'metric' in metrics:
-                        metrics['metric'].labels(sleepy_time=sleepy_time).inc()
+                        metrics['metric'].labels(
+                            sleepy_time=sleepy_time,
+                            member_id=self.remote_member_id
+                        ).inc()
                     sleepy_time *= 2
                     await sleep(sleepy_time)
                     continue
@@ -160,16 +163,19 @@ class UpdatesListener:
                     extra=log_extra | {'exception': str(exc)}
                 )
                 if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                    metrics['failed_get_all_data'].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             if resp.status_code != 200:
                 if sleepy_time < max_sleepy_time:
                     metric = 'failed_get_all_data_request_not_ok'
-                    if metrics and 'metric' in metrics:
-                        metrics['metric'].labels(
+                    if metrics and metric in metrics:
+                        metrics[metric].labels(
                             sleepy_time=sleepy_time,
-                            status_code=resp.status_code
+                            status_code=resp.status_code,
+                            member_id=self.remote_member_id
                         ).inc()
                     sleepy_time *= 2
                     log_extra['sleepy_time'] = sleepy_time
@@ -190,7 +196,9 @@ class UpdatesListener:
                     }
                 )
                 if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                    metrics['failed_get_all_data'].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             # We made it to here so we got data from the pod, so we can
@@ -513,7 +521,8 @@ class UpdateListenerService(UpdatesListener):
                 metric, (
                     'Failed to get all data from a member, '
                     'giving up on the member'
-                )
+                ),
+                ['member_id']
             )
         metric = 'failed_get_all_data_request_exception'
         if metric not in metrics:
@@ -523,7 +532,7 @@ class UpdateListenerService(UpdatesListener):
                     'Got a request exception while downloading '
                     'all data from a member'
                 ),
-                ['sleepy_time']
+                ['sleepy_time', 'member_id']
             )
         metric = 'failed_get_all_data_request_not_ok'
         if metric not in metrics:
@@ -533,7 +542,7 @@ class UpdateListenerService(UpdatesListener):
                     'Got a response other than HTTP 200 while downloading '
                     'all data from a member'
                 ),
-                ['sleepy_time', 'status_code']
+                ['sleepy_time', 'status_code', 'member_id']
             )
 
         metric: str = 'updateslistener_connection_healthy'

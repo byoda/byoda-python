@@ -248,9 +248,14 @@ class MemberDb:
 
         normalized_members: list[UUID] = []
         for member in members:
-            member_val = member
-            if isinstance(member, bytes):
-                member_val: UUID = UUID(member.decode('utf-8'))
+            member_val: UUID
+            if isinstance(member, UUID):
+                member_val = member
+            elif isinstance(member, str):
+                member_val = UUID(member)
+            elif isinstance(member, bytes):
+                member_val = UUID(member.decode('utf-8'))
+
             normalized_members.append(member_val)
 
         _LOGGER.debug(
@@ -260,7 +265,7 @@ class MemberDb:
 
         return normalized_members
 
-    async def delete_members_list(self):
+    async def delete_members_list(self) -> bool:
         '''
         Delete the list of members.
 

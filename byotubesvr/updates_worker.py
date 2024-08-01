@@ -90,12 +90,12 @@ async def main() -> None:
 
     member_db: MemberDb = server.member_db
     wait_time: float = 0.0
-    members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
         log_data['members_seen'] = 0
         # Set up the listeners for the members that are already in the cache
         _LOGGER.debug('Start up reconciliation for members', extra=log_data)
+        members_seen: dict[UUID, UpdateListenerService] = {}
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
             task_group
