@@ -133,8 +133,9 @@ class AssetCache(SearchableCache, Metrics):
         Add an asset to the cache.
 
         :param member_id: The member that originated the asset.
+
         :param asset: The asset to add.
-        :return: None
+        :return: bool, on whether asset was added to cache
         :raises: None
         '''
 
@@ -668,10 +669,6 @@ class AssetCache(SearchableCache, Metrics):
         list_permutations: int = max_lists - 2
         if len(lists_set) > list_permutations:
             lists_set = set((list(lists_set))[:list_permutations])
-
-        # the 'all_assets' list is a special list that contains all assets, so
-        # we can refresh assets in the cache before they expire
-        lists_set.add(AssetCache.ALL_ASSETS_LIST)
 
         # Add the asset to the list for the creator
         if asset_model.creator:

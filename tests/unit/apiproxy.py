@@ -54,9 +54,9 @@ APP: FastAPI | None = None
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=True)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = "TEST_CLIENT"
         config.disable_pubsub = True
@@ -64,7 +64,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         server: PodServer = config.server
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
@@ -109,12 +109,12 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
-    async def test_string_filter(self):
-        pod_account = config.server.account
-        service_id = ADDRESSBOOK_SERVICE_ID
+    async def test_string_filter(self) -> None:
+        pod_account: Account | None = config.server.account
+        service_id: int = ADDRESSBOOK_SERVICE_ID
         account_member: Member = await pod_account.get_membership(service_id)
 
         #
@@ -149,19 +149,19 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # queries
         plaintext = 'ik ben toch niet gek!'
         msg_sig = MessageSignature(data_secret)
-        signature = msg_sig.sign_message(plaintext)
+        signature: bytes = msg_sig.sign_message(plaintext)
         msg_sig.verify_message(plaintext)
         signature = data_secret.sign_message(plaintext)
         data_secret.verify_message_signature(plaintext, signature)
 
         azure_member.schema = account_member.schema
         data_proxy = DataProxy(azure_member)
-        relations = ['friend']
+        relations: list[str] = ['friend']
         filters = None
-        timestamp = datetime.now(timezone.utc)
-        origin_member_id = AZURE_POD_MEMBER_ID
+        timestamp: datetime = datetime.now(timezone.utc)
+        origin_member_id: str = AZURE_POD_MEMBER_ID
 
-        origin_signature = data_proxy.create_signature(
+        origin_signature: str = data_proxy.create_signature(
             ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
             origin_member_id, member_data_secret=data_secret
         )
