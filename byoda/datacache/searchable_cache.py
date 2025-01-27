@@ -21,6 +21,8 @@ from typing import Self
 from hashlib import sha256
 from base64 import b64encode
 from logging import getLogger
+from datetime import UTC
+from datetime import datetime
 from datetime import timedelta
 
 import orjson
@@ -51,6 +53,8 @@ from byoda.util.logger import Logger
 
 from byoda import config
 
+from .asset_list import AssetList
+
 _LOGGER: Logger = getLogger(__name__)
 
 LUA_FUNCTION_NAME_GET_LIST_ASSETS: str = 'get_list_assets'
@@ -60,22 +64,30 @@ class SearchableCache:
     LUA_FUNCTIONS_FILE: str = 'byotubesvr/redis.lua'
     # Search index will index JSON values under this key prefix
     ASSET_KEY_PREFIX: str = 'assets:'
-    LISTS_KEY_PREFIX: str = 'lists:'
-    SETS_KEY_PREFIX: str = 'sets:'
     ALL_ASSETS_LIST: str = 'all_assets'
     ALL_CREATORS: str = 'all_creators'
+    CHANNEL_KEY_PREFIX: str = 'channels'
 
     DEFAULT_EXPIRATION: int = 86400             # seconds
-    DEFAULT_EXPIRATION_LISTS: int = 30 * 86400  # days
+    DEFAULT_EXPIRATION_LISTS: int = 90 * 86400  # days
 
     '''
     Data is arranged in Redis:
     - individual assets as JSON docs under 'assets:<cursor>'
-    - lists of assets as a list of keys under 'lists:<list_name>'
-      the values of the elements of a list point to 'assets:<cursor>'
+    - lists of assets as a list of keys under:
+      - 'lists:<list_name>'
+      - 'sset:<list_name>
 
+    The values of the elements of a list point to 'assets:<cursor>'
     The cursor is a base64-encoding of the SHA256 has of
     '<member_id>-<asset_id>'
+
+    We maintain both sorted sets and lists in Redis as we need the
+    list to enable pagination
+
+    We use the sorted set both for checking whether an asset is already
+    in a list and to get items from the set based on which ones are
+    first to expire from the cache (using the Lua function).
     '''
 
     def __init__(self, connection_string: str) -> None:
@@ -101,23 +113,29 @@ class SearchableCache:
         self.setup_metrics()
 
     def setup_metrics(self) -> None:
-        metrics: dict[str, Gauge | Counter] = config.metrics
+        metrics: dict[str, Counter | Gauge] = config.metrics
 
-        metric: str = 'searchable_cache_member_id_in_head_of_list'
+        metric: str = 'searchable_cache_search_results_found'
         if metric not in metrics:
             metrics[metric] = Gauge(
                 metric, (
-                    'an origin of an asset already has another asset in the '
-                    'head of the list'
+                    'the number of search results found'
                 )
             )
 
-        metric = 'searchable_cache_member_id_not_in_head_of_list'
+        metric: str = 'searchable_cache_asset_already_in_cache'
         if metric not in metrics:
             metrics[metric] = Gauge(
                 metric, (
-                    'an origin of an asset already does not have another '
-                    'asset in the head of the list'
+                    'The asset is already in the cache'
+                )
+            )
+
+        metric: str = 'searchable_cache_asset_not_yet_in_cache'
+        if metric not in metrics:
+            metrics[metric] = Gauge(
+                metric, (
+                    'The asset is not yet in the cache and will be added'
                 )
             )
 
@@ -152,6 +170,9 @@ class SearchableCache:
             with open(lua_functions_file) as file_desc:
                 lua_code: str = file_desc.read()
 
+            _LOGGER.debug(
+                f'Loading Redis LUA function from {lua_functions_file}'
+            )
             self._function_get_list_assets: Script = \
                 self.client.register_script(lua_code)
             _LOGGER.debug('Loaded Redis LUA function')
@@ -171,36 +192,12 @@ class SearchableCache:
 
         await self.client.aclose()
 
-    def get_list_key(self, cache_list: str, is_internal: bool = False,
-                     member_id: UUID | None = None) -> str:
-        '''
-        Get the Redis key for the list of assets
-
-        :param cache_list: The name of the list of assets
-        :returns: The Redis key for the list of assets
-        '''
-
-        # BUG: the member_id option should not be optional
-        # but the /api/v1/service/data API currently does not
-        # require a member_id
-
-        mid: str = ''
-        if member_id:
-            mid = f'{member_id}_'
-        if is_internal:
-            return f'_{self.LISTS_KEY_PREFIX}{mid}{cache_list}'
-        else:
-            return f'{self.LISTS_KEY_PREFIX}{mid}{cache_list}'
-
-    def get_set_key(self, cache_set: str) -> str:
-        '''
-        Get the Redis key for the list
-
-        :param cache_list: The name of the list of assets
-        :returns: The Redis key for the list of assets
-        '''
-
-        return f'_{self.SETS_KEY_PREFIX}{cache_set}'
+    @staticmethod
+    def get_all_creators_key() -> str:
+        return (
+            f'{SearchableCache.CHANNEL_KEY_PREFIX}:'
+            f'{SearchableCache.ALL_CREATORS}'
+        )
 
     def get_cursor(self, member_id: str | UUID, asset_id: str | UUID) -> str:
         '''
@@ -292,6 +289,8 @@ class SearchableCache:
         :returns: a list of assets matching the query
         '''
 
+        metrics: dict[str, Counter | Gauge] = config.metrics
+
         if offset < 0:
             offset = 0
         if offset > 1000:
@@ -340,11 +339,16 @@ class SearchableCache:
                     IngestStatus.EXTERNAL.value)):
                 data.append(doc_data)
 
-        _LOGGER.debug(f'Found {len(data)} assets for query: {query}')
+        metrics['searchable_cache_search_results_found'].set(len(data))
+        _LOGGER.debug(
+            'Found assets for query',
+            extra={'query': query, 'items': len(data)}
+        )
 
         return data
 
-    async def get_list_values(self, asset_list: str, key_prefix: str,
+    async def get_list_values(self, asset_list: str | AssetList,
+                              key_prefix: str,
                               first: int = DEFAULT_PAGE_LENGTH,
                               after: str = None,
                               filter_name: str | None = None,
@@ -362,7 +366,8 @@ class SearchableCache:
         if first is not None and (not isinstance(first, int) or first <= 0):
             raise ValueError('first must be a integer > 0')
 
-        asset_list_key: str = self.get_list_key(asset_list)
+        if isinstance(asset_list, str):
+            asset_list = AssetList(asset_list, redis=self.client)
 
         if not after:
             after = ''
@@ -370,8 +375,20 @@ class SearchableCache:
         if filter_value:
             filter_value = str(filter_value)
 
+        log_data: dict[str, any] = {
+            'asset_list': asset_list.name,
+            'redis_key': asset_list.redis_key,
+            'key_prefix': key_prefix,
+            'first': first,
+            'after': after,
+            'filter_name': filter_name,
+            'filter_value': filter_value
+        }
+
+        _LOGGER.debug('Getting list values', extra=log_data)
+
         data: list[bytes] = await self._function_get_list_assets(
-            keys=[asset_list_key], args=[
+            keys=[asset_list.redis_key], args=[
                 key_prefix, first, after or '', filter_name or '',
                 filter_value or ''
             ]
@@ -381,17 +398,12 @@ class SearchableCache:
             if item:
                 results.append(orjson.loads(item))
 
-        log_message: str = \
-            f'Got {len(results)} assets for key {asset_list_key} '
+        # Ordered set has ascending values while we want newest asset first
+        results.reverse()
 
-        if after:
-            log_message += f'after {after}'
-        if first:
-            log_message += f' with first {first}'
-        if filter_value:
-            log_message += f' and filter {filter_name}={filter_value}'
+        log_data['assets_retrieved'] = len(results)
 
-        _LOGGER.debug(log_message)
+        _LOGGER.debug('Retrieved assets for list', extra=log_data)
 
         return results
 
@@ -421,9 +433,9 @@ class SearchableCache:
 
         return cached_data
 
-    async def json_set(self, asset_lists: str | list[str] | set[str],
+    async def json_set(self, asset_lists: set[AssetList],
                        asset_key_prefix: str, asset_edge: dict,
-                       expiration: int = DEFAULT_EXPIRATION) -> int:
+                       expires_in: int | float = DEFAULT_EXPIRATION) -> int:
         '''
         Adds a JSON document to the cache and adds it to the lists of assets
 
@@ -431,10 +443,14 @@ class SearchableCache:
         :param asset_key_prefix: The prefix for the key to store the asset
         :param member_id: The member that originated the asset
         :param asset_edge: The asset to add
+        :param expires_in: number of seconds until the asset expires
         '''
 
-        metrics: dict[str, Gauge | Counter] = config.metrics
+        metrics: dict[str, Counter | Gauge] = config.metrics
 
+        log_data: dict[str, any] = {
+            'asset_key_prefix': asset_key_prefix,
+        }
         node: dict | None = asset_edge.get('node')
         if not node:
             raise ValueError('asset_edge does not contain a node')
@@ -446,12 +462,16 @@ class SearchableCache:
         if not isinstance(asset_id, str):
             asset_id = str(asset_id)
 
+        log_data['asset_id'] = asset_id
+
         member_id: UUID | str | None = asset_edge.get('origin')
         if not member_id:
             raise ValueError('node does not contain an origin field')
 
         if not isinstance(member_id, str):
             member_id = str(member_id)
+
+        log_data['member_id'] = member_id
 
         creator: str = asset_edge['node']['creator']
         if not creator:
@@ -460,155 +480,157 @@ class SearchableCache:
                 'a value for creator'
             )
 
-        if type(asset_lists) not in (set, list):
-            asset_lists = [asset_lists]
+        log_data['creator'] = creator
+
+        log_data['asset_lists'] = [
+            asset_list.name for asset_list in asset_lists
+        ]
 
         asset_edge['cursor'] = self.get_cursor(member_id, asset_id)
 
         key: str = self.annotate_key(asset_key_prefix, asset_edge['cursor'])
+        log_data['cache_key'] = key
+
         if await self.client.json().get(key):
+            metrics['searchable_cache_asset_already_in_cache'].inc()
             _LOGGER.debug(
-                f'Asset {asset_edge["node"]["asset_id"]} is already '
-                f'in the cache: {key}, so only updating the expiration'
+                'Asset is already in the cache, so updating the expiration of '
+                'the existing cache entry', extra=log_data
             )
-            await self.set_expiration(key, expiration)
+            await self.set_expiration(key, expires_in)
 
             if creator:
-                for asset_list in [
-                    a_l for a_l in asset_lists if a_l.endswith(creator)
-                ]:
-                    # BUG: we currently maintain two lists: <prefix>:<creator>
-                    # and <prefix>:<member_id>_{creator}
-                    asset_list_key: str = self.get_list_key(asset_list)
-                    await self.set_expiration(
-                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS
-                    )
-                    asset_list_key: str = self.get_list_key(
-                        asset_list, member_id=member_id
-                    )
-                    await self.set_expiration(
-                        asset_list_key, self.DEFAULT_EXPIRATION_LISTS
-                    )
+                await self.update_creator_list_expiration(creator, asset_lists)
 
-            return
+            return expires_in
 
+        metrics['searchable_cache_asset_not_yet_in_cache'].inc()
         result: bool = await self.client.json().set(key, '.', asset_edge)
+        await self.set_expiration(key, expires_in)
+        _LOGGER.debug('Added asset to cache', extra=log_data)
 
         if not result:
             raise RuntimeError('Failed to set JSON key')
 
-        await self.set_expiration(key, expiration)
-
+        asset_list: AssetList
         for asset_list in asset_lists:
-            if (asset_list != SearchableCache.ALL_ASSETS_LIST
-                    and not asset_list.endswith(creator)):
-                origin_already_in_head_of_list: bool = \
-                    await self.check_head_of_list(
-                        asset_list, creator, depth=20
-                    )
-
-                if origin_already_in_head_of_list:
-                    metric: str = \
-                        'searchable_cache_member_id_in_head_of_list'
-                    metrics[metric].inc()
-                    continue
-
-            metric: str = \
-                'searchable_cache_member_id_not_in_head_of_list'
-            metrics[metric].inc()
-
-            _LOGGER.debug(f'Prepending key {key} to list {asset_list}')
-            await self.prepend_list(asset_list, key)
-
-    async def check_head_of_list(self, list_name: str, creator: str,
-                                 depth: int = 20) -> bool:
-        '''
-        Checks if an asset of the same origin is already in the first
-        '<depth>' items of the list
-
-        :param list_name: The name of the list
-        :param member_id: The member that originated the asset
-        :returns: True if an asset with the member_id = origin
-        is already in the first <depth> items of the list
-        '''
-
-        key_name: str = self.get_list_key(list_name)
-        asset_keys: list[str] = await self.client.lrange(key_name, 0, depth)
-        _LOGGER.debug(f'Getting first {depth} items of list {list_name}')
-        for asset_key in asset_keys:
-            edge: dict[str, any] = await self.client.json().get(asset_key)
-            if not edge:
-                continue
-            edge_creator: str = edge['node']['creator']
             _LOGGER.debug(
-                f'Checking asset {asset_key} to see if it is '
-                f'from creator {creator}: {edge_creator}'
+                'Adding key to list',
+                extra=log_data | {
+                    'key': key,
+                    'list': asset_list.name,
+                    'expires': node['published_timestamp']
+                }
             )
-            if edge and edge['node']['creator'] == creator:
-                _LOGGER.debug(
-                    f'Creator {creator} with asset {asset_key} already '
-                    f'in head of list {list_name}'
+
+            add_asset: bool = False
+            is_channel_list: bool = asset_list.is_channel_list()
+            if is_channel_list:
+                add_asset = True
+            else:
+                length: int = await asset_list.length()
+                if length < AssetList.IN_HEAD_LIST_LEN:
+                    add_asset = True
+                else:
+                    in_head: bool = await asset_list.in_head(creator)
+                    if not in_head:
+                        add_asset = True
+
+            if add_asset:
+                await asset_list.add(
+                    key, node['published_timestamp']
                 )
-                return True
 
-        return False
-
-    async def pop_last_list_item(self, list_name: str) -> str | None:
-        '''
-        Gets the last item in a list
-
-        :param list: The name of the list
-        :returns: The key for the last item in the list or none if the list is
-        empty. The key includes the prefix and the cursor
-        '''
-
-        key_name: str = self.get_list_key(list_name)
-        item: str = await self.client.rpop(key_name)
-
-        return item
-
-    async def push_newest_list_item(self, list_name: str, item: str) -> int:
-        '''
-        Adds an item to the end of a list
-
-        :param list: The name of the list
-        :param item: The item to add
-        :returns: The length of the list after adding the item
-        '''
-
-        key_name: str = self.get_list_key(list_name)
-        return await self.client.rpush(key_name, item)
-
-    async def append_list(self, list_name: str, item: str) -> int:
-        '''
-        Adds an item to the end of a list
-
-        :param list: The name of the list
-        :param item: The item to add
-        :returns: The length of the list after adding the item
-        '''
-
-        key_name: str = self.get_list_key(list_name)
-        await self.client.expire(
-            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
+        # For the ALL_ASSETS_LIST, we use cache expiration to rank
+        # entries in the Redis sorted-set. For all other lists we use
+        # the publication timestamp
+        asset_list = AssetList(
+            SearchableCache.ALL_ASSETS_LIST, redis=self.client
         )
-        return await self.client.rpush(key_name, item)
+        await self.add_to_list(
+            asset_list, key,
+            datetime.now(tz=UTC) + timedelta(seconds=expires_in)
+        )
 
-    async def prepend_list(self, list_name: str, item: str,
-                           is_internal: bool = False) -> int:
+    async def update_creator_list_expiration(
+        self, creator: str, asset_lists: set[AssetList]
+    ) -> None:
+        for asset_list in [
+            a_l for a_l in asset_lists if a_l.name.endswith(creator)
+        ]:
+            asset_sset_key: str
+            asset_sset_key = AssetList.get_key(asset_list)
+            await self.set_expiration(
+                asset_sset_key, self.DEFAULT_EXPIRATION_LISTS
+            )
+
+    async def get_oldest_expired_item(self, stale_window: int = 0
+                                      ) -> tuple[str, float] | None:
         '''
-        Adds an item to the beginning of a list
+        Gets the oldest item in a list
+
+        :param stale_window: The time before the asset expiration where we
+        consider the asset stale
+        :returns: The key for the oldest expired item in the ALL_ASSETS_LIST
+        list and a timestamp for its expiration or none if the list is empty
+        or the oldest item has not expired yet
+        '''
+
+        sset_key: str
+        sset_key: str = AssetList.get_key(SearchableCache.ALL_ASSETS_LIST)
+        items: list[tuple[str, float]] = await self.client.zpopmin(sset_key)
+
+        if not items:
+            return None
+
+        sset_item: str = items[0][0]
+        item_expires_at: float = items[0][1]
+        # Suppose item expiration at 16:00
+        # Suppose now is 15:00
+        # Suppose stale window is 2 hours
+        # so, now + stale window > item expiration
+        if item_expires_at > datetime.now(tz=UTC).timestamp() + stale_window:
+            # Oldest item has not expired and is not stale yet
+            # Add the item back to the sorted set
+            await self.client.zadd(sset_key, {sset_item: item_expires_at})
+            return None, None
+
+        return items[0]
+
+    async def add_to_list(self, asset_list: AssetList, item: str,
+                          timestamp: datetime | int | float | None,
+                          to_back: bool = False
+                          ) -> int:
+        '''
+        Adds an item to the list
 
         :param list: The name of the list
         :param item: The item to add
+        :param timestamp: when the asset was published, or when the
+        asset expires from the cache. Used for ranking the item in the sorted
+        set
         :returns: The length of the list after adding the item
         '''
 
-        key_name: str = self.get_list_key(list_name, is_internal=is_internal)
-        await self.client.expire(
-            key_name, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
-        )
-        return await self.client.lpush(key_name, item)
+        if isinstance(timestamp, datetime):
+            timestamp = timestamp.timestamp()
+
+        do_insert = False
+        list_len: int = await asset_list.length()
+
+        if list_len < AssetList.IN_HEAD_LIST_LEN:
+            do_insert = True
+
+        if not await asset_list.contains_cursor(item):
+            do_insert = True
+
+        if do_insert:
+            await asset_list.add(item, timestamp, to_back=to_back)
+            list_len += 1
+
+        await asset_list.set_expiration()
+
+        return list_len
 
     async def get_expiration(self, key: str) -> int:
         '''
@@ -620,13 +642,14 @@ class SearchableCache:
 
         return await self.client.ttl(key)
 
-    async def set_expiration(self, key: str, seconds: int = DEFAULT_EXPIRATION
+    async def set_expiration(self, key: str,
+                             expires_in: int | float = DEFAULT_EXPIRATION
                              ) -> int:
         '''
         Sets the expiration for a key in the cache
 
         :param key: the key to set the expiration for
-        :param seconds: the number of seconds to set the expiration for
+        :param expires: the number of seconds until the key expires
         '''
 
-        return await self.client.expire(key, seconds)
+        return await self.client.expire(key, int(expires_in))

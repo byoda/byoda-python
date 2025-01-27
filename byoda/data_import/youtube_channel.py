@@ -15,7 +15,7 @@ from typing import Self
 from shutil import rmtree
 from random import random
 from tempfile import mkdtemp
-from logging import getLogger
+from logging import getLogger, Logger
 from datetime import UTC
 from datetime import datetime
 
@@ -45,8 +45,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.test_tooling import convert_number_string
 
-from byoda.util.logger import Logger
-
 from .youtube_video import YouTubeVideo
 from .youtube_thumbnail import YouTubeThumbnail
 
@@ -55,6 +53,9 @@ _LOGGER: Logger = getLogger(__name__)
 # Limits the amount of videos imported for a channel
 # per run
 MAX_CHANNEL_VIDEOS_PER_RUN: int = 40
+
+HTTP_PREFIX: str = 'http://'
+HTTPS_PREFIX: str = 'https://'
 
 
 class YouTubeChannel:
@@ -365,7 +366,7 @@ class YouTubeChannel:
 
         return None
 
-    async def get_videos_page(self) -> str:
+    async def get_videos_page(self) -> str | None:
         '''
         Get the videos page for the channel
 
@@ -378,7 +379,7 @@ class YouTubeChannel:
             'User-Agent': (
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                 'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/112.0.0.0 Safari/537.36'
+                'Chrome/131.0.0.0 Safari/537.36'
             )
         }
         async with AsyncHttpClient(headers=headers, follow_redirects=True
@@ -452,9 +453,10 @@ class YouTubeChannel:
         self.youtube_views_count = \
             YouTubeChannel.parse_views_count(parsed_data)
 
-        channel_info: dict[str, any] = YouTubeChannel.parse_nested_dicts(
-            ['metadata', 'channelMetadataRenderer'], parsed_data, dict
-        )
+        channel_info: dict[str, any] | None = \
+            YouTubeChannel.parse_nested_dicts(
+                ['metadata', 'channelMetadataRenderer'], parsed_data, dict
+            )
         if not channel_info:
             _LOGGER.info(
                 'No channel metadata found for channel', extra=log_data
@@ -474,6 +476,37 @@ class YouTubeChannel:
             self.keywords = keywords.split(',')
 
         self.is_family_safe = channel_info.get('isFamilySafe', False)
+
+    @staticmethod
+    def _find_value(data: dict | list, key: str) -> list[str] | None:
+        if type(data) not in (dict, list, str):
+            return None
+
+        returned_path: list[str] | None
+        if isinstance(data, str) and key in data:
+            print(f'Found value: {key} in string {data}')
+            return [data]
+        elif isinstance(data, dict):
+            for data_key, data_value in data.items():
+                if data_key == key:
+                    print('Found key with matching value:', key)
+                    return [key]
+
+                returned_path: list[str] | None = YouTubeChannel._find_value(
+                    data_value, key
+                )
+                if returned_path:
+                    return [data_key] + returned_path
+        elif isinstance(data, list):
+            list_item: dict | list
+            for list_item in data:
+                returned_path: list[str] | None = YouTubeChannel._find_value(
+                    list_item, key
+                )
+                if returned_path:
+                    return ['[]'] + returned_path
+
+        return None
 
     @staticmethod
     def extract_channel_id(page_data: str) -> str:
@@ -527,6 +560,7 @@ class YouTubeChannel:
 
         return None
 
+    @staticmethod
     def parse_video_count(data: dict) -> int | None:
         '''
         Parse the video count from the scraped data
@@ -535,25 +569,30 @@ class YouTubeChannel:
         :returns: the subscriber count
         '''
 
-        try:
-            videos_data: dict | any = YouTubeChannel.parse_nested_dicts(
-                [
-                    'header', 'c4TabbedHeaderRenderer', 'videosCountText',
-                    'runs'
-                ], data, list
-            )
-            if not videos_data:
-                return None
+        metadata_rows: str | any = YouTubeChannel.parse_nested_dicts(
+            [
+                'header', 'pageHeaderRenderer', 'content',
+                'pageHeaderViewModel', 'metadata',
+                'contentMetadataViewModel', 'metadataRows',
+            ], data, list
+        )
 
-            youtube_video_count: int = convert_number_string(
-                videos_data[0]['text']
-            )
+        for metadata_row in metadata_rows or []:
+            metadata_parts: list[dict] = metadata_row.get(
+                'metadataParts', []
+            ) or []
+            for metadata_part in metadata_parts:
+                if isinstance(metadata_part.get('text'), dict):
+                    content: str = metadata_part['text'].get('content', '')
+                    if content and 'videos' in content:
+                        youtube_videos_count: int | None = \
+                            convert_number_string(content)
+                        return youtube_videos_count
 
-            return youtube_video_count
-        except Exception as exc:
-            _LOGGER.debug(f'Failed to parse video count: {exc}')
-            return None
+        _LOGGER.debug('Failed to parse videos count')
+        return None
 
+    @staticmethod
     def parse_subscriber_count(data: dict) -> int | None:
         '''
         Parse the subscriber count from the scraped data
@@ -562,31 +601,40 @@ class YouTubeChannel:
         :returns: the subscriber count
         '''
 
-        try:
-            subs_text: str | any = YouTubeChannel.parse_nested_dicts(
-                [
-                    'header', 'c4TabbedHeaderRenderer',
-                    'subscriberCountText', 'simpleText'
-                ], data, str
-            )
-            if not subs_text:
-                return None
+        metadata_rows: str | any = YouTubeChannel.parse_nested_dicts(
+            [
+                'header', 'pageHeaderRenderer', 'content',
+                'pageHeaderViewModel', 'metadata',
+                'contentMetadataViewModel', 'metadataRows',
+            ], data, list
+        )
 
-            youtube_subs_count: int | None = convert_number_string(subs_text)
+        for metadata_row in metadata_rows or []:
+            metadata_parts: list[dict] = metadata_row.get(
+                'metadataParts', []
+            ) or []
+            for metadata_part in metadata_parts:
+                if isinstance(metadata_part.get('text'), dict):
+                    content: str = metadata_part['text'].get('content', '')
+                    if content and 'subscribers' in content:
+                        youtube_subs_count: int | None = \
+                            convert_number_string(content)
+                        return youtube_subs_count
 
-            return youtube_subs_count
-        except Exception as exc:
-            _LOGGER.debug(f'Failed to parse subscriber count: {exc}')
-            return None
+        _LOGGER.debug('Failed to parse subscriber count')
+        return None
 
+    @staticmethod
     def parse_views_count(data: dict) -> int | None:
         '''
-        Parse the video count from the scraped data
+        Parse the total views count for the channel from the scraped data
 
         :param data: the scraped data
         :returns: the subscriber count
         '''
 
+        # FIXME: can't find the view count for the channel, only the view
+        # count per video
         try:
             views_data: dict | any = YouTubeChannel.parse_nested_dicts(
                 [
@@ -611,14 +659,20 @@ class YouTubeChannel:
         scraped or retrieved using the InnerTube API
         '''
 
-        # First we try to get data from the channel scrape:
         thumbnails_data: list | None = YouTubeChannel.parse_nested_dicts(
             [
-                'header', 'c4TabbedHeaderRenderer', 'avatar', 'thumbnails'
+                'header', 'pageHeaderRenderer', 'content',
+                'pageHeaderViewModel', 'image', 'decoratedAvatarViewModel',
+                'avatar', 'avatarViewModel', 'image', 'sources'
             ], data, list
         )
         if not thumbnails_data:
-            # Now we try to get the data from the InnerTube API
+            # If we can't parse the data from the channel scrape,
+            # we try to get the data from the InnerTube API
+            _LOGGER.debug(
+                'Falling back to Innertube for channel thumbnails',
+                extra={'channel': data.get('title')}
+            )
             if ('thumbnail' not in data
                     or not isinstance(data['thumbnail'], dict)):
                 return set()
@@ -632,7 +686,7 @@ class YouTubeChannel:
         for thumbnail_data in thumbnails_data:
             url: str | None = thumbnail_data.get('url')
             if (url and (
-                    not url.startswith('https://') or url.startswith('//'))):
+                    not url.startswith(HTTPS_PREFIX) or url.startswith('//'))):
                 thumbnail_data['url'] = f'https:{url}'
             thumbnail = YouTubeThumbnail(None, thumbnail_data)
             channel_thumbnails.add(thumbnail)
@@ -650,7 +704,7 @@ class YouTubeChannel:
 
         external_links: list[str] = []
 
-        channel_url: str = YouTubeChannel.parse_nested_dicts(
+        channel_url: str | None = YouTubeChannel.parse_nested_dicts(
             ['metadata', 'channelMetadataRenderer', 'vanityChannelUrl'], data,
             str
         )
@@ -667,18 +721,21 @@ class YouTubeChannel:
                 url = channel_urls[0]
 
         if url:
-            if url.startswith('http://'):
-                url = f'https://{url[len("http://"):]}'
+            if url.startswith(HTTP_PREFIX):
+                url = f'https://{url[len(HTTP_PREFIX):]}'
 
             external_links.append(
                 {'priority': 0, 'name': 'YouTube', 'url': url}
             )
 
-        links_data: dict[str, dict[str, any]] = \
+        # FIXME: external URLs are not included in the page data so
+        # how to get this info?
+        links_data: dict[str, dict[str, any]] | None = \
             YouTubeChannel.parse_nested_dicts(
                 [
-                    'header', 'c4TabbedHeaderRenderer', 'headerLinks',
-                    'channelHeaderLinksViewModel',
+                    'header', 'pageHeaderRenderer', 'content',
+                    'pageHeaderViewModel', 'attribution',
+                    'attributionViewModel', 'text', 'content'
                 ], data, dict
             )
 
@@ -703,10 +760,10 @@ class YouTubeChannel:
             return None
 
         # Strip of the protocol from the url
-        if url.startswith('http://'):
-            url = url[len('http://'):]
-        elif url.startswith('https://'):
-            url = url[len('https://'):]
+        if url.startswith(HTTP_PREFIX):
+            url = url[len(HTTP_PREFIX):]
+        elif url.startswith(HTTPS_PREFIX):
+            url = url[len(HTTPS_PREFIX):]
 
         # Let's try to figure out with social network the url is pointing to
         name: str = url.split('/')[0]
@@ -750,11 +807,12 @@ class YouTubeChannel:
 
         banner_type: str
         for banner_type in ['banner', 'tvBanner', 'mobileBanner']:
-            banner_data: dict[str, str | int] = \
+            banner_data: dict[str, str | int] | None = \
                 YouTubeChannel.parse_nested_dicts(
                     [
-                        'header', 'c4TabbedHeaderRenderer', banner_type,
-                        'thumbnails'
+                        'header', 'pageHeaderRenderer', 'content',
+                        'pageHeaderViewModel', banner_type,
+                        'imageBannerViewModel', 'image', 'sources',
                     ], data, list
                 )
 
@@ -813,7 +871,8 @@ class YouTubeChannel:
 
     @staticmethod
     def parse_nested_dicts(keys: list[str], data: dict[str, any],
-                           final_type: callable) -> object | None:
+                           final_type: callable
+                           ) -> object | list[object] | None:
         for key in keys:
             if key in data:
                 data = data[key]
@@ -851,7 +910,7 @@ class YouTubeChannel:
                     _LOGGER.warning('Scraped video does not have 2 tabs')
                     return []
 
-                videos_tab_renderer = tabs[1]['tabRenderer']
+                videos_tab_renderer: dict = tabs[1]['tabRenderer']
 
                 # Make sure this tab is the 'Videos' tab
                 if videos_tab_renderer['title'] != 'Videos':
@@ -900,10 +959,12 @@ class YouTubeChannel:
 
             # Loop through each video and log out its details
             for rich_item in rich_items:
-                video_renderer: dict = YouTubeChannel.parse_nested_dicts(
-                    ['richItemRenderer', 'content', 'videoRenderer'],
-                    rich_item, dict
-                )
+                video_renderer: dict | None = \
+                    YouTubeChannel.parse_nested_dicts(
+                        ['richItemRenderer', 'content', 'videoRenderer'],
+                        rich_item, dict
+                    )
+
                 video_id = video_renderer['videoId']
                 video_ids.append(video_id)
 
@@ -912,7 +973,7 @@ class YouTubeChannel:
                 return video_ids
 
             # Extract the continuation token
-            item_data: dict = YouTubeChannel.parse_nested_dicts(
+            item_data: dict | None = YouTubeChannel.parse_nested_dicts(
                 [
                     'continuationItemRenderer',
                     'continuationEndpoint',

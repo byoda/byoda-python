@@ -390,6 +390,7 @@ class SqlTable(Table):
         else:
             return f'_{field}'
 
+    @staticmethod
     def get_field_name(column: str) -> str:
         '''
         Returns the name of the JSONSchema field for an SQL column

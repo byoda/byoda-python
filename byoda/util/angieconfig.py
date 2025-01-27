@@ -7,7 +7,6 @@ Bootstrap the account for a pod
 '''
 
 import os
-import signal
 
 from uuid import UUID
 from logging import getLogger
@@ -19,9 +18,6 @@ from jinja2 import Template
 
 from byoda.datatypes import IdType
 
-from byoda.servers.pod_server import PodServer
-
-from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -55,29 +51,34 @@ class AngieConfig(TargetConfig):
                  alias: str, network: str, public_cloud_endpoint: str,
                  restricted_cloud_endpoint: str, private_cloud_endpoint: str,
                  cloud: str, port: int, service_id: int = None,
-                 root_dir: str = '/byoda', custom_domain: str = None,
-                 shared_webserver: bool = False, public_bucket: str = None,
-                 restricted_bucket: str = None, private_bucket: str = None):
+                 root_dir: str = '/byoda', host_root_dir: str = '/byoda',
+                 custom_domain: str = None, shared_webserver: bool = False,
+                 public_bucket: str = None, restricted_bucket: str = None,
+                 private_bucket: str = None) -> None:
         '''
         Manages angie configuration files for virtual servers
 
+        :param directory: location of the template and final angie
+        configuration file
+        :param filename: name of the angie configuration file to be
+        created
         :param identifier: either the account_id or the member_id
         :param subdomain: subdomain of the CN for the cert
         :param cert_filepath: location of the public cert for the CN
         :param key_filepath: location of the unencrypted private key
         :param alias: alias for the account or membership
         :param network: name of the joined network
-        :param directory: location of the template and final angie
-        configuration file
-        :param filename: name of the angie configuration file to be
-        created
         :param public_cloud_endpoint: URL for the endpoint of the
         public bucket
         :param restricted_cloud_endpoint: URL for the endpoint of the
         private bucket
         :param private_cloud_endpoint: URL for the endpoint of the
         private bucket
+        :param cloud: cloud the pod is running on, used for locations proxying
+        to storage
+        :param port: the http port for the virtual server
         :param service_id: service ID for the membership, if applicable
+        :param http_port: the http port for the virtual server to listen on
         :param custom_domain: a custom domain to use for the virtual server
         :param shared_webserver: set to False if the angie service is only
         used for the podserver, set to True if an angie server outside
@@ -93,8 +94,6 @@ class AngieConfig(TargetConfig):
         self.subdomain: str = subdomain
         self.service_id: int = service_id
         self.alias: str = alias
-        self.cert_filepath: str = cert_filepath
-        self.key_filepath: str = key_filepath
         self.network: str = network
         self.public_cloud_endpoint: str = public_cloud_endpoint
         self.restricted_cloud_endpoint: str = restricted_cloud_endpoint
@@ -109,6 +108,23 @@ class AngieConfig(TargetConfig):
         self.public_bucket: str = public_bucket
         self.restricted_bucket: str = restricted_bucket
         self.private_bucket: str = private_bucket
+
+        self.hostname: str
+        self.root_dir: str
+        if self.shared_webserver:
+            # We are running on shared infrastructure, so no dedicated angie
+            # or postgres pods dedicated
+            self.hostname = 'localhost'
+            # Use the actual root_directory for the pod on the host running
+            # the container
+            self.root_dir = host_root_dir
+        else:
+            # There is a pod with containers for angie, byoda and postgres
+            self.hostname = 'byoda'
+            self.root_dir = root_dir
+
+        self.cert_filepath: str = host_root_dir + cert_filepath[len(root_dir):]
+        self.key_filepath: str = key_filepath
 
         self.config_filepath: str
         if self.subdomain == IdType.ACCOUNT.value:
@@ -137,6 +153,7 @@ class AngieConfig(TargetConfig):
             f'Rendering template {self.template_filepath} '
             f'to {self.config_filepath}'
         )
+
         try:
             with open(self.template_filepath) as file_desc:
                 templ = Template(file_desc.read())
@@ -164,6 +181,7 @@ class AngieConfig(TargetConfig):
             public_bucket=self.public_bucket,
             restricted_bucket=self.restricted_bucket,
             private_bucket=self.private_bucket,
+            hostname=self.hostname,
         )
 
         _LOGGER.debug(

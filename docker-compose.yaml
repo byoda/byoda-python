@@ -41,6 +41,8 @@ services:
       - type: bind
         source: /var/lib/postgresql/${POSTFIX}/data
         target: /var/lib/postgresql/data
+    ports:
+      - 5432:5432
 
   byoda-appserver:
     image: byoda/byoda-pod:${TAG}

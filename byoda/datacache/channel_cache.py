@@ -10,10 +10,13 @@ import base64
 
 from uuid import UUID
 from typing import Self
-from logging import getLogger
+from logging import getLogger, Logger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
+
+from redis import Redis
+
 from fastapi.encoders import jsonable_encoder
 
 from prometheus_client import Counter
@@ -26,8 +29,7 @@ from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import EdgeResponse as Edge
 
 from byoda.datacache.searchable_cache import SearchableCache
-
-from byoda.util.logger import Logger
+from byoda.datacache.asset_list import AssetList
 
 from byoda import config
 
@@ -35,20 +37,38 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class ChannelCache(SearchableCache, Metrics):
-    CHANNEL_KEY_PREFIX: str = 'channels'
+    '''
+    We cache the data about all channels/creators to show
+    channel information in the UI
+
+    channel/creator are used interchangeably but we should
+    use creator as a person or organization and the creator can
+    have one or more channels.
+
+    The name of a channel is not unique, that's why we use
+    member_id to differentiate between channels with the same name
+    on different pods.
+    '''
     CHANNEL_SHORTCUT_PREFIX: str = 'channel_shortcuts'
+    CHANNEL_SHORTCUT_EXPIRATION: int = 2 * 365 * 24 * 60 * 60
 
     def __init__(self, connection_string: str) -> None:
         '''
         Constructor for the ChannelCache class
 
-        :param connection_string: the connection string for the cache
+        :param connection_string: the connection string for the
+        Read/Write-enabled cache
         '''
 
         super().__init__(connection_string)
 
         self.setup_metrics()
 
+        self.channel_list: AssetList = AssetList(
+            ChannelCache.ALL_CREATORS, False, self.client
+        )
+
+    @staticmethod
     async def setup(connection_string: str) -> Self:
         '''
         Factory for the ChannelCache class
@@ -109,8 +129,17 @@ class ChannelCache(SearchableCache, Metrics):
 
         return key
 
-    async def add_newest_channel(self, member_id: UUID, channel: Channel
-                                 ) -> bool:
+    def get_asset_list(self, name: str, is_internal: bool, redis: Redis
+                       ) -> AssetList:
+        if name in self.list_cache:
+            _LOGGER.debug('Found existing asset list', extra={'list': name})
+            return self.list_cache[name]
+
+        asset_list = AssetList(name, is_internal, redis)
+        return asset_list
+
+    async def add_newest_channel(self, member_id: UUID | str,
+                                 channel: Channel | dict[str, any]) -> bool:
         '''
         Add a channel to the cache and to the list of all channels
 
@@ -131,9 +160,9 @@ class ChannelCache(SearchableCache, Metrics):
             member_id, channel.creator
         )
 
-        set_key: str = self.get_set_key(self.ALL_CREATORS)
-        if await self.client.sismember(set_key, channel_key):
-            _LOGGER.debug('Channel already in set of channels')
+        all_creators_key: str = SearchableCache.get_all_creators_key()
+        if await self.client.zscore(all_creators_key, channel_key):
+            _LOGGER.debug('Channel already in list of channels')
             return result
 
         await self.append_channel(member_id, channel)
@@ -143,7 +172,8 @@ class ChannelCache(SearchableCache, Metrics):
     async def append_channel(self, member_id: UUID, channel: Channel
                              ) -> bool:
         '''
-        Add a channel to the end of the list of all channels
+        Add a channel to the end of the list of all channels. If the
+        channel already exists then it is moved to the end of the list.
 
         :param channel: the channel to add
         :returns: number of lists the channel was added to
@@ -157,19 +187,24 @@ class ChannelCache(SearchableCache, Metrics):
         if not isinstance(channel, Channel):
             channel = Channel(**channel)
 
-        cursor: str = ChannelCache.get_cursor(member_id, channel.creator)
-        set_key: str = self.get_set_key(self.ALL_CREATORS)
-        await self.client.sadd(set_key, cursor)
-        await self.client.expire(
-            set_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
+        all_creators_key: str = ChannelCache.get_all_creators_key()
+        channel_key: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
         )
-
-        list_key: str = self.get_list_key(self.ALL_CREATORS)
-        await self.client.rpush(list_key, cursor)
+        log_extra: dict[str, str] = {
+            member_id: member_id,
+            'channel': channel.creator,
+            'channel_key': channel_key,
+            'all_creators_key': all_creators_key
+        }
+        now: float = datetime.now(tz=UTC).timestamp()
+        await self.client.zadd(all_creators_key, {channel_key: now})
         await self.client.expire(
-            list_key, time=timedelta(seconds=self.DEFAULT_EXPIRATION_LISTS)
+            all_creators_key, time=timedelta(
+                seconds=self.DEFAULT_EXPIRATION_LISTS
+            )
         )
-
+        _LOGGER.debug('Added channel to all_creators list', extra=log_extra)
         metric: str = 'channelcache_total_channels'
         metrics[metric].inc()
 
@@ -184,44 +219,52 @@ class ChannelCache(SearchableCache, Metrics):
 
         metrics: dict[str, Counter | Gauge] = config.metrics
 
-        list_key: str = self.get_list_key(self.ALL_CREATORS)
+        all_creators_key: str = ChannelCache.get_all_creators_key()
 
-        key_name: str = await self.client.lpop(list_key)
-        if not key_name:
+        data: list[tuple[str, str]] | None = await self.client.zpopmin(
+            all_creators_key, 1
+        )
+        if not data:
+            _LOGGER.debug('No channels in the cache')
             return None
 
         metric: str = 'channelcache_total_channels'
         metrics[metric].dec()
 
-        # As we removed the item from the list, we should also remove it
-        # from the set
-        set_key: str = self.get_set_key(self.ALL_CREATORS)
-        await self.client.srem(set_key, key_name)
-
-        expires_in: int = await self.get_expiration(key_name)
-
         try:
             member_id: UUID
             creator: str
+            key_name: str = data[0][0]
             member_id, creator = ChannelCache.parse_channel_key(key_name)
+            _LOGGER.debug('Got oldest channel', {'creator': creator})
         except Exception as exc:
-            _LOGGER.warning(f'Invalid channel key {key_name}: {exc}')
+            _LOGGER.warning(f'Invalid channel data {data}: {exc}')
             return None
 
         # Create a channel edge with placeholder data
         channel: Channel = Channel(creator=creator)
         cursor: str = ChannelCache.get_cursor(member_id, creator)
+        key: str = ChannelCache.get_channel_key(member_id, creator)
         edge = Edge(
             cursor=cursor, node=channel, origin=member_id, expires_at=0
         )
 
+        log_extra: dict[str, str] = {
+            all_creators_key: all_creators_key,
+            creator: creator,
+            member_id: member_id,
+            key: key_name,
+            cursor: cursor
+        }
+
+        expires_in: int = await self.get_expiration(key_name)
         if expires_in == -2:
             # Redis TTL returns -2 when the key does not exist
             return edge
 
-        _LOGGER.debug(f'Getting channel data for cursor: {cursor}')
+        _LOGGER.debug('Getting channel data for cursor', extra=log_extra)
         node_data: dict[str, any] | None = await self.client.json().get(
-            cursor
+            key
         )
 
         if not node_data:
@@ -234,10 +277,53 @@ class ChannelCache(SearchableCache, Metrics):
         edge.expires_at = max(0, expires_at)
 
         _LOGGER.debug(
-            f'Got oldest channel: {channel.creator} from {member_id}'
+            'Got oldest channel',
+            extra=log_extra | {'channel': channel.creator}
         )
 
         return edge
+
+    async def add_oldest_channel_back(self, member_id: UUID, channel: Channel
+                                      ) -> None:
+        '''
+        Add the oldest channel back to the list of channels. Does NOT
+        store the channel in the cache.
+
+        :param channel: the channel to add
+        :returns: the number of channels in the cache
+        '''
+
+        if not isinstance(channel, Channel):
+            channel = Channel(**channel)
+
+        if not isinstance(member_id, UUID):
+            member_id = UUID(member_id)
+
+        await self.add_to_cache(member_id, channel)
+
+        all_creators_key: str = ChannelCache.get_all_creators_key()
+        data: list[tuple[str, str]] = await self.client.zrange(
+            all_creators_key, 0, 0
+        )
+
+        add_timestamp: float = datetime.now(tz=UTC).timestamp()
+        if data:
+            oldest_channel_timestamp: str
+            _, oldest_channel_timestamp = data[0]
+            add_timestamp = oldest_channel_timestamp - 1
+
+        key_name: str = ChannelCache.get_channel_key(
+            member_id, channel.creator
+        )
+        await self.client.zadd(all_creators_key, {key_name: add_timestamp})
+        _LOGGER.debug(
+            'Added channel back to all_creators ordered set',
+            extra={
+                # all_creators_key: all_creators_key,
+                # member_id: member_id,
+                # channel: channel.creator,
+            }
+        )
 
     async def get_channel(self, member_id: UUID, creator: str
                           ) -> Edge[Channel] | None:
@@ -300,6 +386,9 @@ class ChannelCache(SearchableCache, Metrics):
         if not isinstance(key, str):
             raise ValueError(f'Key must be a string: {key}')
 
+        if key.startswith(f'{ChannelCache.CHANNEL_KEY_PREFIX}:'):
+            key = key[len(ChannelCache.CHANNEL_KEY_PREFIX) + 1:]
+
         member_id_string: str
         creator: str
         member_id_string, creator = key.split('_', 1)
@@ -316,26 +405,6 @@ class ChannelCache(SearchableCache, Metrics):
         except ValueError:
             _LOGGER.warning(f'Invalid member_id in cursor: {member_id_string}')
             raise
-
-    async def add_oldest_channel_back(self, member_id: UUID, channel: Channel
-                                      ) -> None:
-        '''
-        Add the oldest channel back to the list of channels. Does NOT
-        store the channel in the cache.
-
-        :param channel: the channel to add
-        :returns: the number of channels in the cache
-        '''
-
-        if not isinstance(channel, Channel):
-            channel = Channel(**channel)
-
-        if not isinstance(member_id, UUID):
-            member_id = UUID(member_id)
-
-        await self.add_to_cache(member_id, channel)
-
-        await self.append_channel(member_id, channel)
 
     @staticmethod
     def get_cursor(member_id: UUID, creator: str) -> str:
@@ -451,7 +520,8 @@ class ChannelCache(SearchableCache, Metrics):
             }
         )
         await self.client.set(
-            shortcut_key, encoded_shortcut, ex=ChannelCache.DEFAULT_EXPIRATION
+            shortcut_key, encoded_shortcut,
+            ex=ChannelCache.CHANNEL_SHORTCUT_EXPIRATION
         )
 
     async def get_shortcut(self, shortcut: str) -> tuple[UUID, str]:
@@ -466,6 +536,13 @@ class ChannelCache(SearchableCache, Metrics):
             f'{ChannelCache.CHANNEL_SHORTCUT_PREFIX}:{shortcut}'
 
         value: any = await self.client.get(shortcut_key)
+
+        # If a shortcut is being used then we extend its expiration
+        await self.client.expire(
+            shortcut_key, time=timedelta(
+                seconds=self.CHANNEL_SHORTCUT_EXPIRATION
+            )
+        )
 
         log_data: dict[str, any] = {
             'shortcut': shortcut,

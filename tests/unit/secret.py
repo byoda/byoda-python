@@ -18,6 +18,7 @@ import unittest
 from uuid import UUID
 from copy import copy
 from random import randint
+from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -366,9 +367,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.utcnow()
-        ).not_valid_after(
-            datetime.utcnow() + timedelta(days=1)
+            datetime.now(tz=UTC)
+        ).not_valid_after_utc(
+            datetime.now(tz=UTC) + timedelta(days=1)
         ).add_extension(
             x509.SubjectAlternativeName([x509.DNSName(u"localhost")]),
             critical=False,

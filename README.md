@@ -461,7 +461,7 @@ export YOUTUBE_API_KEY=
 export YOUTUBE_IMPORT_INTERVAL=240
 ```
 
-If you just set the *YOUTUBE_CHANNEL* to the name of your channel then only the metadata of your YouTube videos will be ingested but the playback URL will point to youtube.com. If you specify _<channel-name>:ALL_ then the pod will additionally ingest all the video and audio files and store it in your AWS/GCP storage bucket of Azure storage-account. The playback URL will then point to the byoda CDN (cdn.byo.host), which will fetch the content from your the angie server running in your pod, which will retrieve the requested content from your storage-bucket/account. Keep in mind that ingesting the video and audio files will incur costs for your storage account. Streaming the content via the CDN and your pod will incur cloud costs for the network traffic of both your pod and your storage account.
+If you just set the *YOUTUBE_CHANNEL* to the name of your channel then only the metadata of your YouTube videos will be ingested but the playback URL will point to youtube.com. If you specify _<channel-name>:ALL_ then the pod will additionally ingest all the video and audio files and store it in your AWS/GCP storage bucket of Azure storage-account. The playback URL will then point to the byoda CDN (cdn.byo.tube), which will fetch the content from your the angie server running in your pod, which will retrieve the requested content from your storage-bucket/account. Keep in mind that ingesting the video and audio files will incur costs for your storage account. Streaming the content via the CDN and your pod will incur cloud costs for the network traffic of both your pod and your storage account.
 
 ## TODO
 

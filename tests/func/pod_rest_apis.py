@@ -13,11 +13,15 @@ the headers that would normally be set by the reverse proxy
 
 import os
 import sys
+import asyncio
 import unittest
 
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
+from multiprocessing import Process
+
+import uvicorn
 
 import httpx
 
@@ -65,6 +69,8 @@ NETWORK = config.DEFAULT_NETWORK
 # This must match the test directory in tests/lib/testserver.p
 TEST_DIR = '/tmp/byoda-tests/pod-rest-apis'
 
+TEST_PORT: int = 8000
+
 APP: FastAPI | None = None
 
 
@@ -77,7 +83,7 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
         config.disable_pubsub = True
 
         server: PodServer = config.server
-        server.cdn_fqdn = 'cdn.byo.host'
+        server.cdn_fqdn = 'cdn.byo.tube'
         server.cdn_origin_site_id = 'xx'
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
@@ -108,9 +114,24 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
                 APP, server.data_store, server.cache_store
             )
 
+        # TestPodApis.PROCESS = Process(
+        #     target=uvicorn.run,
+        #     args=(APP,),
+        #     kwargs={
+        #         'host': '127.0.0.1',
+        #         'port': TEST_PORT,
+        #         'log_level': 'debug'
+        #     },
+        #     daemon=True
+        # )
+        # TestPodApis.PROCESS.start()
+        # await asyncio.sleep(2)
+
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+        # TestPodApis.PROCESS.kill()
+        # await asyncio.sleep(2)
 
     async def test_prometheus_metrics(self) -> None:
 
@@ -412,16 +433,16 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
             f'{TEST_DIR}/public/{asset_id}/date.bin',
         ]
         for location in data['locations']:
-            self.assertTrue(location in expected_locations)
+            self.assertIn(location, expected_locations)
             self.assertTrue(os.path.exists(location))
 
         expected_urls: list[str] = [
             (
-                'https://cdn.byo.host/public/xx/4294929430'
+                'https://cdn.byo.tube/public/xx/4294929430'
                 f'/{member.member_id}/{asset_id}/ls.bin'
             ),
             (
-                'https://cdn.byo.host/public/xx/4294929430/'
+                'https://cdn.byo.tube/public/xx/4294929430/'
                 f'{member.member_id}/{asset_id}/date.bin'
             )
         ]
@@ -453,11 +474,11 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
 
         expected_urls: list[str] = [
             (
-                'https://cdn.byo.host/restricted/xx/4294929430'
+                'https://cdn.byo.tube/restricted/xx/4294929430'
                 f'/{member.member_id}/{asset_id}/ls.bin'
             ),
             (
-                'https://cdn.byo.host/restricted/xx/4294929430/'
+                'https://cdn.byo.tube/restricted/xx/4294929430/'
                 f'{member.member_id}/{asset_id}/date.bin'
             )
         ]

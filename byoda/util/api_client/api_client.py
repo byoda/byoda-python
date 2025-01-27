@@ -361,7 +361,7 @@ class ApiClient:
         while retries < ApiClient.MAX_RETRIES:
             skip_sleep: bool = False
             try:
-                resp: HttpResponse =    await client.session.request(
+                resp: HttpResponse = await client.session.request(
                     method, api, params=params, content=processed_data,
                     headers=updated_headers, files=files
                 )
@@ -586,7 +586,8 @@ class ApiClient:
 
         if type(data) not in [str, bytes]:
             # orjson can serialize datetimes, UUIDs
-            processed_data = orjson.dumps(data)
+            processed_data: bytes = orjson.dumps(data)
+            updated_headers: dict
             if headers:
                 updated_headers = deepcopy(headers)
             else:

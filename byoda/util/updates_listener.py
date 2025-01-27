@@ -48,6 +48,7 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.datacache.kv_cache import KVCache
 
@@ -80,7 +81,8 @@ class UpdatesListener:
     def __init__(self, class_name: str, service_id: int,
                  remote_member_id: UUID, network_name: str,
                  tls_secret: Secret, annotations: list[str],
-                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
+                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
+                 max_asset_age: int = 0
                  ) -> None:
         '''
         Listen for updates to a class from a remote pod and store the updates
@@ -91,8 +93,10 @@ class UpdatesListener:
         :param network_name: the name of the network that the pod is in
         :param tls_secret: our TLS secret of either our pod or service
         :param annotations: the annotations to use for filtering the data
-        :param cache_expiry: the time in seconds after which the data should
-        be expired
+        :param cache_expiration: the time in seconds after which the data
+        should be expired
+        :param max_asset_age: the age in seconds after which the asset should
+        not be stored in the cache
         :returns: self
         '''
 
@@ -115,6 +119,7 @@ class UpdatesListener:
         self.network_name: str = network_name
         self.tls_secret: Secret = tls_secret
         self.annotations: list[str] = annotations
+        self.max_asset_age: int = max_asset_age
 
     async def get_all_data(self) -> int:
         '''
@@ -128,12 +133,12 @@ class UpdatesListener:
         _LOGGER.debug('Getting all assets from member', extra=log_extra)
 
         has_more_assets: bool = True
-        first: int = 100
+        first: int = 1000
         after: str | None = None
         assets_retrieved: int = 0
 
         metrics: dict[str, Gauge, Counter] = config.metrics
-        sleepy_time: int = 1
+        sleepy_time: int = 0.1
         max_sleepy_time: int = 30
         while has_more_assets:
             log_extra['cursor'] = after
@@ -145,12 +150,16 @@ class UpdatesListener:
                     self.service_id, self.class_name, DataRequestType.QUERY,
                     secret=self.tls_secret, member_id=self.remote_member_id,
                     network=self.network_name, first=first, after=after,
+                    timeout=10
                 )
             except ByodaRuntimeError as exc:
                 if sleepy_time < max_sleepy_time:
                     metric = 'failed_get_all_data_request_exception'
                     if metrics and 'metric' in metrics:
-                        metrics['metric'].labels(sleepy_time=sleepy_time).inc()
+                        metrics['metric'].labels(
+                            sleepy_time=sleepy_time,
+                            member_id=self.remote_member_id
+                        ).inc()
                     sleepy_time *= 2
                     await sleep(sleepy_time)
                     continue
@@ -159,17 +168,21 @@ class UpdatesListener:
                     'Exception while getting all assets from member',
                     extra=log_extra | {'exception': str(exc)}
                 )
-                if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                metric = 'failed_get_all_data'
+                if metrics and metric in metrics:
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             if resp.status_code != 200:
                 if sleepy_time < max_sleepy_time:
                     metric = 'failed_get_all_data_request_not_ok'
-                    if metrics and 'metric' in metrics:
-                        metrics['metric'].labels(
+                    if metrics and metric in metrics:
+                        metrics[metric].labels(
                             sleepy_time=sleepy_time,
-                            status_code=resp.status_code
+                            status_code=resp.status_code,
+                            member_id=self.remote_member_id
                         ).inc()
                     sleepy_time *= 2
                     log_extra['sleepy_time'] = sleepy_time
@@ -190,12 +203,14 @@ class UpdatesListener:
                     }
                 )
                 if metrics and 'failed_get_all_data' in metrics:
-                    metrics['failed_get_all_data'].inc()
+                    metrics['failed_get_all_data'].labels(
+                        member_id=self.remote_member_id
+                    ).inc()
                 return assets_retrieved
 
             # We made it to here so we got data from the pod, so we can
             # reset the timer
-            sleepy_time = 1
+            sleepy_time = 0.1
             log_extra['sleepy_time'] = sleepy_time
 
             data: list[dict[str, object]] = resp.json()
@@ -228,34 +243,7 @@ class UpdatesListener:
 
             edge: Edge
             for edge in response.edges or []:
-                creator: str | None = edge.node.get('creator')
-                log_extra['creator'] = creator
-                ingest_status: str | None = edge.node.get('ingest_status')
-                log_extra['ingest_status'] = ingest_status
-                if (ingest_status != IngestStatus.UNAVAILABLE.value
-                        and (not self.annotations or
-                             (isinstance(self.annotations, list)
-                              and creator in self.annotations))):
-                    _LOGGER.debug(
-                        'Storing imported asset in cache', extra=log_extra
-                    )
-                    result: bool = await self.store_asset_in_cache(
-                        edge.node, edge.origin, edge.cursor
-                    )
-                    if result and metrics:
-                        metric = 'updateslistener_assets_stored_in_cache'
-                        metrics[metric].labels(
-                            member_id=self.remote_member_id,
-                            ingest_status=ingest_status
-                        ).inc()
-                else:
-                    _LOGGER.debug('Skipping import of asset', extra=log_extra)
-
-                    if metrics:
-                        metric = 'updateslistener_assets_skipped'
-                        metrics[metric].labels(
-                            member_id=self.remote_member_id
-                        ).inc()
+                await self._process_asset_edge(edge, log_extra, metrics)
 
             has_more_assets: bool = response.page_info.has_next_page
             after: str = response.page_info.end_cursor
@@ -271,6 +259,77 @@ class UpdatesListener:
 
         self.log_extra['assets_retrieved'] = assets_retrieved
         return assets_retrieved
+
+    async def _process_asset_edge(self, edge: Edge, log_extra: dict[str, any],
+                                  metrics: dict[str, object]) -> bool:
+        creator: str | None = edge.node.get('creator')
+        ingest_status: str | None = edge.node.get('ingest_status')
+
+        log_extra['creator'] = creator
+        log_extra['ingest_status'] = ingest_status
+
+        metric: str
+
+        if ingest_status == IngestStatus.UNAVAILABLE.value:
+            metric = 'asset_status_unavailable'
+            if metrics and metric in metrics:
+                metrics[metric].labels(member_id=self.remote_member_id).inc()
+            return False
+
+        # TODO: why do we need this check?
+        if (self.annotations and isinstance(self.annotations, list)
+                and creator not in self.annotations):
+            _LOGGER.debug('Creator not in annotations', extra=log_extra)
+            metric: str = 'creator_not_in_annotations'
+            if metrics and metric in metrics:
+                metrics[metric].labels(member_id=self.remote_member_id).inc()
+            return False
+
+        published_timestamp: float | int | datetime = edge.node.get(
+            'published_timestamp'
+        )
+        if type(published_timestamp) in (float, int):
+            published_timestamp = datetime.fromtimestamp(
+                published_timestamp, tz=UTC
+            )
+        elif isinstance(published_timestamp, str):
+            published_timestamp = datetime.fromisoformat(
+                published_timestamp
+            )
+
+        log_extra['published_timestamp'] = published_timestamp
+        log_extra['max_asset_age'] = self.max_asset_age
+
+        now: datetime = datetime.now(tz=UTC)
+        if self.max_asset_age and now - published_timestamp > timedelta(
+                seconds=self.max_asset_age):
+            _LOGGER.info('Skipping import of older asset', extra=log_extra)
+            metric = 'asset_too_old_to_store_in_cache'
+            if metrics and metric in metrics:
+                metrics[metric].labels(member_id=self.remote_member_id).inc()
+            return False
+
+        _LOGGER.info(
+            'Storing imported asset in cache', extra=log_extra
+        )
+        result: bool = await self.store_asset_in_cache(
+            edge.node, edge.origin, edge.cursor
+        )
+        if result:
+            if metrics:
+                metric = 'updateslistener_assets_stored_in_cache'
+                metrics[metric].labels(
+                    member_id=self.remote_member_id,
+                    ingest_status=ingest_status
+                ).inc()
+        else:
+            _LOGGER.debug('Skipping import of asset', extra=log_extra)
+
+        if metrics:
+            metric = 'updateslistener_assets_skipped'
+            metrics[metric].labels(member_id=self.remote_member_id).inc()
+
+        return True
 
     async def setup_listen_assets(self, task_group: TaskGroup) -> None:
         '''
@@ -474,9 +533,9 @@ class UpdatesListener:
 class UpdateListenerService(UpdatesListener):
     def __init__(self, class_name: str, service_id: int, member_id: UUID,
                  network_name: str, tls_secret: Secret,
-                 asset_cache: AssetCache,
-                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION
-                 ) -> Self:
+                 asset_cache: AssetCache, channel_cache: ChannelCache,
+                 cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
+                 max_asset_age: int = 0) -> Self:
         '''
         Constructor, do not call directly. Use UpdateListenerService.setup()
 
@@ -490,11 +549,11 @@ class UpdateListenerService(UpdatesListener):
 
         super().__init__(
             class_name, service_id, member_id, network_name, tls_secret,
-            cache_expiration
+            cache_expiration, max_asset_age=max_asset_age
         )
 
         self.annotations: list[str] = []
-
+        self.channel_cache: ChannelCache = channel_cache
         metrics: dict[str, Counter | Gauge] = config.metrics
 
         metric = 'updateslistener_members_seen'
@@ -513,7 +572,8 @@ class UpdateListenerService(UpdatesListener):
                 metric, (
                     'Failed to get all data from a member, '
                     'giving up on the member'
-                )
+                ),
+                ['member_id']
             )
         metric = 'failed_get_all_data_request_exception'
         if metric not in metrics:
@@ -523,7 +583,7 @@ class UpdateListenerService(UpdatesListener):
                     'Got a request exception while downloading '
                     'all data from a member'
                 ),
-                ['sleepy_time']
+                ['sleepy_time', 'member_id']
             )
         metric = 'failed_get_all_data_request_not_ok'
         if metric not in metrics:
@@ -533,7 +593,7 @@ class UpdateListenerService(UpdatesListener):
                     'Got a response other than HTTP 200 while downloading '
                     'all data from a member'
                 ),
-                ['sleepy_time', 'status_code']
+                ['sleepy_time', 'status_code', 'member_id']
             )
 
         metric: str = 'updateslistener_connection_healthy'
@@ -647,7 +707,57 @@ class UpdateListenerService(UpdatesListener):
                 metric, 'Number of assets not yet seen by a listener'
             )
 
+        metric = 'asset_status_unavailable'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric, 'Number of assets with status=unavailable',
+                ['member_id']
+            )
+
+        metric = 'creator_not_in_annotations'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric,
+                'Number of assets with the creator not in the annotations',
+                ['member_id']
+            )
+
+        metric = 'asset_too_old_to_store_in_cache'
+        if metric not in metrics:
+            metrics[metric] = Counter(
+                metric,
+                'Asset published_at is too old to store in cache',
+                ['member_id']
+            )
+
         self.asset_cache: AssetCache = asset_cache
+
+    @staticmethod
+    async def setup(class_name: str, service_id: int, member_id: UUID,
+                    network_name: str, tls_secret: Secret,
+                    asset_cache: AssetCache, channel_cache: ChannelCache,
+                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
+                    max_asset_age: int = 0) -> Self:
+        '''
+        Factory wrapper to enable async construction
+
+        :param data_class: name of the class to retrieve data from
+        :param member: the member to retrieve the data from
+        :param asset_cache: the cache to store the data in
+        :param target_lists: the lists to add the asset to
+        :param exclude_false_values: the fields to check for False values,
+        the value of the field in the data of an asset is False than that asset
+        will not be stored in cache
+        :returns: self
+        :raises: (none)
+        '''
+
+        self = UpdateListenerService(
+            class_name, service_id, member_id, network_name, tls_secret,
+            asset_cache, channel_cache, cache_expiration, max_asset_age
+        )
+
+        return self
 
     def matches(self, member_id: UUID, service_id: int, source_class_name: str
                 ) -> bool:
@@ -666,33 +776,6 @@ class UpdateListenerService(UpdatesListener):
             metrics['updateslistener_members_seen'].inc()
         else:
             metrics['updateslistener_members_unseen'].inc()
-
-    async def setup(class_name: str, service_id: int, member_id: UUID,
-                    network_name: str, tls_secret: Secret,
-                    asset_cache: AssetCache,
-                    cache_expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION,
-
-                    ) -> Self:
-        '''
-        Factory
-
-        :param data_class: class to retrieve data from
-        :param member: the member to retrieve the data from
-        :param asset_cache: the cache to store the data in
-        :param target_lists: the lists to add the asset to
-        :param exclude_false_values: the fields to check for False values,
-        the value of the field in the data of an asset is False than that asset
-        will not be stored in cache
-        :returns: self
-        :raises: (none)
-        '''
-
-        self = UpdateListenerService(
-            class_name, service_id, member_id, network_name, tls_secret,
-            asset_cache, cache_expiration
-        )
-
-        return self
 
     async def store_asset_in_cache(self, data: dict[str, object],
                                    origin_id: str, cursor: str) -> bool:
@@ -739,22 +822,32 @@ class UpdateListenerService(UpdatesListener):
 
         metrics: dict[str, Counter | Gauge] = config.metrics
         try:
-            if await self.asset_cache.add_newest_asset(origin_id, data):
-                metrics['updateslistener_assets_stored_in_cache'].labels(
-                    member_id=self.remote_member_id,
-                    ingest_status=ingest_status
-                ).inc()
-            else:
-                metric: str = 'updateslistener_assets_failed_to_store_in_cache'
-                metrics[metric].labels(
-                    member_id=self.remote_member_id,
-                    ingest_status=ingest_status
-                ).inc()
+            result: bool = await self.asset_cache.add_newest_asset(
+                origin_id, data
+            )
+            if metrics:
+                if result:
+                    metrics['updateslistener_assets_stored_in_cache'].labels(
+                        member_id=self.remote_member_id,
+                        ingest_status=ingest_status
+                    ).inc()
+                else:
+                    metric: str = \
+                        'updateslistener_assets_failed_to_store_in_cache'
+                    metrics[metric].labels(
+                        member_id=self.remote_member_id,
+                        ingest_status=ingest_status
+                    ).inc()
         except Exception as exc:
             log_extra['exception'] = str(exc)
-            _LOGGER.debug('Failed to store asset in cache', extra=log_extra)
+            _LOGGER.exception(
+                'Failed to store asset in cache', extra=log_extra
+            )
             return False
 
+        self.channel_cache.append_channel(
+            origin_id, {'creator': data['creator']}
+        )
         return True
 
 

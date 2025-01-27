@@ -59,7 +59,7 @@ class KVRedis(KVCache):
             server_type=server_type, cache_type=cache_type
         )
 
-        self.connection_string: str = connection_string
+        self.connection_string = connection_string
         self.driver = await redis.from_url(connection_string)
 
         await self.driver.ping()
@@ -72,7 +72,6 @@ class KVRedis(KVCache):
         '''
 
         await self.driver.close()
-
 
     def _prep(self, data: object) -> dict | list:
         '''

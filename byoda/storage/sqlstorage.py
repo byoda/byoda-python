@@ -39,7 +39,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 class Sql:
     def __init__(self) -> None:
-        self.account_db_file: str = None
+        self.account_db_file: str | None = None
         self.member_db_files: dict[str, str] = {}
         self.connection_string: str | None = None
 

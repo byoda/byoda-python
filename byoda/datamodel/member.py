@@ -469,9 +469,10 @@ class Member:
                 storage_type=StorageType.PRIVATE
             ),
             cloud=cloud,
-            port=PodServer.HTTP_PORT,
+            port=server.http_port,
             service_id=self.service_id,
             root_dir=config.server.network.paths.root_directory,
+            host_root_dir=server.host_root_dir,
             custom_domain=None,
             shared_webserver=config.server.shared_webserver,
             public_bucket=self.paths.storage_driver.get_bucket(

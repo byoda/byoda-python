@@ -306,7 +306,7 @@ class SqliteStorage(Sql):
         return table_name
 
     async def get_table_columns(self, table_name: str, member_id: UUID
-                                ) -> list:
+                                ) -> dict[str, str]:
         rows: list[aiosqlite.Row] | None = await self.execute(
             f'PRAGMA table_info("{table_name}");', member_id, fetchall=True
         )

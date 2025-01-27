@@ -62,37 +62,39 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member_id: UUID = get_test_uuid()
         await channel_cache.add_newest_channel(member_id, channel)
 
-        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
+        all_creators_key: str = ChannelCache.get_all_creators_key()
         channel_key: str = ChannelCache.get_channel_key(
             member_id, channel.creator
         )
-        result = await channel_cache.client.sismember(
-            set_key, channel_key
+        result = await channel_cache.client.zscore(
+            all_creators_key, channel_key
         )
-        self.assertTrue(result)
+
+        self.assertIsNotNone(result)
 
         edge: Edge | None = \
             await channel_cache.get_oldest_channel()
 
-        self.assertTrue(edge is not None)
+        self.assertIsNotNone(edge)
 
-        result = await channel_cache.client.sismember(
-            channel_cache.ALL_CREATORS, channel_key
+        all_creators_key: str = ChannelCache.get_all_creators_key()
+        result = await channel_cache.client.zscore(
+            all_creators_key, channel_key
         )
-        self.assertFalse(result)
+        self.assertIsNone(result)
 
         await channel_cache.add_oldest_channel_back(member_id, channel)
-        result = await channel_cache.client.sismember(
-            set_key, channel_key
+        result = await channel_cache.client.zscore(
+            all_creators_key, channel_key
         )
-        self.assertTrue(result)
+        self.assertIsNotNone(result)
 
         channel: Channel = edge.node
 
         self.assertEqual(channel.channel_id, channel_id)
         self.assertEqual(channel.created_timestamp, created)
         self.assertEqual(channel.description, 'test channel')
-        self.assertEqual(channel.is_family_safe, True)
+        self.assertTrue(channel.is_family_safe)
         self.assertEqual(channel.keywords, ['test', 'channel'])
 
 

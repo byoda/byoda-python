@@ -70,8 +70,6 @@ FileStorage = TypeVar('FileStorage')
 
 _LOGGER: Logger = getLogger(__name__)
 
-DB_NAME: str = 'byoda'
-
 BACKUP_FILE: str = 'backup.dump'
 PROTECTED_FILE_EXTENSION: str = '.prot'
 
@@ -110,7 +108,7 @@ class PostgresStorage(Sql):
         restore_backup_needed: bool = False
         try:
             conn: Connection[Tuple] = connect(
-                f'{connection_string}/byoda', autocommit=True
+                f'{connection_string}', autocommit=True
             )
         except OperationalError as exc:
             log_data['exception'] = exc
@@ -129,7 +127,7 @@ class PostgresStorage(Sql):
                 try:
                     await PostgresStorage.restore_backup(connection_string, server)
                     conn: Connection[Tuple] = connect(
-                        f'{connection_string}/byoda', autocommit=True
+                        f'{connection_string}', autocommit=True
                     )
                     conn.close()
                     restore_backup_needed = False
@@ -167,14 +165,14 @@ class PostgresStorage(Sql):
         '''
 
         pool = AsyncConnectionPool(
-            conninfo=f'{self.connection_string}/{DB_NAME}', open=False,
+            conninfo=f'{self.connection_string}', open=False,
             kwargs={'row_factory': dict_row}
         )
         await pool.open()
 
         return pool
 
-    async def get_table_columns(self, table_name, _: UUID) -> list:
+    async def get_table_columns(self, table_name, _: UUID) -> dict[str, any]:
         '''
         Get the columns and types of
         '''
@@ -284,7 +282,7 @@ class PostgresStorage(Sql):
                 'Dropping all tables instead.'
             )
             conn.close()
-            conn = connect(f'{connection_string}/byoda', autocommit=True)
+            conn = connect({connection_string}, autocommit=True)
             results: Cursor[tuple] = conn.execute(
                 'SELECT table_name FROM information_schema.tables '
                 "WHERE table_schema='public'"
@@ -312,8 +310,8 @@ class PostgresStorage(Sql):
         except (CheckViolation, UniqueViolation) as exc:
             raise ValueError(exc)
         except Exception as exc:
-            _LOGGER.debug(f'SQL command failed: {exc}')
-            raise
+            _LOGGER.debug(f'SQL command failed for DB {self.connection_string}: {exc}')
+            raise RuntimeError(f'SQL command failed for DB {self.connection_string}: {exc}')
 
         if fetchall is None:
             return result.rowcount

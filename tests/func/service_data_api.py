@@ -51,6 +51,8 @@ from byoda.models.data_api_models import Asset
 
 from byotubesvr.routers.data import DEFAULT_PAGING_SIZE
 
+from byoda.datacache.asset_list import AssetList
+
 TESTLIST: str = 'testlualist'
 
 TEST_ASSET_ID: UUID = '32af2122-4bab-40bb-99cb-4f696da49e26'
@@ -73,7 +75,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await asset_cache.client.ft(asset_cache.index_name).dropindex()
         await asset_cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
-        list_key: str = asset_cache.get_list_key(TESTLIST)
+        sset_key: str
+        list_key: str
+        sset_key, list_key = AssetList.get_keys(TESTLIST)
         keys: list[str] = await asset_cache.client.keys(f'{list_key}*')
         for key in keys:
             await asset_cache.client.delete(key)
@@ -134,11 +138,13 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         asset: Asset = get_asset()
         asset_data: dict[str, object] = asset.model_dump()
 
-        list_name: str = AssetCache.DEFAULT_ASSET_LIST
         asset_cache: AssetCache = config.asset_cache
 
-        if await asset_cache.exists_list(list_name):
-            result: bool = await asset_cache.delete_list(list_name)
+        asset_list = AssetList(
+            AssetCache.DEFAULT_ASSET_LIST, redis=asset_cache.client
+        )
+        if await asset_list.exists():
+            result: bool = await asset_list.delete()
             self.assertTrue(result)
 
         titles: list[str] = ['prank', 'fail', 'review', 'news', 'funny']
@@ -147,6 +153,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'TechAltar', 'The Dodo', 'theAdamConover', '_vector_',
             'Polyphonic', 'Numberphile'
         ]
+
         all_asset_count: int = 110
         test_uuids: list[UUID] = [get_test_uuid() for n in range(0, 55)]
         all_assets: list[dict[str, UUID | str | int | float | datetime]] = []
@@ -171,8 +178,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
                     "payment_options": []
                 }
             ]
+            expires_at: float = datetime.now(tz=UTC).timestamp() + 5
             await asset_cache.add_newest_asset(
-                member_id, new_asset_data
+                member_id, new_asset_data, expires_at=expires_at
             )
             all_assets.append(new_asset_data)
 
@@ -184,9 +192,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             data = resp.json()
             self.assertGreaterEqual(data['total_count'], DEFAULT_PAGING_SIZE)
             asset_id: str = data['edges'][0]['node']['asset_id']
-            self.assertEqual(
-                asset_id, str(all_assets[all_asset_count - 1]['asset_id'])
-            )
+            self.assertEqual(asset_id, str(all_assets[0]['asset_id']))
             self.assertNotEqual(data['edges'][1]['node']['asset_id'], asset_id)
 
             resp: HttpResponse = await client.get(

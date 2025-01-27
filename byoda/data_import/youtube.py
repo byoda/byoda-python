@@ -25,7 +25,7 @@ import os
 
 from uuid import UUID
 from random import sample
-from logging import getLogger
+from logging import getLogger, Logger
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.table import Table
@@ -36,8 +36,6 @@ from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datastore.data_store import DataStore
 
 from byoda.storage.filestorage import FileStorage
-
-from byoda.util.logger import Logger
 
 from .youtube_channel import YouTubeChannel
 
@@ -105,7 +103,7 @@ class YouTube:
             member_id, data_class, filters={}
         )
 
-        known_channels: dict[str, dict[str, str]] = set(
+        known_channels: set[dict[str, str]] = set(
             [channel_data['creator'] for channel_data, _ in data or []]
         )
 

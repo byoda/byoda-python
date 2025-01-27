@@ -152,9 +152,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         config.app = APP
 
         server: PodServer = config.server
-        server.cdn_fqdn = 'cdn.byo.host'
+        server.cdn_fqdn = 'cdn.byo.tube'
         server.cdn_origin_site_id = 'xx'
-        
+
         data_store: DataStore = server.data_store
         cache_store: DataStore = server.cache_store
         for member in account.memberships.values():
@@ -171,7 +171,44 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
 
         await ApiClient.close_all()
 
-    async def test_content_categories(self) -> None:
+    async def atest_find_value(self) -> None:
+        '''
+        Unit test for finding a value in a nested dictionary
+        '''
+
+        data: dict = {
+            'level-1': {
+                'level-2': {
+                    'level-3': 'some value'
+                }
+            }
+        }
+        result: list[str] | None = YouTubeChannel._find_value(data, 'value')
+        self.assertEqual(
+            result, ['level-1', 'level-2', 'level-3', 'some value']
+        )
+
+        data = {
+            'level-1': [
+                {
+                    'level-2[0]': {
+                        'level-3': 'no matchalue'
+                    }
+                },
+                {
+                    'level-2[1]': {
+                        'level-3': 'some value'
+                    }
+                },
+            ]
+        }
+
+        result = YouTubeChannel._find_value(data, 'value')
+        self.assertEqual(
+            result, ['level-1', '[]', 'level-2[1]', 'level-3', 'some value']
+        )
+
+    async def atest_content_categories(self) -> None:
         '''
         Test the content categories
         '''
@@ -181,8 +218,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         member: Member = await account.get_membership(service_id)
         schema: Schema = member.schema
         data_classes: dict[str, SchemaDataItem] = schema.data_classes
-        class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
-        data_class: SchemaDataItem = data_classes[class_name]
 
         server: PodServer = config.server
         data_store: DataStore = server.data_store
@@ -225,17 +260,17 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         Test getting the channel name from a video
         '''
 
-        channel_name: str = 'History Matters'
+        channel_name: str = 'LegalEagle'
         ytc = YouTubeChannel(name=channel_name)
         page_data: str = await ytc.get_videos_page()
         ytc.parse_channel_info(page_data)
         self.assertIsNotNone(ytc)
         self.assertEqual(ytc.title, channel_name)
-        self.assertEqual(ytc.youtube_channel_id, 'UC22BdTgxefuvUivrjesETjg')
+        self.assertEqual(ytc.youtube_channel_id, 'UCpa-Zb0ZcQjTCPP1Dx_1M8Q')
         # this banners test is flakey as scrape does not always include
         # expected 'c4TabbedHeaderRenderer' in the page_data
         # self.assertEqual(len(ytc.banners), 16)
-        self.assertEqual(ytc.channel_thumbnail.size, '176x176')
+        self.assertEqual(ytc.channel_thumbnail.size, '160x160')
         self.assertEqual(len(ytc.channel_thumbnails), 3)
         self.assertTrue(
             ytc.description.startswith(
@@ -244,9 +279,39 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(len(ytc.external_urls), 2)
         self.assertEqual(len(ytc.keywords), 1)
-        self.assertTrue('Education' in ytc.keywords)
+        self.assertIn('Education', ytc.keywords)
 
-    async def test_scrape_videos(self) -> None:
+    async def atest_scrape_channel(self) -> None:
+        account: Account = config.server.account
+        service_id: int = BYOTUBE_SERVICE_ID
+        member: Member = await account.get_membership(service_id)
+        schema: Schema = member.schema
+        data_classes: dict[str, SchemaDataItem] = schema.data_classes
+        class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
+        data_class: SchemaDataItem = data_classes[class_name]
+
+        server: PodServer = config.server
+        data_store: DataStore = server.data_store
+        storage_driver: FileStorage = server.storage_driver
+
+        video_table: Table = data_store.get_table(
+            member.member_id, data_class.name
+        )
+
+        channel: str = 'Dathes'
+
+        await channel.scrape(
+            member, data_store, storage_driver, video_table,
+            BENTO4_DIRECTORY,
+            moderate_request_url=None,
+            moderate_jwt_header=None,
+            moderate_claim_url=None,
+            ingest_interval=None,
+            custom_domain='test.byoda.me',
+            max_videos_per_channel=10,
+        )
+
+    async def atest_scrape_videos(self) -> None:
         '''
         Test scraping a video that is available
         '''

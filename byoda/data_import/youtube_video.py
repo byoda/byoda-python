@@ -17,7 +17,7 @@ from uuid import uuid4
 from typing import Self
 from shutil import copytree
 from random import randrange
-from logging import getLogger
+from logging import getLogger, Logger
 from datetime import datetime
 from datetime import timezone
 from dateutil import parser as dateutil_parser
@@ -60,8 +60,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
-
-from byoda.util.logger import Logger
 
 from byoda.servers.pod_server import PodServer
 
@@ -111,7 +109,6 @@ class YouTubeVideo:
         'title': 'title',
         'description': 'contents',
         'published_time': 'published_timestamp',
-        'url': 'asset_url',
         'channel_creator': 'creator',
         'creator_thumbnail': 'creator_thumbnail',
         'url': 'asset_url',
@@ -340,12 +337,12 @@ class YouTubeVideo:
         max_height: int = 0
         max_width: int = 0
         for format_data in video_info.get('formats') or []:
-            format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
-            if format.height and format.height > max_height:
-                max_height = format.height
-            if format.width and format.width > max_width:
-                max_width = format.width
-            video.encoding_profiles[format.format_id] = format
+            yt_format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
+            if yt_format.height and yt_format.height > max_height:
+                max_height = yt_format.height
+            if yt_format.width and yt_format.width > max_width:
+                max_width = yt_format.width
+            video.encoding_profiles[yt_format.format_id] = yt_format
 
         if max_height > max_width:
             video.screen_orientation_horizontal = False
@@ -371,6 +368,7 @@ class YouTubeVideo:
 
         return video_id
 
+    @staticmethod
     def get_publish_datetime_from_api(data) -> datetime:
         '''
         Extract the publication date/time from the data returned by the
@@ -488,6 +486,7 @@ class YouTubeVideo:
 
         log_data: dict[str, str] = {
             'video_id': self.video_id, 'channel': self.channel_creator,
+            'channel_thumbnail': self.creator_thumbnail,
             'ingest_status': self.ingest_status.value
         }
 

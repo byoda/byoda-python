@@ -1,23 +1,24 @@
 {% if subdomain == 'accounts' %}
-    upstream python_app {
-        zone python_app 32k;
-        server byoda:{{ port }};
+    upstream app_{{ custom_domain|replace('.', '_')|replace('-', '_') }} {
+        zone app_{{ custom_domain|replace('.', '_')|replace('-', '_') }} 32k;
+        server {{ custom_domain }}:{{ port }};
         keepalive 1024;
     }
 
-    acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory;
-    acme_client_path /etc/letsencrypt;
+    acme_client {{ custom_domain|replace('.', '_')|replace('-', '_') }} https://acme-v02.api.letsencrypt.org/directory;
 
     server {
         listen 80;
         server_name {{ custom_domain }};
-        acme letsencrypt;
+
+        acme {{ custom_domain|replace('.', '_')|replace('-', '_') }};
+
         location /robots.txt {
             allow 127.0.0.1/32;
             allow 10.0.0.0/8;
             allow 172.16.0.0/12;
             allow 192.168.0.0/16;
-            allow 47.153.143.96/32;         # Steven - Frontier DSL
+            allow 47.143.206.108;         # Steven - Frontier DSL
         }
         location / {
             return 444;
@@ -38,8 +39,8 @@ server {
 {% if subdomain == 'accounts' and custom_domain %}
     server_name  {{ identifier }}.{{ subdomain }}.{{ network }} {{ custom_domain }};
 
-        ssl_certificate $acme_cert_letsencrypt;
-        ssl_certificate_key $acme_cert_key_letsencrypt;
+    ssl_certificate $acme_cert_{{ custom_domain|replace('.', '_')|replace('-', '_') }};
+    ssl_certificate_key $acme_cert_key_{{ custom_domain|replace('.', '_')|replace('-', '_') }};
 
     ssl_stapling on;
     ssl_stapling_verify on;
@@ -70,22 +71,22 @@ server {
         status_zone openapi_docs;
         set $cors "0";
         satisfy any;
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /redoc {
         status_zone openapi_docs;
         set $cors "0";
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /openapi.json {
         status_zone openapi_docs;
         set $cors "0";
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
     location /console {
@@ -93,7 +94,7 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.153.143.96/32;         # Steven - Frontier DSL
+        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
 
         alias /usr/share/angie-console-light/html;
@@ -109,7 +110,7 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.153.143.96/32;         # Steven - Frontier DSL
+        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
         api /status/;
     }
@@ -121,8 +122,8 @@ server {
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
         set $cors "0";
-        proxy_pass http://byoda:8000;
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
     }
 
 
@@ -139,8 +140,8 @@ server {
 
     location /api/ {
         status_zone api_browser_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header Early-Data $ssl_early_data;
@@ -158,8 +159,8 @@ server {
 
     location /ws-api/ {
         status_zone ws-api_browser_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:8000/api/;
-        set $cloud_path 'http://byoda:8000/api/';
+        proxy_pass http://{{ hostname }}:{{ port }}/api/;
+        set $cloud_path 'http://{{ hostname }}:{{ port }}/api/';
 
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "Upgrade";
@@ -178,174 +179,6 @@ server {
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
         proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
     }
-
-    location /public/ {
-        status_zone public_streaming;
-
-{% if cloud == 'LOCAL' %}
-        root {{ root_dir }};
-        set $cloud_path '{{ root_dir }}';
-{% else %}
-        proxy_pass {{ public_cloud_endpoint }};
-        set $cloud_path '{{ public_cloud_endpoint }}';
-
-        proxy_cache byoda;
-
-        # https://angie.org/en/docs/http/ngx_http_slice_module.html
-        slice 1m;
-        proxy_cache_key   $uri$is_args$args$http_origin$slice_range;
-        proxy_set_header  Range $slice_range;
-
-        # Avoid object storage thinking we want authenticated access
-        proxy_set_header Authorization '';
-
-{% endif %}
-
-
-{% if cloud == 'Azure' %}
-        proxy_set_header x-ms-version 2021-12-02;
-        proxy_set_header Host {{ public_bucket}};
-        proxy_hide_header x-ms-request-id;
-        proxy_hide_header x-ms-version;
-        proxy_hide_header x-ms-creation-time;
-        proxy_hide_header x-ms-blob-content-md5;
-        proxy_hide_header x-ms-lease-status;
-        proxy_hide_header x-ms-lease-state;
-        proxy_hide_header x-ms-blob-type;
-        proxy_hide_header x-ms-server-encrypted;
-{% elif cloud == 'GCP' %}
-        proxy_set_header Host storage.googleapis.com;
-        proxy_hide_header alt-svc;
-        proxy_hide_header X-GUploader-UploadID;
-        proxy_hide_header alternate-protocol;
-        proxy_hide_header x-goog-hash;
-        proxy_hide_header x-goog-generation;
-        proxy_hide_header x-goog-metageneration;
-        proxy_hide_header x-goog-stored-content-encoding;
-        proxy_hide_header x-goog-stored-content-length;
-        proxy_hide_header x-goog-storage-class;
-        proxy_hide_header x-xss-protection;
-        # proxy_hide_header accept-ranges;
-        proxy_hide_header Set-Cookie;
-        proxy_ignore_headers Set-Cookie;
-{% elif cloud == 'AWS' %}
-{% endif %}
-
-        if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' '*';
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-            #
-            # Custom headers and headers various browsers *should* be OK with but aren't
-            #
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId';
-            #
-            # Tell client that this pre-flight info is valid for 20 days
-            #
-            add_header 'Access-Control-Max-Age' 1728000;
-            add_header 'Content-Type' 'text/plain; charset=utf-8';
-            add_header 'Content-Length' 0;
-            return 204;
-        }
-        if ($request_method = 'POST') {
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
-        }
-        if ($request_method = 'GET') {
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
-        }
-    }
-
-    location ~ "/restricted/(?<service_id>\d{1,12})/(?<member_id>[0-9a-fA-E\-]{36})/(?<asset_id>[0-9a-fA-E\-]{36})/(?<filename>[^\?]*)\?{0,1}" {
-        status_zone restricted_streaming;
-{% if cloud == 'LOCAL' %}
-        root {{ root_dir }};
-        set $cloud_path '{{ root_dir }}';
-{% else %}
-        proxy_pass {{ restricted_cloud_endpoint }}${asset_id}/${filename};
-        set $cloud_path '{{ restricted_cloud_endpoint }}${asset_id}/${filename}';
-
-        proxy_cache byoda;
-
-        proxy_set_header Early-Data $ssl_early_data;
-
-        # https://angie.org/en/docs/http/ngx_http_slice_module.html
-        slice 1m;
-        proxy_cache_key   $uri$is_args$args$http_origin$slice_range;
-        proxy_set_header  Range $slice_range;
-
-        # Avoid object storage thinking we want authenticated access
-        proxy_set_header Authorization '';
-        proxy_set_header X-AuthorizationKeyId '';
-
-{% endif %}
-        auth_request /api/v1/pod/content/asset;
-
-{% if cloud == 'Azure' %}
-        proxy_set_header x-ms-version 2021-12-02;
-        proxy_set_header Host {{ restricted_bucket }};
-        proxy_hide_header x-ms-request-id;
-        proxy_hide_header x-ms-version;
-        proxy_hide_header x-ms-creation-time;
-        proxy_hide_header x-ms-blob-content-md5;
-        proxy_hide_header x-ms-lease-status;
-        proxy_hide_header x-ms-lease-state;
-        proxy_hide_header x-ms-blob-type;
-        proxy_hide_header x-ms-server-encrypted;
-{% elif cloud == 'GCP' %}
-        proxy_set_header Host storage.googleapis.com;
-        proxy_hide_header alt-svc;
-        proxy_hide_header X-GUploader-UploadID;
-        proxy_hide_header alternate-protocol;
-        proxy_hide_header x-goog-hash;
-        proxy_hide_header x-goog-generation;
-        proxy_hide_header x-goog-metageneration;
-        proxy_hide_header x-goog-stored-content-encoding;
-        proxy_hide_header x-goog-stored-content-length;
-        proxy_hide_header x-goog-storage-class;
-        proxy_hide_header x-xss-protection;
-        # proxy_hide_header accept-ranges;
-        proxy_hide_header Set-Cookie;
-        proxy_ignore_headers Set-Cookie;
-{% elif cloud == 'AWS' %}
-{% endif %}
-
-        if ($request_method = 'OPTIONS') {
-            add_header 'Access-Control-Allow-Origin' '*';
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS';
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId';
-            #
-            # Tell client that this pre-flight info is valid for 20 days
-            #
-            add_header 'Access-Control-Max-Age' 1728000;
-            add_header 'Content-Type' 'text/plain; charset=utf-8';
-            add_header 'Content-Length' 0;
-            return 204;
-        }
-        if ($request_method = 'POST') {
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Rang,Authorization,X-AuthorizationKeyId' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
-        }
-        if ($request_method = 'GET') {
-            add_header 'Access-Control-Allow-Origin' '*' always;
-            add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-            add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-AuthorizationKeyId' always;
-            add_header 'Access-Control-Expose-Headers' 'Content-Length,Content-Range,Content-Type,Authorization,X-AuthorizationKeyId' always;
-        }
-    }
-
-    location /api/v1/pod/content/asset {
-        status_zone api_browser_2_pod;
-        internal;
-        proxy_pass http://byoda:8000/api/v1/pod/content/asset?&service_id=${service_id}&member_id=${member_id}&asset_id=${asset_id};
-    }
-
 }
 
 
@@ -398,8 +231,8 @@ server {
 
     location /ws-api/ {
         status_zone ws-api_pod_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:8000/api/;
-        set $cloud_path 'http://byoda:8000/api/';
+        proxy_pass http://{{ hostname }}:{{ port }}/api/;
+        set $cloud_path 'http://{{ hostname }}:{{ port }}/api/';
 
         proxy_set_header Early-Data $ssl_early_data;
 
@@ -420,8 +253,8 @@ server {
     }
     location /api/ {
         status_zone api_pod_2_pod_{{ subdomain }};
-        proxy_pass http://byoda:{{ port }};
-        set $cloud_path 'http://byoda:{{ port }}';
+        proxy_pass http://{{ hostname }}:{{ port }};
+        set $cloud_path 'http://{{ hostname }}:{{ port }}';
 
         proxy_set_header Host $http_host;
         proxy_set_header Early-Data $ssl_early_data;

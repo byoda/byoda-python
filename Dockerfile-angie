@@ -39,7 +39,7 @@ COPY podserver/files/angie/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
 COPY podserver/files/angie/angie.conf /etc/angie
 COPY podserver/files/angie/dhparam.pem /etc/angie/ssl
 
-# /var/www/wwwroot is may be volume-mounted but in case it is not, we create it
+# /var/www/wwwroot may get volume-mounted but in case it is not, we create it
 COPY podserver/files/angie/robots.txt /var/www/wwwroot/
 COPY podserver/files/angie/index.html /var/www/wwwroot/
 COPY podserver/files/angie/error.html /var/www/wwwroot/

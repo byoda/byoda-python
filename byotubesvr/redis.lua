@@ -6,7 +6,7 @@
 -- args[3]: the cursor to start after
 -- args[4]: the filter name, ie. 'ingest_status'
 -- args[5]: the filter value, ie. 'published'
-local listkey = KEYS[1]
+local redis_key = KEYS[1]
 local key_prefix = ARGV[1]
 local first = ARGV[2]
 local after = ARGV[3]
@@ -19,33 +19,48 @@ else
     first = tonumber(first)
 end
 
-local pos = 0
+local page_size = 100
+if first > page_size then
+    page_size = first
+end
+
+-- the list is in ascending order with newest last
+-- we want to start at the end of the list and work backwards
+-- ZRANGE is inclusive so 0, 1 will return 2 elements
+local start_pos = -1 - page_size + 1
+local end_pos = -1
 if not (after == nil or after == '') then
     local cursor = key_prefix .. after
-    pos = redis.call('LPOS', listkey, cursor)
-    if pos == nil or not pos or pos == '' then
-        pos = 0
-        redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. listkey)
+    local zrank = redis.call('ZRANK', redis_key, cursor)
+    if not zrank or zrank == nil or zrank == '' then
+        redis.log(redis.LOG_WARNING, 'Cursor ' .. cursor .. ' not found in list ' .. redis_key)
     else
-        redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. listkey .. ' at position ' .. pos)
-        -- we do not want to start the list at the cursor but after
-        pos = pos + 1
+        local list_len = redis.call('ZCARD', redis_key)
+        end_pos = zrank - list_len - 1
+        redis.log(redis.LOG_WARNING, 'Found cursor ' .. cursor .. ' in list ' .. redis_key .. ' of length ' .. list_len .. ' at position ' .. zrank)
+        -- we do not want to start the list at the cursor but before
     end
 end
 
---- Stores all not-expired assets
+
+-- Stores all not-expired assets
 local assets = {}
 
 -- total_assets: counter for total assets gathered so far
 local total_assets = 0
 
--- page_offset: starting offset for the next LRANGE call
-local page_offset = 0
+-- page_offset: starting expiration for the next ZRANGE call
+local page_offset = end_pos
 
 while total_assets < first do
     -- asset_list: assets retrieved from Redis, but the list may have empty (expired) assets
-    local asset_list = redis.call('LRANGE', listkey, pos + page_offset, pos + page_offset + first - 1)
-    page_offset = page_offset + first
+    -- as we want newest / best assets, we use negative indices for ZRANGE
+
+    local range_start = page_offset - page_size + 1
+    local range_end = page_offset
+    redis.log(redis.LOG_WARNING, 'start: ' .. range_start .. ', end ' .. range_end)
+    local asset_list = redis.call('ZRANGE', redis_key, range_start, range_end, 'REV')
+    page_offset = page_offset + page_size
     if asset_list == nil or not asset_list then
         break
     end

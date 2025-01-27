@@ -19,7 +19,7 @@ from pydantic import HttpUrl
 
 
 class SettingsRequestModel(BaseModel):
-    nick: str = Field(
+    nick: str | None = Field(
         default=None, max_length=24, pattern=r'^[a-zA-Z0-9_\-\.]*$',
         description='The nickname of the BYO.Tube-lite account'
     )

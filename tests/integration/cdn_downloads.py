@@ -58,8 +58,8 @@ URLS: dict[str, dict[str, str]] = {
             'public': f'https://{AZURE_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byo.host/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
-            'public': f'https://cdn.byo.host/public/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
+            'restricted': f'https://cdn.byo.tube/restricted/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byo.tube/public/{ADDRESSBOOK_SERVICE_ID}/{AZURE_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'aws': {
@@ -76,8 +76,8 @@ URLS: dict[str, dict[str, str]] = {
             'public': f'https://{AWS_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byo.host/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
-            'public': f'https://cdn.byo.host/public/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
+            'restricted': f'https://cdn.byo.tube/restricted/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byo.tube/public/{ADDRESSBOOK_SERVICE_ID}/{AWS_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'gcp': {
@@ -94,8 +94,8 @@ URLS: dict[str, dict[str, str]] = {
             'public': f'https://{GCP_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byo.host/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
-            'public': f'https://cdn.byo.host/public/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
+            'restricted': f'https://cdn.byo.tube/restricted/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byo.tube/public/{ADDRESSBOOK_SERVICE_ID}/{GCP_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
     },
     'local': {
@@ -108,8 +108,8 @@ URLS: dict[str, dict[str, str]] = {
             'public': f'https://{HOME_POD_CUSTOM_DOMAIN}/public/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
         },
         'cdn': {
-            'restricted': f'https://cdn.byo.host/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
-            'public': f'https://cdn.byo.host/public/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
+            'restricted': f'https://cdn.byo.tube/restricted/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/restricted.html',
+            'public': f'https://cdn.byo.tube/public/{ADDRESSBOOK_SERVICE_ID}/{HOME_POD_MEMBER_ID}/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/public.html',
 
         },
 

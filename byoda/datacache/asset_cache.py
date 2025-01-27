@@ -41,6 +41,9 @@ from byoda.datacache.searchable_cache import SearchableCache
 
 from byoda import config
 
+from .asset_list import AssetList
+
+
 _LOGGER: Logger = getLogger(__name__)
 
 
@@ -59,7 +62,7 @@ class AssetCache(SearchableCache, Metrics):
     LIST_OF_LISTS_KEY: str = 'list_of_lists'
     # ordered from newest to oldest asset in the cache
     # Threshold for adding assets to the 'recent_uploads' list
-    RECENT_THRESHOLD: timedelta = timedelta(days=2)
+    RECENT_THRESHOLD: timedelta = timedelta(days=7)
 
     '''
     Stores assets in a cache and provides methods to search for them.
@@ -95,46 +98,17 @@ class AssetCache(SearchableCache, Metrics):
 
         return self
 
-    def is_channel_list(self, list_name: str) -> bool:
-        '''
-        Check if a list is a channel list
-
-        :param list_name: the name of the list to check
-        :returns: True if the list is a channel list, False otherwise
-        '''
-
-        if len(list_name) < 36:
-            return False
-
-        try:
-            UUID(list_name[:36])
-        except ValueError:
-            return False
-
-        if list_name[36] != '_':
-            return False
-
-        return True
-
-    async def pos(self, list_name: str, cursor: str) -> int:
-        '''
-        Gets the position of an item in the list
-
-        :param cursor: the cursor of the item to find
-        :returns: the position of the item in the list
-        '''
-
-        key: str = self.json_key(list_name)
-
-        return await self.backend.pos(key, cursor)
-
-    async def add_newest_asset(self, member_id: UUID, asset: dict) -> bool:
+    async def add_newest_asset(
+        self, member_id: UUID, asset: dict,
+        expires_at: datetime | int | float | None = None
+    ) -> bool:
         '''
         Add an asset to the cache.
 
         :param member_id: The member that originated the asset.
         :param asset: The asset to add.
-        :return: None
+        :param expiration: the timestamp at which the asset expires
+        :return: bool, on whether asset was added to cache
         :raises: None
         '''
 
@@ -142,10 +116,17 @@ class AssetCache(SearchableCache, Metrics):
 
         asset_model: Asset = Asset(**asset)
 
-        # The various lists that this asset should be added to
-        lists_set: set[str] = AssetCache.get_list_permutations(
+        asset_lists: set[AssetList] = self.get_asset_lists(
             member_id, asset_model
         )
+
+        if expires_at is None:
+            expires_at = (
+                datetime.now(tz=UTC).timestamp()
+                + AssetCache.DEFAULT_ASSET_EXPIRATION
+            )
+        elif isinstance(expires_at, datetime):
+            expires_at = expires_at.timestamp()
 
         # We override the cursor that the member may have set as that cursor
         # is only unique(-ish) for the member. We need a cursor that is unique
@@ -153,16 +134,14 @@ class AssetCache(SearchableCache, Metrics):
         server_cursor: str = self.get_cursor(member_id, asset_model.asset_id)
 
         asset_edge: Edge[Asset] = Edge[Asset](
-            node=asset_model,
-            origin=member_id,
-            cursor=server_cursor
+            node=asset_model, origin=member_id, cursor=server_cursor
         )
 
+        log_data: dict[str, any] = {
+            'asset_id': asset_model.asset_id, 'member_id': member_id
+        }
         if not asset_model.creator:
-            _LOGGER.debug(
-                f'Not adding asset {asset_model.asset_id} '
-                f'from member {member_id} with no creater'
-            )
+            _LOGGER.debug('Not adding asset with no creator', extra=log_data)
             return False
 
         # We replace UUIDs with strings and datetimes with timestamps. The
@@ -179,22 +158,42 @@ class AssetCache(SearchableCache, Metrics):
             asset_edge.node.published_timestamp.timestamp()
 
         await self.json_set(
-            lists_set, AssetCache.ASSET_KEY_PREFIX, asset_data
+            asset_lists, AssetCache.ASSET_KEY_PREFIX, asset_data,
+            expires_in=expires_at - datetime.now(tz=UTC).timestamp()
         )
 
         await self.update_creators_list(member_id, asset_model.creator)
 
-        await self.update_list_of_lists(lists_set)
+        await self.update_list_of_lists(asset_lists)
         metric: str = 'assetcache_total_lists'
         if metrics and metric in metrics:
-            metrics[metric].set(len(lists_set))
+            metrics[metric].set(len(asset_lists))
 
-        _LOGGER.debug(
-            f'Added asset {asset_model.asset_id} '
-            f'to cache for {len(lists_set)} lists'
-        )
+        log_data['lists'] = len(asset_lists)
+        _LOGGER.debug('Added asset to cache', extra=log_data)
 
         return True
+
+    def get_asset_lists(self, member_id: UUID, asset_model: Asset
+                        ) -> set[AssetList]:
+        '''
+        The various lists that this asset should be added to
+
+        :param member_id: The member that originated the asset.
+        :param asset: The asset to add.
+        :returns: set of asset lists
+        '''
+
+        list_permutations: set[str] = AssetCache.get_list_permutations(
+            member_id, asset_model
+        )
+        asset_lists: set[AssetList] = set()
+        for list_name in list_permutations:
+            asset_lists.add(
+                AssetList(list_name, redis=self.client)
+            )
+
+        return asset_lists
 
     async def in_cache(self, member_id: UUID, asset_id: UUID) -> bool:
         '''
@@ -266,7 +265,7 @@ class AssetCache(SearchableCache, Metrics):
 
         return results
 
-    async def get_asset_expiration(self, node: str | Edge) -> int:
+    async def get_asset_expiration(self, edge: str | Edge) -> int:
         '''
         Gets the expiration time of an asset
 
@@ -275,10 +274,10 @@ class AssetCache(SearchableCache, Metrics):
         :returns: the expiration time of the asset
         '''
 
-        if isinstance(node, Edge):
-            cursor: str = self.get_cursor(node.origin, node.node.asset_id)
+        if isinstance(edge, Edge):
+            cursor: str = self.get_cursor(edge.origin, edge.node.asset_id)
         else:
-            cursor = node
+            cursor = edge
 
         asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
 
@@ -286,24 +285,35 @@ class AssetCache(SearchableCache, Metrics):
 
         return await self.get_expiration(asset_key)
 
-    async def add_oldest_asset(self, node: str | Edge) -> None:
+    async def add_asset_to_all_assets_list(self, edge: str | Edge,
+                                           expires_at: int | float) -> None:
         '''
-        Adds the cursor for the oldest asset back to the front of the list
+        Adds the cursor for an asset to both the sorted set and the
+        list of assets, but only if it is not in the sorted set already
 
-        :param node: push the asset back to the start of the all_assets list
+        :param node:
+        :param expiration: timestamp when the asset expires from the cache
         :returns: the length of the list after adding the item
         '''
 
-        if isinstance(node, Edge):
-            cursor: str = self.get_cursor(node.origin, node.node.asset_id)
+        cursor: str
+        if isinstance(edge, Edge):
+            cursor = self.get_cursor(edge.origin, edge.node.asset_id)
         else:
-            cursor = node
+            cursor = edge
 
-        asset_key: str = AssetCache.ASSET_KEY_PREFIX + cursor
+        asset_key: str = cursor
+        if not cursor.startswith(AssetCache.ASSET_KEY_PREFIX):
+            asset_key = AssetCache.ASSET_KEY_PREFIX + cursor
 
         list_name: str = AssetCache.ALL_ASSETS_LIST
 
-        return await self.append_list(list_name, asset_key)
+        oset_key: str
+        oset_key = AssetList.get_key(list_name)
+        if not await self.client.zrank(oset_key, asset_key):
+            await self.client.zadd(oset_key, {asset_key: expires_at})
+
+        return await self.client.zcount(oset_key, '-inf', '+inf')
 
     async def get_list_assets(self,
                               asset_list: str = DEFAULT_ASSET_LIST,
@@ -321,6 +331,15 @@ class AssetCache(SearchableCache, Metrics):
         :returns: a list of asset edges
         '''
 
+        _LOGGER.debug(
+            'Getting list of assets', extra={
+                'asset_list': asset_list,
+                'first': first,
+                'after': after,
+                'filter_name': filter_name,
+                'filter_value': filter_value
+            }
+        )
         data: list[dict] = await self.get_list_values(
             asset_list, AssetCache.ASSET_KEY_PREFIX, first=first, after=after,
             filter_name=filter_name, filter_value=filter_value
@@ -339,31 +358,12 @@ class AssetCache(SearchableCache, Metrics):
 
         return results
 
-    async def get_oldest_asset(self) -> Edge | None:
-        '''
-        Get the oldest asset in the cache, that needs to
-        be refreshed first
-
-        :returns: the cache key for the oldest asset in the cache
-        '''
-
-        asset_key: str | None = await self.pop_last_list_item(
-            AssetCache.ALL_ASSETS_LIST
-        )
-        if not asset_key:
-            return None
-
-        edge: Edge = await self.get_asset_by_key(asset_key)
-        return edge
-
     async def update_creators_list(self, member_id: UUID, creator: str
                                    ) -> None:
         '''
         Updates:
-        - the expiration for the list of all assets of the creator (without
-        member_id embedded in the key, which is a BUG)
-        - the set of all creators
-        - the list of all creators
+        - the expiration for the ordered set of all assets of the creator
+        - the ordered set of all creators
 
         :param creator: The creator to add to the list of creators.
         :return: None
@@ -373,45 +373,40 @@ class AssetCache(SearchableCache, Metrics):
         if not creator:
             _LOGGER.debug('No creator to add to the list of creators')
 
-        creator_list: str = self.get_list_key(creator)
-        await self.set_expiration(creator_list)
+        creator_oset: str = AssetList.get_key(creator)
+        await self.set_expiration(creator_oset)
 
         cursor: str = ChannelCache.get_cursor(member_id, creator)
 
-        set_key: str = self.get_set_key(ChannelCache.ALL_CREATORS)
-        _LOGGER.debug(
-            f'Reviewing list of creators with key {set_key} '
-            f'for cursor {cursor}'
-        )
-        if await self.client.sismember(set_key, cursor):
+        all_creators_key: str = SearchableCache.get_all_creators_key()
+        log_extra: dict[str, str] = {
+            'creator': creator,
+            'member_id': member_id,
+            'asset_key': all_creators_key,
+            'cursor': cursor
+        }
+
+        _LOGGER.debug('Reviewing list of creators', extra=log_extra)
+        if await self.client.zrank(all_creators_key, cursor):
             _LOGGER.debug(
-                f'Creator {creator} with cursor {cursor} already in the set '
-                f'of all creators with key {set_key}'
+                'Creator already in the set of all creators', extra=log_extra
             )
             await self.set_expiration(
-                set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
+                all_creators_key, AssetCache.DEFAULT_EXPIRATION_LISTS
             )
             return
 
         _LOGGER.debug(
-            f'Adding creator {creator} to the set of all creators '
-            f'with cursor {cursor}'
+            'Adding creator to the set of all creators', extra=log_extra
         )
-        await self.client.sadd(set_key, cursor)
+        expires_at: float = (
+            datetime.now().timestamp() + AssetCache.DEFAULT_EXPIRATION_LISTS
+        )
+        await self.client.zadd(all_creators_key, {cursor: expires_at})
         await self.set_expiration(
-            set_key, AssetCache.DEFAULT_EXPIRATION_LISTS
+            all_creators_key, AssetCache.DEFAULT_EXPIRATION_LISTS
         )
 
-        list_key: str = self.get_list_key(ChannelCache.ALL_CREATORS)
-        _LOGGER.debug(
-            f'Adding creator {creator} to the list {list_key} '
-            f'with cursor {cursor}'
-        )
-        await self.client.lpush(list_key, cursor)
-
-        await self.set_expiration(
-            list_key, ChannelCache.DEFAULT_EXPIRATION_LISTS
-        )
 
     async def get_creators_list(self) -> set[str] | None:
         '''
@@ -421,13 +416,18 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_set_key(AssetCache.ALL_CREATORS)
-        creators: set[bytes] = await self.client.smembers(key)
+        all_creators_key: str = SearchableCache.get_all_creators_key()
+        creators: set[bytes] = await self.client.zrange(
+            all_creators_key, 0, -1
+        )
 
-        _LOGGER.debug(f'Found {len(creators)} for set with key {key}')
+        _LOGGER.debug(
+            'Found creators for set',
+            {'key': all_creators_key, 'count': len(creators)}
+        )
         return creators
 
-    async def update_list_of_lists(self, lists: set[str]) -> None:
+    async def update_list_of_lists(self, asset_lists: set[AssetList]) -> None:
         '''
         Update the list of lists.
 
@@ -436,8 +436,18 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.LIST_OF_LISTS_KEY)
-        await self.client.sadd(key, *lists)
+        oset_key: str
+        oset_key = AssetList.get_key(AssetCache.LIST_OF_LISTS_KEY)
+        items: dict[str, int] = {}
+        asset_list: AssetList
+        for asset_list in asset_lists:
+            expires_at: float = (
+                datetime.now(tz=UTC).timestamp()
+                + AssetCache.DEFAULT_EXPIRATION_LISTS
+            )
+            items[asset_list.name] = expires_at
+
+        await self.client.zadd(oset_key, items)
 
     async def get_list_of_lists(self) -> set[str] | None:
         '''
@@ -447,33 +457,10 @@ class AssetCache(SearchableCache, Metrics):
         :raises: None
         '''
 
-        key: str = self.get_list_key(AssetCache.LIST_OF_LISTS_KEY)
-        lists: set[bytes] = await self.client.smembers(key)
+        oset_key: str
+        oset_key = AssetList.get_key(AssetCache.LIST_OF_LISTS_KEY)
+        lists: set[bytes] = await self.client.zrange(oset_key, 0, -1)
         return lists
-
-    async def exists_list(self, list_name: str) -> bool:
-        '''
-        Check if a list exists.
-
-        :param list_name: The name of the list to check.
-        :return: True if the list exists, False otherwise.
-        :raises: None
-        '''
-
-        key: str = self.get_list_key(list_name)
-        return await self.client.exists(key)
-
-    async def delete_list(self, list_name: str) -> None:
-        '''
-        Delete a list.
-
-        :param list_name: The name of the list to delete.
-        :return: None
-        :raises: None
-        '''
-
-        key: str = self.get_list_key(list_name)
-        return bool(await self.client.delete(key))
 
     async def delete_asset_from_cache(self,  member_id: UUID | str,
                                       asset_id: UUID | str) -> bool:
@@ -516,13 +503,19 @@ class AssetCache(SearchableCache, Metrics):
 
         metrics: dict[str, Gauge | Counter] = config.metrics
 
+        log_data: dict[str, any] = {
+            'member_id': member_id,
+            'asset_id': asset_id,
+            'asset_class_name': asset_class_name
+        }
         try:
             resp: HttpResponse = await self._asset_query(
                 member_id, asset_id, asset_class_name, tls_secret
             )
         except Exception as exc:
             _LOGGER.debug(
-                f'Error calling data API of member {member_id}: {exc}'
+                'Error calling data API of member',
+                extra=log_data | {'exception': exc}
             )
             return None
 
@@ -543,8 +536,9 @@ class AssetCache(SearchableCache, Metrics):
 
         if data['total_count'] > 1:
             _LOGGER.debug(
-                f'Multiple assets found for asset_id {asset_id} '
-                f'from member {member_id}, using only the first one'
+                'Multiple assets found for asset_id from member, '
+                'using only the first one',
+                extra=log_data | {'total_count': data['total_count']}
             )
             metric = 'assetcache_refreshable_asset_dupes'
             if metrics and metric in metrics:
@@ -578,6 +572,13 @@ class AssetCache(SearchableCache, Metrics):
         if asset_id:
             data_filter: dict = {'asset_id': {'eq': asset_id}}
 
+        log_data: dict[str, any] = {
+            'member_id': member_id,
+            'asset_id': asset_id,
+            'data_filter': data_filter,
+            'asset_class_name': asset_class_name
+        }
+        _LOGGER.debug('Calling Data API to fetch asset', extra=log_data)
         resp: HttpResponse = await DataApiClient.call(
             tls_secret.service_id, asset_class_name,
             action=DataRequestType.QUERY, secret=tls_secret,
@@ -585,6 +586,10 @@ class AssetCache(SearchableCache, Metrics):
             data_filter=data_filter, first=1,
         )
 
+        _LOGGER.debug(
+            'Data API response',
+            extra=log_data | {'status_code': resp.status_code}
+        )
         metric: str = 'assetcache_refresh_asset_api_calls'
         if metrics and metric in metrics:
             metrics[metric].inc()
@@ -593,6 +598,10 @@ class AssetCache(SearchableCache, Metrics):
 
     @staticmethod
     def get_short_appendix(asset_model: Asset) -> str:
+        '''
+        Appendix for the key for a short asset
+        '''
+
         metrics: dict[str, Gauge | Counter] = config.metrics
         metric: str
         if asset_model.duration <= 60:
@@ -621,6 +630,12 @@ class AssetCache(SearchableCache, Metrics):
         # go to separate lists from horizontally oriented assets.
         short_append: str = AssetCache.get_short_appendix(asset_model)
 
+        log_data: dict[str, any] = {
+            'short_append': short_append,
+            'member_id': member_id,
+            'asset_id': asset_model.asset_id,
+            'creator': asset_model.creator,
+        }
         lists_set: set[str] = set()
 
         categories: list[str] | None = sorted(
@@ -669,22 +684,11 @@ class AssetCache(SearchableCache, Metrics):
         if len(lists_set) > list_permutations:
             lists_set = set((list(lists_set))[:list_permutations])
 
-        # the 'all_assets' list is a special list that contains all assets, so
-        # we can refresh assets in the cache before they expire
-        lists_set.add(AssetCache.ALL_ASSETS_LIST)
-
         # Add the asset to the list for the creator
         if asset_model.creator:
-            # TODO: we maintain two lists for the creator as the
-            # /api/v1/service/data API does not yet include the member_id
-            # in the list of assets to retrieve
-            lists_set.add(asset_model.creator + short_append)
             lists_set.add(f'{member_id}_{asset_model.creator}{short_append}')
         else:
-            _LOGGER.debug(
-                f'No creator for asset {asset_model.asset_id} '
-                'from member {asset_model.origin}'
-            )
+            _LOGGER.debug('No creator for asset', extra=log_data)
 
         created_since: timedelta
         if asset_model.published_timestamp:
@@ -699,7 +703,9 @@ class AssetCache(SearchableCache, Metrics):
 
         created_since = datetime.now(tz=UTC) - timestamp
 
+        log_data['created_since'] = created_since
         if created_since < AssetCache.RECENT_THRESHOLD:
+            _LOGGER.info('Adding asset to recent_uploads', extra=log_data)
             lists_set.add(AssetCache.DEFAULT_ASSET_LIST + short_append)
 
         metrics: dict[str, Counter | Gauge] = config.metrics
