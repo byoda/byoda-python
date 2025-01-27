@@ -12,6 +12,9 @@ NAME=$1
 
 TARGET=
 
+DOCKER=docker
+#DOCKER=/home/steven/bin/nerdctl
+
 # POD
 if [[ "${NAME}" == "pod" || "${NAME}" == "p" ]]; then
     TARGET="pod"
@@ -60,12 +63,13 @@ fi
 # Angie
 if [[ "${NAME}" == "angie" ]]; then
     TARGET="angie"
-    docker build . --file Dockerfile-${TARGET} --tag byoda/${TARGET}:${TAG} --build-arg TAG=${TAG}
+    ANGIE_TAG=latest
+    ${DOCKER} build . --file Dockerfile-${TARGET} --tag byoda/${TARGET}:${ANGIE_TAG} --build-arg TAG=${ANGIE_TAG}
     if [ "$?" -eq "0" ]; then
-        export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
+        export IMAGE_ID=$(${DOCKER} images --format='{{.ID}}'  | head -1)
         echo "Pushing image: $IMAGE_ID"
-        docker image tag ${IMAGE_ID} byoda/${TARGET}:${TAG}
-        docker push byoda/${TARGET}:${TAG}
+        ${DOCKER} image tag ${IMAGE_ID} byoda/${TARGET}:${ANGIE_TAG}
+        ${DOCKER} push byoda/${TARGET}:${ANGIE_TAG}
         echo "Docker build of Angie completed"
         exit 0
     else
@@ -79,13 +83,17 @@ if [ -z "${TARGET}" ]; then
     exit 1
 fi
 
+
 if [ -z "${TAG}" ]; then
     RESULT=$(git status | grep 'branch main')
     if [ "$?" -eq "0" ]; then
         export TAG=latest
     else
         if [[ "${TARGET}" == "pod" || "${TARGET}" == "p" ]]; then
-            export TAG=dev
+            # For now we always build latest if TAG is not specified
+            # because k8s only supports always_pull for tag 'latest'
+            # export TAG=dev
+            export TAG=latest
         else
             export TAG=latest
         fi
@@ -96,19 +104,19 @@ echo "Using tag: ${TAG}"
 
 TARGETS="pod service service-asset-updates-worker service-asset-refresh-worker service-email-worker directory service-channel-refresh-worker byotube-service app"
 if echo "${TARGETS}" | grep -qw "${TARGET}"; then
-    echo "Building docker container for byoda-${TARGET} with TAG ${TAG} with docker file Dockerfile-${TARGET}"
+    echo "Building container for byoda-${TARGET} with TAG ${TAG} using Dockerfile-${TARGET}"
 else
     echo "Invalid target: ${TARGET}"
     exit 1
 fi
 
-docker build . --file Dockerfile-${TARGET} --tag byoda/byoda-${TARGET}:${TAG} --build-arg TAG=${TAG}
+${DOCKER} build . --file Dockerfile-${TARGET} --tag byoda/byoda-${TARGET}:${TAG} --build-arg TAG=${TAG}
 
 if [ "$?" -eq "0" ]; then
-    export IMAGE_ID=$(docker images --format='{{.ID}}'  | head -1)
+    export IMAGE_ID=$(${DOCKER} images --format='{{.ID}}'  | head -1)
     echo "Pushing image: $IMAGE_ID"
-    docker image tag ${IMAGE_ID} byoda/byoda-${TARGET}:${TAG}
-    docker push byoda/byoda-${TARGET}:${TAG}
+    ${DOCKER} image tag ${IMAGE_ID} byoda/byoda-${TARGET}:${TAG}
+    ${DOCKER} push byoda/byoda-${TARGET}:${TAG}
     echo "Docker build completed"
 else
     echo "Docker build failed"

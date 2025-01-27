@@ -32,9 +32,9 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import UTC
 
-# from byoda.datacache.searchable_cache import SearchableCache.ASSET_KEY_PREFIX
+from byoda.datacache.asset_list import AssetList
 from byoda.datacache.searchable_cache import SearchableCache
-# from byoda.datacache.asset_cache import AssetNode
+
 from byoda.util.logger import Logger
 
 LUA_SCRIPT_FILEPATH: str = 'byotubesvr/redis.lua'
@@ -54,8 +54,8 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         await cache.client.function_flush('SYNC')
         await cache.client.ft(cache.index_name).dropindex()
         await cache.client.flushdb()
-        list_key: str = cache.get_list_key(TESTLIST)
-        keys: list[str] = await cache.client.keys(f'{list_key}*')
+        sset_key: str = AssetList.get_key(TESTLIST)
+        keys: list[str] = await cache.client.zrange(f'{sset_key}*', 0, -1)
         for key in keys:
             await cache.client.delete(key)
 
@@ -95,7 +95,7 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         data = call_lua_script(self, 12, assets[15]['cursor'])
         self.assertEqual(len(data), 12)
 
-        data = call_lua_script(self, 20, assets[15]['cursor'])
+        data = call_lua_script(self, 20, assets[24]['cursor'])
         self.assertEqual(len(data), 15)
 
         data = call_lua_script(self, 20, 'notacursor')
@@ -136,12 +136,15 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
         # duplicates in the list so item 30 does get added to the list so the
         # end result is 39 items, with item 0 and item 29 from the same creator
         self.assertEqual(len(data), 39)
+
         self.assertEqual(
-            data[9]['node']['creator'], data[38]['node']['creator']
+            data[38]['node']['creator'], data[28]['node']['creator']
         )
 
+        creator_list: str = f'{data[38]['origin']}_{data[38]['node']['creator']}'
+
         data = await cache.get_list_values(
-            assets[10]['node']['creator'], SearchableCache.ASSET_KEY_PREFIX,
+            creator_list, SearchableCache.ASSET_KEY_PREFIX,
         )
         # We populated the cache with 40 assets, three of them have the
         # same creator, so the list for the creator should contain 3 items
@@ -172,13 +175,13 @@ class TestRedisLuaScript(unittest.IsolatedAsyncioTestCase):
 
         data = await cache.get_list_values(
             TESTLIST, SearchableCache.ASSET_KEY_PREFIX,
-            after=assets[5]['cursor'], first=10
+            after=assets[34]['cursor'], first=10
         )
         self.assertEqual(len(data), 5)
 
         data = await cache.get_list_values(
             TESTLIST, SearchableCache.ASSET_KEY_PREFIX,
-            after=assets[15]['cursor']
+            after=assets[24]['cursor']
         )
         self.assertEqual(len(data), 15)
 
@@ -203,6 +206,7 @@ def call_lua_script(test, first: int | None = None, after: str | None = None
         if after:
             cmd.append(f'{after}')
 
+    print('LUA command:', cmd)
     result: subprocess.CompletedProcess = subprocess.run(
         cmd, capture_output=True,
     )
@@ -215,7 +219,7 @@ def call_lua_script(test, first: int | None = None, after: str | None = None
     return data
 
 
-async def populate_cache(cache: SearchableCache, asset_list: str,
+async def populate_cache(cache: SearchableCache, list_name: str,
                          member_id: UUID, dupe_origins: list[int] = []
                          ) -> list[dict]:
     titles: list[str] = [
@@ -253,7 +257,8 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
                 'title': titles[counter],
                 'ingest_status': ['published', 'external'][counter % 2],
                 'creator': creators[counter % len(creators)],
-                'created_timestamp': created.timestamp()
+                'created_timestamp': created.timestamp(),
+                'published_timestamp': created.timestamp(),
             }
         }
         if counter in dupe_origins:
@@ -263,12 +268,21 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
             asset['origin'] = assets[0]['origin']
             asset['node']['creator'] = assets[0]['node']['creator']
 
+        asset_lists: set[AssetList] = set(
+            [
+                AssetList(list_name, redis=cache.client),
+                AssetList(
+                    f'{asset['origin']}_{asset['node']['creator']}',
+                    redis=cache.client
+                )
+            ]
+        )
         await cache.json_set(
-            [asset_list, asset['node']['creator']],
-            SearchableCache.ASSET_KEY_PREFIX, asset
+            asset_lists, SearchableCache.ASSET_KEY_PREFIX, asset
         )
         assets.append(asset)
 
+    # assets.reverse()
     return assets
 
 

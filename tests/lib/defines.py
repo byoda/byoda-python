@@ -26,7 +26,7 @@ MODTEST_FQDN: str = 'modtest.byoda.io'
 MODTEST_APP_ID: UUID = UUID('3eb0f7e5-c1e1-49b4-9633-6a6aa2a9fa22')
 
 CDN_APP_ID: UUID = UUID('928ef3d7-f4fd-4b41-b6c8-2bc4a201b2e8')
-CDN_FQDN: str = 'cdn.byo.host'
+CDN_FQDN: str = 'cdn.byo.tube'
 CDN_ORIGIN_SITE_ID: str | None = 'xx'
 
 AZURE_POD_ACCOUNT_ID: str = '6e31dd43-fc13-426f-a689-a401915c29cd'

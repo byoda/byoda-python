@@ -9,6 +9,7 @@ Class for modeling a social network
 import os
 
 from logging import getLogger
+from typing import LiteralString
 
 import passgen
 
@@ -178,7 +179,7 @@ class Network:
             await root_ca.load(with_private_key=True, password=password)
         else:
             await root_ca.create(expire=100*365)
-            root_ca_password = passgen.passgen(length=48)
+            root_ca_password: LiteralString = passgen.passgen(length=48)
             await root_ca.save(password=root_ca_password)
             _LOGGER.info(
                 f'!!! Saving root CA using password {root_ca_password}'

@@ -13,6 +13,7 @@ import os
 import sys
 
 from uuid import UUID
+from random import shuffle
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -60,12 +61,13 @@ from byoda.util.test_tooling import is_test_uuid
 from byoda import config
 
 from byoda.datacache.asset_cache import AssetCache
+from byoda.datacache.channel_cache import ChannelCache
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 # Time out waiting for a member from the list of members to
 # get info from the Person table
-MAX_WAIT: int = 15 * 60
+MAX_WAIT: int = 1 * 60
 
 # Max time to wait before connecting to the next member again
 # to get info from the Person table
@@ -76,6 +78,9 @@ CACHE_STALE_THRESHOLD: int = 4 * 60 * 60
 ASSET_CLASS: str = 'public_assets'
 
 PROMETHEUS_EXPORTER_PORT: int = 5000
+
+# Only assets newer than this will be stored in the cache
+MAX_ASSET_AGE: int = 2 * 365 * 24 * 60 * 60
 
 
 async def main() -> None:
@@ -90,15 +95,15 @@ async def main() -> None:
 
     member_db: MemberDb = server.member_db
     wait_time: float = 0.0
-    members_seen: dict[UUID, UpdateListenerService] = {}
 
     async with create_task_group() as task_group:
-        log_data['members_seen'] = members_seen
+        log_data['members_seen'] = 0
         # Set up the listeners for the members that are already in the cache
         _LOGGER.debug('Start up reconciliation for members', extra=log_data)
+        members_seen: dict[UUID, UpdateListenerService] = {}
         await reconcile_member_listeners(
             member_db, members_seen, service, ASSET_CLASS, server.asset_cache,
-            task_group
+            server.channel_cache_readwrite, task_group
         )
         while True:
             log_data['members_seen'] = len(members_seen)
@@ -127,7 +132,8 @@ async def main() -> None:
 
                 await reconcile_member_listeners(
                     member_db, members_seen, service, ASSET_CLASS,
-                    server.asset_cache, task_group
+                    server.asset_cache, server.channel_cache_readwrite,
+                    task_group
                 )
 
                 # TODO: develop logic to figure out what data to collect
@@ -150,17 +156,19 @@ async def main() -> None:
                 # Add the member back to the list of members as it seems
                 # to be up and running, even if it may not have returned
                 # any data
-                _LOGGER.debug(f'Adding {member_id} back to the list')
+                _LOGGER.debug('Adding member back to the list', extra=log_data)
                 await member_db.add_member(member_id)
 
-            _LOGGER.debug(f'Sleeping for {wait_time} seconds')
+            _LOGGER.debug(
+                'Sleeping', extra=log_data | {'wait_time': wait_time}
+            )
             await sleep(wait_time)
 
 
 async def reconcile_member_listeners(
         member_db: MemberDb, members_seen: dict[UUID, UpdateListenerService],
         service: Service, asset_class_name: str, asset_cache: AssetCache,
-        task_group: TaskGroup) -> None:
+        channel_cache: ChannelCache, task_group: TaskGroup) -> None:
     '''
     Sets up asset sync and listener for members not seen before.
 
@@ -193,6 +201,7 @@ async def reconcile_member_listeners(
         m_id for m_id in member_ids
         if m_id not in members_seen and not is_test_uuid(m_id)
     ]
+    shuffle(unseen_members)
     log_data['members_not_yet_seen'] = len(unseen_members)
 
     metrics['svc_updates_unseen_members'].set(len(unseen_members))
@@ -205,7 +214,8 @@ async def reconcile_member_listeners(
 
         listener: UpdateListenerService = await UpdateListenerService.setup(
             asset_class_name, service.service_id, member_id,
-            network.name, service.tls_secret, asset_cache
+            network.name, service.tls_secret, asset_cache, channel_cache,
+            max_asset_age=MAX_ASSET_AGE
         )
 
         _LOGGER.debug(
@@ -216,85 +226,6 @@ async def reconcile_member_listeners(
 
         members_seen[member_id] = listener
         metrics['svc_updates_total_members'].inc()
-
-
-async def update_member(service: Service, member_id: UUID, member_db: MemberDb
-                        ) -> int | None:
-    '''
-    This code runs for the addressbook test service, collecting information
-    about members and making it searchable.
-    '''
-
-    try:
-        data: dict[str, any] = await member_db.get_meta(member_id)
-    except TypeError as exc:
-        _LOGGER.exception(f'Invalid data for member: {member_id}: {exc}')
-        return None
-    except KeyError as exc:
-        _LOGGER.info(f'Member not found: {member_id}: {exc}')
-        return None
-
-    await member_db.add_meta(
-        data['member_id'], data['remote_addr'], data['schema_version'],
-        data['data_secret'], data['status']
-    )
-
-    wait_time: int = next_member_wait(data['last_seen'])
-
-    #
-    # Here is where we can do stuff
-    #
-    try:
-        await update_member_info(service, member_db, member_id)
-
-    except (HTTPError, ConnectError, ByodaRuntimeError) as exc:
-        _LOGGER.debug(
-            'Not adding member back to the list because we failed '
-            'to get data from member', extra={
-                'remote_member_id': member_id,
-                'exception': str(exc)
-            }
-        )
-        return None
-
-    return wait_time
-
-
-async def update_member_info(service: Service, member_db: MemberDb,
-                             member_id: UUID) -> None:
-    '''
-    Updates the info about a member of the service so that we
-    can support searches based on email address of the member
-
-    :param service: our service
-    :param meber_db: where to store the data
-    :param member_id: the member to update
-    :returns: (none)
-    :raises: (none)
-    '''
-
-    if service.service_id == ADDRESSBOOK_SERVICE_ID:
-        resp: HttpResponse = await DataApiClient.call(
-            service.service_id, 'person', DataRequestType.QUERY,
-            secret=service.tls_secret, member_id=member_id
-        )
-
-        body: dict[list[dict[str, any]]] = resp.json()
-
-        edges: list[dict[str, any]] = body['edges']
-        if not edges:
-            _LOGGER.debug(f'Did not get any info from the pod: {body}')
-        else:
-            person_data: dict[str, any] = edges[0]['node']
-            _LOGGER.info(
-                f'Got data from member {member_id}: '
-                f'{orjson.dumps(person_data)}'
-            )
-            await member_db.set_data(member_id, person_data)
-
-            await member_db.kvcache.set(
-                person_data['email'], str(member_id)
-            )
 
 
 def next_member_wait(last_seen: datetime) -> int:
@@ -384,6 +315,89 @@ async def setup_server() -> tuple[Service, ServiceServer]:
     )
 
     return service, server
+
+
+async def update_member(service: Service, member_id: UUID, member_db: MemberDb
+                        ) -> int | None:
+    '''
+    This code runs for the addressbook test service, collecting information
+    about members and making it searchable.
+    '''
+
+    try:
+        data: dict[str, any] = await member_db.get_meta(member_id)
+    except TypeError as exc:
+        _LOGGER.exception(f'Invalid data for member: {member_id}: {exc}')
+        return None
+    except KeyError as exc:
+        _LOGGER.info(f'Member not found: {member_id}: {exc}')
+        return None
+
+    await member_db.add_meta(
+        data['member_id'], data['remote_addr'], data['schema_version'],
+        data['data_secret'], data['status']
+    )
+
+    wait_time: int = next_member_wait(data['last_seen'])
+
+    #
+    # Here is where we can do stuff
+    #
+    try:
+        await update_member_info(service, member_db, member_id)
+
+    except (HTTPError, ConnectError, ByodaRuntimeError) as exc:
+        _LOGGER.debug(
+            'Not adding member back to the list because we failed '
+            'to get data from member', extra={
+                'remote_member_id': member_id,
+                'exception': str(exc)
+            }
+        )
+        return None
+
+    return wait_time
+
+
+async def update_member_info(service: Service, member_db: MemberDb,
+                             member_id: UUID) -> None:
+    '''
+    This function is only used for the addressbook service.
+
+    Updates the info about a member of the service so that we
+    can support searches based on email address of the member.
+
+    :param service: our service
+    :param meber_db: where to store the data
+    :param member_id: the member to update
+    :returns: (none)
+    :raises: (none)
+    '''
+
+    if service.service_id != ADDRESSBOOK_SERVICE_ID:
+        return
+
+    resp: HttpResponse = await DataApiClient.call(
+        service.service_id, 'person', DataRequestType.QUERY,
+        secret=service.tls_secret, member_id=member_id
+    )
+
+    body: dict[list[dict[str, any]]] = resp.json()
+
+    edges: list[dict[str, any]] = body['edges']
+    if not edges:
+        _LOGGER.debug(f'Did not get any info from the pod: {body}')
+    else:
+        person_data: dict[str, any] = edges[0]['node']
+        _LOGGER.info(
+            f'Got data from member {member_id}: '
+            f'{orjson.dumps(person_data)}'
+        )
+        await member_db.set_data(member_id, person_data)
+
+        await member_db.kvcache.set(
+            person_data['email'], str(member_id)
+        )
 
 
 def setup_exporter_metrics() -> None:

@@ -65,7 +65,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     server: PodServer = PodServer(
         bootstrapping=bool(network_data.get('bootstrap')),
-        db_connection_string=network_data.get('db_connection')
+        db_connection_string=network_data.get('db_connection'),
+        http_port=network_data.get('http_port'),
+        host_root_dir=network_data.get('host_root_dir'),
     )
 
     config.server = server

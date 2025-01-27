@@ -20,6 +20,7 @@ This test will delete in the Redis server:
 
 import os
 import sys
+import asyncio
 import unittest
 import subprocess
 
@@ -39,6 +40,8 @@ from byoda.datacache.searchable_cache import SearchableCache
 from byoda.datacache.asset_cache import AssetCache
 
 from byoda.util.logger import Logger
+
+from byoda.datacache.asset_list import AssetList
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.13:6379')
 
@@ -64,15 +67,16 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         await cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
-        await cache.delete_list(AssetCache.ALL_ASSETS_LIST)
+        asset_list: AssetList = AssetList(TESTLIST, redis=cache.client)
+        await asset_list.delete()
 
-        list_key: str = cache.get_list_key(TESTLIST)
-        keys: list[str] = await cache.client.keys(f'{list_key}*')
+        sset_key: str = AssetList.get_key(TESTLIST)
+        keys: list[str] = await cache.client.keys(f'{sset_key}*')
         for key in keys:
             await cache.client.delete(key)
 
         keys: list[str] = await cache.client.keys(
-            f'{ AssetCache.ASSET_KEY_PREFIX}*'
+            f'{AssetCache.ASSET_KEY_PREFIX}*'
         )
 
         for key in keys:
@@ -95,7 +99,8 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
         cache: AssetCache = await AssetCache.setup(REDIS_URL)
 
         member_id: UUID = uuid4()
-        await cache.add_newest_asset(member_id, data)
+        expires_at: float = datetime.now(tz=UTC).timestamp() + 5
+        await cache.add_newest_asset(member_id, data, expires_at=expires_at)
         counter: int
         for counter in range(0, 10):
             # We need to change the member_id to make sure that the
@@ -103,11 +108,14 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
             member_id = uuid4()
             data['creator'] = f'Asset creator {counter}'
             data['asset_id'] = str(uuid4())
-            await cache.add_newest_asset(member_id, data)
+            expires_at: float = datetime.now(tz=UTC).timestamp() + 5
+            await cache.add_newest_asset(
+                member_id, data, expires_at=expires_at
+            )
 
         lists: set[str] = await cache.get_list_of_lists()
         self.assertIsNotNone(lists)
-        self.assertEqual(len(lists), 31)
+        self.assertEqual(len(lists), 30)
 
         creators: set[str] = await cache.get_creators_list()
         self.assertIsNotNone(creators)
@@ -118,10 +126,14 @@ class TestServiceAssetCache(unittest.IsolatedAsyncioTestCase):
 
         cursor: str = results[0].cursor
         expires: int = await cache.get_asset_expiration(cursor)
-        self.assertTrue(expires > 3600)
+        self.assertGreaterEqual(expires, 1)
 
-        item: str | None = await cache.get_oldest_asset()
-        result: int = await cache.add_oldest_asset(item)
+        await asyncio.sleep(5)
+        item: tuple[str, float] | None = await cache.get_oldest_expired_item()
+        self.assertIsNotNone(item)
+        result: int = await cache.add_asset_to_all_assets_list(
+            item[0], expires_at=item[1]
+        )
         self.assertEqual(result, 11)
         await cache.close()
 
@@ -298,14 +310,19 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
                 'title': titles[counter],
                 'ingest_status': ['published', 'external'][counter % 2],
                 'creator': creator,
-                'created_timestamp': created.timestamp()
+                'created_timestamp': created.timestamp(),
+                'published_timestamp': created.timestamp()
             }
         }
+        asset_lists: set[AssetList] = set(
+            [AssetList(asset_list, redis=cache.client)]
+        )
         await cache.json_set(
-            [asset_list], SearchableCache.ASSET_KEY_PREFIX, asset_edge
+            asset_lists, SearchableCache.ASSET_KEY_PREFIX, asset_edge
         )
         assets.append(asset_edge)
 
+    # assets.reverse()
     return assets
 
 

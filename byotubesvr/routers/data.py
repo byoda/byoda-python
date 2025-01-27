@@ -7,7 +7,7 @@
 '''
 
 from uuid import UUID
-from logging import getLogger
+from logging import getLogger, Logger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -24,8 +24,6 @@ from byoda.models.data_api_models import ChannelShortcutValueResponseModel
 from byoda.datacache.asset_cache import AssetCache
 from byoda.datacache.channel_cache import ChannelCache
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
@@ -40,17 +38,31 @@ MAX_PAGE_SIZE: int = 100
 @router.get('/data', status_code=200, response_class=ORJSONResponse)
 async def get_data(request: Request,
                    list_name: str | None = AssetCache.DEFAULT_ASSET_LIST,
+                   member_id: UUID | None = None,
                    first: int = DEFAULT_PAGING_SIZE, after: str | None = None,
                    ingest_status: str | None = None
                    ) -> QueryResponseModel:
     '''
-    This API is called by pods
+    This API is called by pods. It returns the assets in the requested
+    list. In case the request is for all assets of a channel, the
+    member_id must be provided as there can be duplicate channel names
+    among members of the service.
 
     This API does not require authentication, it needs to be rate
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'GET Data API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'api': 'api/v1/service/data',
+        'method': 'GET',
+        'asset_list': list_name,
+        'member_id': member_id,
+        'first': first,
+        'after': after,
+        'ingest_status': ingest_status
+    }
+    _LOGGER.debug('Data API request received', extra=log_data)
 
     asset_cache: AssetCache = config.asset_cache
 
@@ -59,6 +71,9 @@ async def get_data(request: Request,
     filter_name: str | None = None
     if ingest_status:
         filter_name = 'ingest_status'
+
+    if member_id:
+        list_name = ChannelCache.get_cursor(member_id, list_name)
 
     edges: list[EdgeResponse] = await asset_cache.get_list_assets(
         list_name, after=after, first=first + 1,
@@ -94,7 +109,14 @@ async def get_asset(request: Request, cursor: str | None = None,
     limited by the reverse proxy (TODO: security)
     '''
 
-    _LOGGER.debug(f'GET Asset API called from {request.client.host}')
+    log_data: dict[str, any] = {
+        'remote_addr': request.client.host,
+        'api': 'api/v1/service/asset',
+        'method': 'GET',
+        'asset_id': asset_id,
+        'member_id': member_id
+    }
+    _LOGGER.debug('Asset API request received', extra=log_data)
 
     if cursor and (asset_id or member_id):
         raise HTTPException(
@@ -135,15 +157,17 @@ async def get_channel(request: Request, creator: str, member_id: UUID
         'remote_addr': request.client.host,
         'member_id': member_id,
         'creator': creator,
+        'api': '/api/v1/service/channel',
+        'method': 'GET',
     }
-    _LOGGER.debug('GET Channel API called', extra=log_data)
+    _LOGGER.debug('Channel API received', extra=log_data)
 
     try:
         edge: EdgeResponse[Channel] | None = await channel_cache.get_channel(
             member_id, creator
         )
     except Exception as exc:
-        _LOGGER.exception(f'Failed to get channel: {exc}')
+        _LOGGER.exception(f'Failed to get channel: {exc}', extra=log_data)
         raise HTTPException(
             status_code=502, detail='Failed to get channel'
         )
@@ -167,13 +191,15 @@ async def get_channel_shortcut(request: Request, shortcut: str
     '''
 
     log_data: dict[str, str] = {
+        'remote_addr': request.client.host,
+        'api': '/api/v1/service/channel/shortcut',
+        'method': 'GET',
         'shortcut': shortcut,
-        'remote_addr': request.client.host
     }
 
     channel_cache: ChannelCache = config.channel_cache
 
-    _LOGGER.debug('GET Channel shortcut API called', extra=log_data)
+    _LOGGER.debug('Channel shortcut API received', extra=log_data)
 
     try:
         member_id: UUID
@@ -211,12 +237,14 @@ def get_channel_shortcut_value(request: Request, member_id: UUID, creator: str
     '''
 
     log_data: dict[str, str] = {
-        'member_id': member_id,
+        'remote_addr': request.client.host,
+        'api': '/api/v1/service/channel/shortcut',
+        'method': 'GET',
         'creator': creator,
-        'remote_addr': request.client.host
+        'member_id': 'member_id'
     }
 
     shortcut: str = ChannelCache.get_shortcut_value(member_id, creator)
     log_data['shortcut'] = shortcut
-    _LOGGER.debug('Got request to generate shortcut', extra=log_data)
+    _LOGGER.debug('Generate shotcut API request received', extra=log_data)
     return {'shortcut': shortcut}

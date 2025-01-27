@@ -317,8 +317,8 @@ class CaSecret(Secret):
         ).serial_number(
             x509.random_serial_number()
         ).not_valid_before(
-            datetime.utcnow()
-        ).not_valid_after(
+            datetime.now(tz=UTC)
+        ).not_valid_after_utc(
             expiration
         ).add_extension(
             x509.SubjectAlternativeName(

@@ -137,7 +137,6 @@ async def call_content_keys_api(cdn_app_id: str, member: Member,
 
 
 async def upload_origin_mapping(server: PodServer) -> None:
-    server: PodServer = server
     account: Account = server.account
     network: Network = account.network
 
@@ -158,7 +157,7 @@ async def upload_origin_mapping(server: PodServer) -> None:
         log_extra['service_id'] = member.service_id,
         log_extra['member_id'] = member.member_id
 
-        _LOGGER.info('Uploading Origin mapping')
+        _LOGGER.info('Uploading Origin mapping', extra=log_extra)
 
         document_store: DocumentStore = account.document_store
         filestore: FileStorage = document_store.backend

@@ -30,7 +30,9 @@ cat <<EOF
         "Let's Encrypt directory": "${LETSENCRYPT_DIRECTORY}",
         "YouTube channel": "${YOUTUBE_CHANNEL}",
         "YouTube polling interval": "${YOUTUBE_IMPORT_INTERVAL}",
-        "FastAPI workers": "${WORKERS}"
+        "FastAPI workers": "${WORKERS}",
+        "Host IP": "${HOST_IP}",
+        "HTTP port:": "${HTTP_PORT}",
     }
 }
 EOF

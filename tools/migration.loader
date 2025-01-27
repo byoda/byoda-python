@@ -1,8 +1,0 @@
-LOAD DATABASE
-  FROM   /home/ubuntu/backup.db
-  INTO    pgsql://postgres:byoda@HOST_IP:5432/byoda
-  INCLUDING ONLY TABLE NAMES like 'TABLE_VAR'
-
-  with include drop, create tables, create indexes, reset sequences, prefetch rows = 1000
-
-    set work_mem to '16MB', maintenance_work_mem to '128 MB';

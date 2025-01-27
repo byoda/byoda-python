@@ -89,7 +89,7 @@ class ServerConfig:
         # Debug should be set as YAML bool (ie. True or False) but we take
         # strings as well. All strings except string.lower 'false' are
         # considered True
-        debug_setting: str = self.app_config.get('debug')
+        debug_setting: str | bool = self.app_config.get('debug')
         self.debug: bool = False
         if isinstance(debug_setting, bool):
             self.debug = debug_setting

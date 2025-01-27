@@ -52,13 +52,13 @@ async def main(argv: list) -> None:
     cache: AssetCache = await AssetCache.setup(args.redis_url)
     all_lists: list[str] = await cache.client.smembers('lists:list_of_lists')
 
-    # skip_list: set[str] = set()
-    # if os.path.exists(args.skip_list):
-    #     with open(args.skip_list, 'r') as file_desc:
-    #         skip_list = set(file_desc.read().splitlines())
-    # skip_list.add('list_of_lists')
-    # skip_list.add('all_assets')
-    # skip_list.add(AssetCache.ALL_ASSETS_LIST)
+    skip_list: set[str] = set()
+    if os.path.exists(args.skip_list):
+        with open(args.skip_list, 'r') as file_desc:
+            skip_list = set(file_desc.read().splitlines())
+    skip_list.add('list_of_lists')
+    skip_list.add('all_assets')
+    skip_list.add(AssetCache.ALL_ASSETS_LIST)
 
     for list_name in all_lists:
         if cache.is_channel_list(list_name):
@@ -68,21 +68,21 @@ async def main(argv: list) -> None:
 
         print(f'Old-format name for: {list_name}')
         list_key: str = cache.get_list_key(list_name)
-        result = await cache.client.delete(list_key)
+        await cache.client.delete(list_key)
         await cache.client.srem('lists:list_of_lists', list_name)
 
-        # if list_name in skip_list:
-        #     continue
+        if list_name in skip_list:
+            continue
 
-        # await check_for_dupes(cache, list_name)
-        # with open(args.skip_list, 'a') as file_desc:
-        #     file_desc.write(f'{list_name}\n')
+        await check_for_dupes(cache, list_name)
+        with open(args.skip_list, 'a') as file_desc:
+            file_desc.write(f'{list_name}\n')
 
-        # if args.clean:
-        #     await check_expirations(cache, list_name)
-        #     await check_expirations(cache, AssetCache.ALL_ASSETS_LIST)
+        if args.clean:
+            await check_expirations(cache, list_name)
+            await check_expirations(cache, AssetCache.ALL_ASSETS_LIST)
 
-    # await check_for_dupes(cache, AssetCache.ALL_ASSETS_LIST)
+    await check_for_dupes(cache, AssetCache.ALL_ASSETS_LIST)
     await cache.close()
 
 
@@ -140,6 +140,7 @@ async def check_expirations(cache: AssetCache, list_name: str) -> None:
                 f'Total not found {keys_not_found}'
             )
             await cache.client.lrem(list_key, 1, key)
+            await cache.remove_asset(key)
             continue
         elif expiration == -1:
             _LOGGER.debug(f'Key has no expiration: {key}')

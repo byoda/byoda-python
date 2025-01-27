@@ -26,10 +26,12 @@ from byoda.datamodel.service import Service
 from byoda.datamodel.member import Member
 from byoda.datamodel.schema import Schema
 
+from byoda.datatypes import CloudType
 from byoda.datatypes import DataRequestType
 
+from byoda.datacache.asset_list import AssetList
+
 from byoda.storage.filestorage import FileStorage
-from byoda.datatypes import CloudType
 
 from byoda.datastore.document_store import DocumentStoreType, DocumentStore
 
@@ -40,6 +42,7 @@ from byoda.util.updates_listener import UpdateListenerService
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
+
 from byoda.util.logger import Logger
 
 from byoda.util.paths import Paths
@@ -157,7 +160,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         listener: UpdateListenerService = await UpdateListenerService.setup(
             class_name, service.service_id, member_id,
             network.name, service.tls_secret,
-            server.asset_cache, [test_list]
+            server.asset_cache, server.channel_cache_readwrite
         )
 
         item_count: int = await listener.get_all_data()
@@ -232,7 +235,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             await listener.asset_cache.delete_asset_from_cache(
                 member_id, asset_id
             )
-            await listener.asset_cache.delete_list(test_list)
+            asset_list: AssetList = AssetList(
+                test_list, redis=listener.asset_cache.client
+            )
+            await asset_list.delete()
 
             resp: HttpResponse = await DataApiClient.call(
                 service.service_id, class_name, DataRequestType.DELETE,

@@ -12,6 +12,9 @@ the service
 import os
 import sys
 
+from datetime import UTC
+from datetime import datetime
+
 from anyio import run
 from anyio import sleep
 
@@ -69,25 +72,51 @@ async def main() -> None:
     service, server = await setup_server()
     asset_cache: AssetCache = server.asset_cache
 
-    _LOGGER.debug(
-        f'Starting service refresh worker for service ID: {service.service_id}'
-    )
+    log_data: dict[str, any] = {
+        'service_id': service.service_id,
+    }
+    _LOGGER.debug('Starting service refresh worker', extra=log_data)
 
     metrics: dict[str, Counter | Gauge] = config.metrics
 
     wait_time: float = 0.0
     while True:
+        log_data['wait_time'] = wait_time
         if wait_time:
-            _LOGGER.debug(f'Sleeping for {wait_time} seconds')
+            _LOGGER.debug('Sleeping', extra=log_data)
             await sleep(wait_time)
 
         edge: Edge | None = None
         try:
             metrics['svc_refresh_getting_oldest_asset'].inc()
-            edge = await asset_cache.get_oldest_asset()
+            cursor: str
+            expires_at: float | int
+            cursor, expires_at = await asset_cache.get_oldest_expired_item(
+                stale_window=CACHE_STALE_THRESHOLD
+            )
+            if not cursor:
+                _LOGGER.debug(
+                    'No stale or expired assets to refresh', extra=log_data
+                )
+                metrics['svc_refresh_no_expired_assets_available'].inc()
+                wait_time = min(wait_time * 2, MAX_WAIT)
+                wait_time = max(wait_time, 1)
+                continue
+            log_data['cursor'] = cursor
+            log_data['expires_at'] = expires_at
+            edge = await asset_cache.get_asset_by_key(cursor)
+        except FileNotFoundError:
+            _LOGGER.debug(
+                'Expired or stale asset not found', extra=log_data
+            )
+            metrics['svc_refresh_assets_not_found'].inc()
+            wait_time = min(wait_time * 2, MAX_WAIT)
+            wait_time = max(wait_time, 1)
+            continue
         except Exception as exc:
             _LOGGER.debug(
-                f'Failed to get oldest asset from the all_assets list: {exc}'
+                'Failed to get oldest asset from the all_assets list',
+                extra=log_data | {'exception': exc}
             )
             metrics['svc_refresh_getting_oldest_asset_failures'].inc()
             # Double wait time to at least 1 but do not exceed MAX_WAIT
@@ -95,38 +124,21 @@ async def main() -> None:
             wait_time = max(wait_time, 1)
             continue
 
-        if not edge:
-            _LOGGER.debug('No assets to refresh')
-            metrics['svc_refresh_no_assets_available_at_all'].inc()
-            wait_time = min(wait_time * 2, MAX_WAIT)
-            wait_time = max(wait_time, 1)
-            continue
+        log_data['asset_id'] = edge.node.asset_id
+        log_data['origin'] = edge.origin
+        wait_time = expires_at - datetime.now(tz=UTC).timestamp()
 
-        expires_in: float = await asset_cache.get_asset_expiration(edge)
-        wait_time = expires_in
-
-        metrics['svc_refresh_assets_oldest_asset_expires_in'].set(expires_in)
-        if expires_in > CACHE_STALE_THRESHOLD:
-            _LOGGER.debug(
-                'No assets need to be refreshed as the oldest asset '
-                f'{edge.node.asset_id} expires in {expires_in} seconds'
-            )
-            await asset_cache.add_oldest_asset(edge)
-
-            continue
+        metrics['svc_refresh_assets_oldest_asset_expires_in'].set(wait_time)
 
         try:
-            _LOGGER.debug(
-                f'We need to refresh asset {edge.node.asset_id} '
-                f'from member {edge.origin}, expires in {expires_in} seconds'
-            )
+            _LOGGER.debug('We need to refresh asset', extra=log_data)
             metrics['svc_refresh_assets_needing'].inc()
             await asset_cache.refresh_asset(
                 edge, ASSET_CLASS, service.tls_secret
             )
             metrics['svc_refresh_assets_runs'].inc()
             if not await asset_cache.add_newest_asset(edge):
-                _LOGGER.debug('Failed to store asset in cache')
+                _LOGGER.debug('Failed to store asset in cache', extra=log_data)
                 metrics['svc_refresh_assets_failures'].labels(
                     member_id=edge.origin
                 ).inc()
@@ -135,8 +147,7 @@ async def main() -> None:
             # if the refresh fails. TODO: have 'retry' lists
             # to process failed refreshes
             _LOGGER.debug(
-                f'Failed to refresh asset {edge.node.asset_id} '
-                f'from member {edge.origin}: {exc}'
+                'Failed to refresh asset', extra=log_data | {'exception': exc}
             )
             metrics['svc_refresh_assets_failures'].labels(
                 member_id=edge.origin
@@ -217,7 +228,10 @@ def setup_exporter_metrics() -> None:
             'svc_refresh_getting_oldest_asset_failures',
             'Getting the oldest asset from the all_assets list failed'
         ),
-
+        'svc_refresh_no_expired_assets_available': Counter(
+            'svc_refresh_no_expired_assets_available',
+            'number of times no assets had expired'
+        ),
         'svc_refresh_no_assets_available_at_all': Counter(
             'svc_refresh_no_assets_available_at_all',
             'number of times we did not have to run the refresh any assets'
@@ -238,6 +252,10 @@ def setup_exporter_metrics() -> None:
             'svc_refresh_assets_failures',
             'Number of times we failed to refresh an asset',
             ['member_id']
+        ),
+        'svc_refresh_assets_not_found': Counter(
+            'svc_refresh_assets_not_found',
+            'Number of times an asset was not in the cache'
         )
     }
 
