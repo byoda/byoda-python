@@ -8,8 +8,8 @@ Cert manipulation for data of an account
 
 from copy import copy
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from cryptography.x509 import CertificateSigningRequest
 

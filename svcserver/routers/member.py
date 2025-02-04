@@ -13,8 +13,8 @@ It takes 3 steps for a pod to become a member of service:
 '''
 
 from copy import copy
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException

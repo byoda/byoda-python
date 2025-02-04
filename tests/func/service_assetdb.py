@@ -39,7 +39,7 @@ from byoda.datamodel.memberdata import EdgeResponse as Edge
 from byoda.datacache.searchable_cache import SearchableCache
 from byoda.datacache.asset_cache import AssetCache
 
-from byoda.util.logger import Logger
+
 
 from byoda.datacache.asset_list import AssetList
 

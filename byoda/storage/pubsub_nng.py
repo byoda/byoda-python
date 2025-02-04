@@ -12,8 +12,8 @@ import asyncio
 
 from copy import copy
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 import pynng
 

@@ -6,8 +6,8 @@ Class for certificate request processing
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from ipaddress import ip_address as IpAddress
 
@@ -60,7 +60,7 @@ class CertStore:
         if type(csr) not in (str, bytes):
             raise ValueError('CSR must be a string or a byte array')
 
-        cert_auth = self.ca_secret
+        cert_auth: Secret = self.ca_secret
 
         csr = Secret.csr_from_string(csr)
 
@@ -81,9 +81,9 @@ class CertStore:
         # TODO: add check on whether the UUID is already in use
         certchain = cert_auth.sign_csr(csr, 365*3)
 
-        id_type = entity_id.id_type.value.strip('-')
+        new_id_type = entity_id.id_type.value.strip('-')
         _LOGGER.info(
-            f'Signed the CSR for {entity_id.id} for IdType {id_type} '
+            f'Signed the CSR for {entity_id.id} for IdType {new_id_type} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

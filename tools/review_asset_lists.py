@@ -17,7 +17,7 @@ import anyio
 
 from byoda.datacache.asset_cache import AssetCache
 
-from byoda.util.logger import Logger
+
 
 _LOGGER: Logger | None = None
 

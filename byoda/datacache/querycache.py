@@ -12,7 +12,7 @@ from os import makedirs
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 
 
 from byoda.datatypes import CacheTech
@@ -21,8 +21,6 @@ from byoda.datatypes import CacheType
 from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

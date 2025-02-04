@@ -19,7 +19,7 @@ from byoda.datacache.channel_cache import ChannelCache
 from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import EdgeResponse as Edge
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.util import get_test_uuid
 

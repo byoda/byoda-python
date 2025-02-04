@@ -37,11 +37,11 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+
 
 from podserver.util import get_environment_vars
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda import config
 

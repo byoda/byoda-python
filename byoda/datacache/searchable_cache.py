@@ -20,7 +20,7 @@ from uuid import UUID
 from typing import Self
 from hashlib import sha256
 from base64 import b64encode
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -48,8 +48,6 @@ from prometheus_client import Gauge
 
 from byoda.datatypes import IngestStatus
 from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

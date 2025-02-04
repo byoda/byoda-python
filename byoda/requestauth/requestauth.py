@@ -8,7 +8,7 @@ Helper functions for API request processing
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from ipaddress import ip_address as IpAddress
 
 from fastapi import HTTPException
@@ -39,8 +39,6 @@ from byoda.servers.server import Server
 from byoda.util.api_client.api_client import HttpMethod
 
 from byoda.exceptions import ByodaMissingAuthInfo
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

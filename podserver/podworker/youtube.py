@@ -12,7 +12,7 @@ from uuid import UUID
 from time import gmtime
 from random import random
 from calendar import timegm
-from logging import getLogger
+from logging import Logger, getLogger
 
 from anyio import sleep
 
@@ -35,8 +35,6 @@ from byoda.data_import.youtube import YouTube
 from byoda.data_import.youtube_video import YouTubeVideo
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 
 _LOGGER: Logger = getLogger(__name__)

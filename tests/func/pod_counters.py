@@ -33,7 +33,7 @@ from byoda.util.api_client.api_client import ApiClient
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
+
 from byoda.util.fastapi import setup_api
 
 from byoda import config

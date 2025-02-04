@@ -9,8 +9,8 @@ derive
 
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 import pynng
 

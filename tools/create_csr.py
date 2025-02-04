@@ -50,7 +50,7 @@ from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.api_client import HttpResponse
 
 
-from byoda.util.logger import Logger
+
 from byoda.util.paths import Paths
 
 from tests.lib.setup import setup_network

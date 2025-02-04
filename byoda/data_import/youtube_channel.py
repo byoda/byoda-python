@@ -15,7 +15,7 @@ from typing import Self
 from shutil import rmtree
 from random import random
 from tempfile import mkdtemp
-from logging import getLogger, Logger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 

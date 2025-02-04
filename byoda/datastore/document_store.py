@@ -13,8 +13,8 @@ and GCP.
 
 from enum import Enum
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 import orjson
 
@@ -37,8 +37,8 @@ class DocumentStoreType(Enum):
 
 class DocumentStore:
     def __init__(self):
-        self.backend: FileStorage | SqliteStorage = None
-        self.store_type: DocumentStoreType = None
+        self.backend: FileStorage | SqliteStorage | None = None
+        self.store_type: DocumentStoreType | None = None
 
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,

@@ -18,7 +18,7 @@ import unittest
 import httpx
 from requests.structures import CaseInsensitiveDict
 
-from byoda.util.logger import Logger
+
 
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID

@@ -25,8 +25,6 @@ import redis.asyncio as redis
 
 from byoda.storage.message_queue import Queue
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byotubesvr.datamodel.email import EmailVerificationMessage

@@ -8,8 +8,8 @@ RestApiClient, derived from ApiClient for calling REST APIs
 
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import FastAPI
 
@@ -19,8 +19,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from .api_client import ApiClient
 from .api_client import HttpMethod
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 

@@ -24,8 +24,6 @@ from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.fastapi import setup_api
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .routers import account as AccountRouter

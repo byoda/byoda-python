@@ -7,7 +7,7 @@ memberdata API
 '''
 
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -22,8 +22,6 @@ from byoda.datatypes import IdType
 from byoda.datatypes import CloudType
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

@@ -9,8 +9,8 @@ POD server, directory server, service server
 
 
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 from datetime import timezone
 

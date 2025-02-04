@@ -9,11 +9,9 @@ Functions shared between the pod server and the pod worker
 import os
 
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datatypes import CloudType
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

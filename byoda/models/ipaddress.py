@@ -6,8 +6,8 @@ API models for IP Addresses
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from ipaddress import IPv4Address
 from ipaddress import IPv6Address
 

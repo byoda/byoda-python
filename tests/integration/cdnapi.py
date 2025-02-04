@@ -27,8 +27,6 @@ from byoda.secrets.member_secret import MemberSecret
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
-
 from byoda import config
 from byoda.util.paths import Paths
 

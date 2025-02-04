@@ -9,16 +9,14 @@ Bootstrap the account for a pod
 import os
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from abc import ABC
 from abc import abstractmethod
 
 from jinja2 import Template
 
 from byoda.datatypes import IdType
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 ANGIE_SITE_CONFIG_DIR: str = '/etc/angie/conf.d'

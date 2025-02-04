@@ -41,7 +41,7 @@ from byoda.secrets.member_data_secret import MemberDataSecret
 
 from byoda.servers.service_server import ServiceServer
 
-from byoda.util.logger import Logger
+
 from byoda.util.paths import Paths
 
 from byoda import config

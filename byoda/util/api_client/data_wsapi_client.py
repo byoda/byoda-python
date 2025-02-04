@@ -14,7 +14,7 @@ from uuid import uuid4
 from ssl import SSLContext
 from ssl import PROTOCOL_TLS_CLIENT
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 
 import orjson
@@ -38,8 +38,6 @@ from byoda.secrets.secret import Secret
 from byoda.secrets.member_secret import MemberSecret
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

@@ -17,7 +17,7 @@ proxy
 import sys
 import unittest
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network

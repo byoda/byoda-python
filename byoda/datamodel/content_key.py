@@ -15,7 +15,7 @@ from uuid import UUID
 from enum import Enum
 from typing import Self
 from base64 import b64encode
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -26,8 +26,6 @@ from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
 
 from byoda.datatypes import IdType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

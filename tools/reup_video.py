@@ -9,7 +9,7 @@ import sys
 import logging
 import argparse
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from anyio import run
 
@@ -17,8 +17,6 @@ from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_redis import KVRedis
 from byoda.datacache.asset_cache import AssetCache
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID

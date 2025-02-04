@@ -51,8 +51,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byotubesvr.models.lite_account import LiteAccountApiModel

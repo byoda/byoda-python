@@ -23,7 +23,7 @@ from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 from byotubesvr.models.lite_api_models import AssetReactionResponseModel
 from tests.lib.util import get_test_uuid
 
-from byoda.util.logger import Logger
+
 
 from byotubesvr.database.asset_reaction_store import AssetReactionStore
 

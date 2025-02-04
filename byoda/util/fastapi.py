@@ -7,7 +7,7 @@ and pod servers and the functional test cases
 :license    : GPLv3
 '''
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from starlette.middleware import Middleware
 from starlette_context import plugins
@@ -39,8 +39,6 @@ from opentelemetry.metrics import Meter
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 
 from prometheus_client import start_http_server
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

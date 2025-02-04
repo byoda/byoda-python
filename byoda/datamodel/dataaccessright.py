@@ -10,13 +10,11 @@ templates
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import NetworkLink
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

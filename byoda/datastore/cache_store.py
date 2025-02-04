@@ -12,7 +12,7 @@ currently only supports Sqlite3.
 
 from enum import Enum
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 from typing import Self
 from typing import TypeVar
 from datetime import datetime
@@ -50,7 +50,7 @@ from byoda.storage.sqlite import SqliteStorage
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+
 
 from byoda.exceptions import ByodaRuntimeError
 

@@ -10,7 +10,7 @@ derive
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -19,8 +19,6 @@ from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datatypes import IdType
 from byoda.datatypes import PubSubMessageType
 from byoda.datatypes import PubSubMessageAction
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -129,6 +127,7 @@ class PubSubMessage():
 
         return msg
 
+    @staticmethod
     def create(data: object) -> None:
         '''
         Factory for creating messages, all classes derived from PubSubMessage

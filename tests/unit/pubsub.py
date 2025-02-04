@@ -11,7 +11,7 @@ import sys
 import shutil
 import unittest
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 import pynng
 import orjson
@@ -31,8 +31,6 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.storage.pubsub import PubSub
 from byoda.storage.pubsub_nng import PubSubNng
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

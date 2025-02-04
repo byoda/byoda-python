@@ -11,7 +11,7 @@ from uuid import UUID
 from typing import Generic
 from typing import TypeVar
 
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 from typing_extensions import Annotated
@@ -30,7 +30,7 @@ from byoda.datatypes import Currency
 from byoda.datatypes import DataFilterType
 from byoda.datatypes import MonetizationType
 
-from byoda.util.logger import Logger
+
 
 from byoda.limits import MAX_FIELD_NAME_LENGTH
 from byoda.limits import MAX_OBJECT_FIELD_COUNT

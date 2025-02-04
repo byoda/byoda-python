@@ -16,8 +16,8 @@ The registration of a service in the network takes four steps:
    service using the GET /api/v1/network/service request.
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 from datetime import timezone
 

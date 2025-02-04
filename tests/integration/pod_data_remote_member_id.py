@@ -32,8 +32,6 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.fastapi import setup_api
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from podserver.routers import account as AccountRouter

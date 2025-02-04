@@ -25,7 +25,7 @@ import os
 
 from uuid import UUID
 from random import sample
-from logging import getLogger, Logger
+from logging import Logger, getLogger
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.table import Table

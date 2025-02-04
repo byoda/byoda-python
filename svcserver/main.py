@@ -35,8 +35,6 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .routers import service as ServiceRouter

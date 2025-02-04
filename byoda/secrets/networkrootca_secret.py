@@ -8,7 +8,8 @@ Cert manipulation of network secrets: root CA
 
 import os
 from copy import copy
-from logging import getLogger
+from typing import override
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -23,8 +24,6 @@ from byoda.datatypes import IdType
 
 from byoda.storage.filestorage import FileStorage
 from byoda.storage.filestorage import FileMode
-
-from byoda.util.logger import Logger
 
 from .secret import CSR
 from .ca_secret import CaSecret
@@ -87,6 +86,7 @@ class NetworkRootCaSecret(CaSecret):
         self.signs_ca_certs = True
         self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
 
+    @override
     async def create(self, expire: int = 10950) -> None:
         '''
         Creates an RSA private key and X.509 cert
@@ -100,9 +100,10 @@ class NetworkRootCaSecret(CaSecret):
 
         common_name: str = f'root-ca.{self.network}'
         await super().create(
-            common_name, expire=expire, key_size=4096, ca=self.ca
+            common_name, expire=expire, key_size=4096, ca=True, pathlen=3
         )
 
+    @override
     async def create_csr(self, renew: bool = False):
         raise NotImplementedError
 

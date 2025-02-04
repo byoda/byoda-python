@@ -11,7 +11,7 @@ import base64
 from datetime import UTC
 from datetime import datetime
 from typing import Annotated
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import Request
 from fastapi import APIRouter
@@ -29,8 +29,6 @@ from byoda.secrets.secret import Secret
 
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.data_api_client import HttpResponse
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

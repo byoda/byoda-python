@@ -13,7 +13,7 @@ import logging
 
 from typing import Self
 from io import BufferedRandom
-from logging import getLogger
+from logging import Logger, getLogger
 from tempfile import TemporaryFile
 from tempfile import NamedTemporaryFile
 
@@ -22,7 +22,7 @@ from botocore import exceptions as aws_exceptions
 
 from byoda.datatypes import StorageType, CloudType
 
-from byoda.util.logger import Logger
+
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode

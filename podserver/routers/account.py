@@ -9,7 +9,7 @@
 
 import os
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -26,8 +26,6 @@ from byoda.models import AccountResponseModel
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

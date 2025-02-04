@@ -30,7 +30,7 @@ from byoda.servers.service_server import ServiceServer
 from byoda.datatypes import CloudType
 
 from byoda.util.message_signature import SignatureType
-from byoda.util.logger import Logger
+
 from byoda.util.paths import Paths
 
 from byoda.util.api_client.restapi_client import RestApiClient

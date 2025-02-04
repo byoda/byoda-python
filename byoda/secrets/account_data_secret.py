@@ -9,7 +9,7 @@ Cert manipulation for data of an account
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -20,7 +20,7 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 
-from byoda.util.logger import Logger
+
 
 from .data_secret import DataSecret
 

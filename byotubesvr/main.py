@@ -41,8 +41,6 @@ from byoda.util.fastapi import setup_api
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .database.sql import SqlStorage

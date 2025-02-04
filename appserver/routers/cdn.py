@@ -8,7 +8,7 @@ CDN App server /content_keys API API
 
 import os
 
-from logging import getLogger
+from logging import Logger, getLogger
 from byoda.datatypes import AuthSource
 from datetime import datetime
 
@@ -25,8 +25,6 @@ from byoda.models.cdn_account_memberships import \
 from byoda.datatypes import IdType
 
 from byoda.servers.app_server import AppServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

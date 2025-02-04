@@ -18,8 +18,8 @@ import logging
 from enum import Enum
 from uuid import UUID
 from typing import Self
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from ipaddress import ip_address
 from ipaddress import IPv4Address
 

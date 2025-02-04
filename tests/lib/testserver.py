@@ -28,7 +28,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from byoda import config
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account

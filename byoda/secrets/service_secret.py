@@ -9,8 +9,8 @@ Service secret
 
 from copy import copy
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,8 +19,6 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType, EntityId
 
 from .secret import Secret
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')

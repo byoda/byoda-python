@@ -10,7 +10,7 @@ a server that hosts a BYODA Service
 from uuid import UUID
 from typing import TypeVar
 from hashlib import sha256
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datamodel.table import Table
 from byoda.datamodel.content_key import ContentKey
@@ -39,13 +39,9 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .server import Server
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 

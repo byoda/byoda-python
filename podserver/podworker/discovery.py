@@ -11,7 +11,7 @@ import os
 from uuid import UUID
 from datetime import UTC
 from datetime import datetime
-from logging import getLogger
+from logging import Logger, getLogger
 
 from anyio.abc import TaskGroup
 
@@ -44,8 +44,6 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byoda.util.test_tooling import is_test_uuid

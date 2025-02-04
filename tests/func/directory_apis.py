@@ -51,8 +51,6 @@ from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byoda.util.fastapi import setup_api

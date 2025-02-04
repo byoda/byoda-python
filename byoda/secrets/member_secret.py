@@ -10,7 +10,7 @@ from uuid import UUID
 from copy import copy
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,7 +19,7 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
 
-from byoda.util.logger import Logger
+
 
 from .secret import Secret
 

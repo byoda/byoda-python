@@ -7,8 +7,8 @@ Cert manipulation
 '''
 
 from datetime import datetime
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import serialization

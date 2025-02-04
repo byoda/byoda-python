@@ -11,15 +11,13 @@ provide encryption/decryption capabilities
 '''
 
 from typing import Self
-from logging import getLogger
+from logging import Logger, getLogger
 from typing import TypeVar
 from abc import ABC, abstractmethod
 
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

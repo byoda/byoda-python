@@ -8,7 +8,7 @@ storing data about their members
 '''
 
 from typing import Self
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -17,8 +17,6 @@ import redis.asyncio as redis
 from byoda.datatypes import CacheType
 
 from .kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -44,7 +42,7 @@ class KVRedis(KVCache):
             server_type=server_type, identifier=cache_type.value
         )
 
-        self.connection_string: str = None
+        self.connection_string: str | None = None
         self.driver = None
 
     @staticmethod

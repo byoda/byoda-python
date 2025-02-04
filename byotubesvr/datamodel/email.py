@@ -8,7 +8,7 @@ Models emails and their recipients
 '''
 
 from typing import Self
-from logging import getLogger
+from logging import Logger, getLogger
 
 from prometheus_client import Counter
 
@@ -16,8 +16,6 @@ from byoda.datatypes import MailType
 
 from byoda.storage.message_queue import Queue
 from byoda.storage.message_queue import QueueMessage
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

@@ -35,8 +35,6 @@ from byoda.util.paths import Paths
 
 from byoda.servers.service_server import ServiceServer
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byoda.datacache.asset_cache import AssetCache

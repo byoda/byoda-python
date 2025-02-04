@@ -10,8 +10,8 @@ from uuid import UUID
 from copy import copy
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -23,8 +23,6 @@ from byoda import config
 
 from .data_secret import DataSecret
 from .data_secret import Secret
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')

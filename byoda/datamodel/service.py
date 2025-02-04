@@ -13,8 +13,8 @@ import socket
 from copy import copy
 from enum import Enum
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 import orjson
 
@@ -100,37 +100,37 @@ class Service:
         '''
 
         _LOGGER.debug('Initializing service')
-        self.name: str = None
+        self.name: str | None = None
         self.service_id: int = service_id
 
         self.registration_status: RegistrationStatus = \
             RegistrationStatus.Unknown
 
         # The data contract for the service. TODO: versioned schemas
-        self.schema: Schema = None
+        self.schema: Schema | None = None
 
         # Was the schema for the service signed
-        self.signed: bool = None
+        self.signed: bool | None = None
 
         self.private_key_password: str = network.private_key_password
 
         # The CA signed by the Services CA of the network
-        self.service_ca: ServiceCaSecret = None
+        self.service_ca: ServiceCaSecret | None = None
 
         # CA signs secrets of new members of the service
-        self.members_ca: MembersCaSecret = None
+        self.members_ca: MembersCaSecret | None = None
 
         # CA signs secrets of apps that run with a delegation of
         # the data contract of the service
-        self.apps_ca: AppsCaSecret = None
+        self.apps_ca: AppsCaSecret | None = None
 
         # The secret used as server cert for incoming TLS connections
         # and as client cert in outbound TLS connections
-        self.tls_secret: ServiceSecret = None
+        self.tls_secret: ServiceSecret | None = None
 
         # The secret used to sign documents, ie. the data contract for
         # the service
-        self.data_secret: ServiceDataSecret = None
+        self.data_secret: ServiceDataSecret | None = None
 
         # The network that the service is a part of. As storage is already
         # set up for the Network object, we can copy it here for the Service
@@ -372,7 +372,7 @@ class Service:
         if local:
             self.service_ca = await self._create_secret(
                 ServiceCaSecret, network_services_ca,
-                private_key_password=private_key_password
+                private_key_password=private_key_password, pathlen=1
             )
         else:
             self.service_ca = await self._create_secret(
@@ -431,9 +431,11 @@ class Service:
             private_key_password=self.private_key_password
         )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+    async def _create_secret(self, secret_cls: callable,
+                             issuing_ca: Secret | None,
                              private_key_password: str = None,
-                             renew: bool = False) -> Secret:
+                             renew: bool = False, pathlen: int | None = None
+                             ) -> Secret:
         '''
         Abstraction for creating secrets for the Service class to avoid
         repetition of code for creating the various member secrets of the
@@ -457,12 +459,11 @@ class Service:
             self.service_id, network=self.network
         )
 
-        if await secret.cert_file_exists():
-            if not renew:
-                raise ValueError(
-                    f'Cert for {type(secret)} for service_id '
-                    f'{self.service_id} already exists'
-                )
+        if await secret.cert_file_exists() and not renew:
+            raise ValueError(
+                f'Cert for {type(secret)} for service_id '
+                f'{self.service_id} already exists'
+            )
 
         if await secret.private_key_file_exists():
             if not renew:
@@ -649,7 +650,7 @@ class Service:
         '''
 
         server: ServiceServer = config.server
-        if server and not server.server_type == ServerType.SERVICE:
+        if server and server.server_type != ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:
@@ -764,7 +765,7 @@ class Service:
             config.request.cert = (self.tls_secret.cert_file, filepath)
 
     async def load_data_secret(self, with_private_key: bool,
-                               password: str = None,
+                               password: str | None = None,
                                download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service

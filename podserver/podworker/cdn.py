@@ -10,7 +10,7 @@ import os
 
 from uuid import UUID
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
@@ -34,8 +34,6 @@ from byoda.util.paths import Paths
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.restapi_client import HttpResponse
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

@@ -40,7 +40,7 @@ from byoda.util.api_client.graphql_client import GraphQlRequestType
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.api_client.restapi_client import HttpMethod
-from byoda.util.logger import Logger
+
 from byoda.util.fastapi import setup_api
 from byoda import config
 

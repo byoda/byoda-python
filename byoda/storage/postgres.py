@@ -21,7 +21,7 @@ from uuid import UUID
 from typing import Self, Tuple
 from typing import TypeVar
 from typing import override
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -52,8 +52,6 @@ from byoda.datatypes import AnyScalarType
 from byoda.secrets.data_secret import DataSecret
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

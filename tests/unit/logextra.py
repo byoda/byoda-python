@@ -2,7 +2,7 @@
 
 import sys
 
-from byoda.util.logger import Logger
+
 
 _LOGGER = None
 

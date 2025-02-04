@@ -7,8 +7,8 @@ Schema for asset search API
 '''
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 class AssetSearchRequestModel(BaseModel):
     hashtags: list[str] | None = None
-    mentions: list[str] = None
+    mentions: list[str] | None = None
     nickname: str | None = None
     text: str | None = None
     asset_id: UUID | None = None

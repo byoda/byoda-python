@@ -7,7 +7,7 @@
 '''
 
 from uuid import UUID
-from logging import getLogger, Logger
+from logging import Logger, getLogger
 
 from fastapi import APIRouter
 from fastapi import Request

@@ -6,8 +6,8 @@ API search APIs for both addressbook and byo.tube
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import APIRouter
 from fastapi import Request

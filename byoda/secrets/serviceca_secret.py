@@ -7,7 +7,7 @@ Cert manipulation for service secrets: Service CA
 '''
 
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -20,7 +20,7 @@ from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 from byoda.datatypes import CsrSource
 
-from byoda.util.logger import Logger
+
 
 from .ca_secret import CaSecret
 

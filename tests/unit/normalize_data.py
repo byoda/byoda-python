@@ -14,7 +14,7 @@ import shutil
 import unittest
 
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 
@@ -22,15 +22,13 @@ from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.setup import setup_network
 
 from byoda import config
 
 from tests.lib.util import get_test_uuid
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 NETWORK: str = config.DEFAULT_NETWORK

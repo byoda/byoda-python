@@ -27,8 +27,6 @@ from byoda.servers.app_server import AppServer
 
 from byoda.util.fastapi import setup_api
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .routers import status as StatusRouter

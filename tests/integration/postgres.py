@@ -20,7 +20,7 @@ from copy import deepcopy
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
-from logging import getLogger
+from logging import Logger, getLogger
 from dataclasses import dataclass
 
 # os.environ['PSYCOPG_IMPL'] = 'binary'
@@ -47,8 +47,6 @@ from byoda import config
 from byoda.datamodel.sqltable import SqlTable
 
 from byoda.storage.postgres import PostgresStorage
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

@@ -8,13 +8,11 @@ Schema for server to server APIs
 
 from uuid import UUID
 from datetime import datetime
-from logging import getLogger
+from logging import Logger, getLogger
 
 from pydantic import BaseModel
 
 from byoda.datatypes import CloudType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

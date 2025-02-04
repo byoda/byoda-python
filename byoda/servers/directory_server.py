@@ -10,8 +10,8 @@ a server that hosts a BYODA Network
 import os
 
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datastore.dnsdb import DnsDb
 

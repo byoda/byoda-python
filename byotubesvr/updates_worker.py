@@ -54,7 +54,7 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.exceptions import ByodaRuntimeError
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.test_tooling import is_test_uuid
 

@@ -8,7 +8,7 @@ APIs for managing the settings for a BYO.Tube-lite account
 '''
 
 from logging import Logger
-from logging import getLogger
+from logging import Logger, getLogger
 from typing import Annotated
 
 from fastapi import APIRouter

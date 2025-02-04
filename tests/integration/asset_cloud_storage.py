@@ -14,7 +14,7 @@ import unittest
 from urllib.parse import urlparse, ParseResult
 
 import httpx
-from byoda.util.logger import Logger
+
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE

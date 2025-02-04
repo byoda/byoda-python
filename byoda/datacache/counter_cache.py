@@ -10,8 +10,8 @@ the pod from forwarding loops; executing and forwarding the same query twice
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datamodel.table import Table
 

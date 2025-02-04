@@ -45,8 +45,6 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from podserver.util import get_environment_vars

@@ -37,7 +37,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda import config
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network

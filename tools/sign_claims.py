@@ -33,7 +33,7 @@ from byoda.servers.app_server import AppServer
 
 from byoda import config
 
-from byoda.util.logger import Logger
+
 
 _LOGGER = None
 

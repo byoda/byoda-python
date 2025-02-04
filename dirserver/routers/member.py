@@ -13,8 +13,8 @@ The /service/service POST/DELETE APIs have the same signature but only
 informs the service about the availability of the pod.
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 

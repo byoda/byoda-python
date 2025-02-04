@@ -58,8 +58,6 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.angieconfig import AngieConfig, ANGIE_SITE_CONFIG_DIR
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 

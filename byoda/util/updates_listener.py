@@ -11,7 +11,7 @@ from uuid import UUID
 from uuid import uuid4
 from typing import Self
 from random import random
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -58,7 +58,7 @@ from byoda.requestauth.jwt import JWT
 
 from byoda.util.test_tooling import is_test_uuid
 
-from byoda.util.logger import Logger
+
 
 from byoda.exceptions import ByodaRuntimeError
 

@@ -9,8 +9,8 @@ Python module for managing signatures of documents
 import base64
 
 from enum import Enum
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 
 from byoda.secrets.data_secret import DataSecret

@@ -76,9 +76,9 @@ perflint = "*"
 pyktok = "*"
 pip = "*"
 jinja2 = "*"
-cryptography = "*"
 aiohttp = "*"
 starlette = "==0.32.0"
+cryptography = "*"
 
 [dev-packages]
 flake8 = "*"

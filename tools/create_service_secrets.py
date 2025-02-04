@@ -18,7 +18,7 @@ from uuid import uuid4
 
 import httpx
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service

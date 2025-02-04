@@ -20,7 +20,7 @@ work
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 from datetime import timedelta
@@ -76,7 +76,7 @@ from byoda.storage import FileMode
 
 from byoda.storage.pubsub import PubSub
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.paths import Paths
 

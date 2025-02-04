@@ -39,7 +39,7 @@ from byoda.datatypes import TlsStatus
 
 from byoda.requestauth.jwt import JWT
 
-from byoda.util.logger import Logger
+
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpMethod
 

@@ -18,7 +18,7 @@ from typing import override
 from datetime import UTC
 from datetime import datetime
 from dataclasses import dataclass
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -41,8 +41,6 @@ from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.api_client import HttpResponse
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -517,7 +515,7 @@ class ClaimRequest:
 
     @staticmethod
     async def from_api(url: str, jwt_header: str, claims: list[str],
-                       claim_data: dict[str, any]) -> Claim:
+                       claim_data: dict[str, any]) -> Self:
         '''
         Factory for Claim. Call the moderate API and return the signed claim
 

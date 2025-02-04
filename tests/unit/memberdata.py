@@ -12,7 +12,7 @@ import unittest
 
 from byoda.datamodel.memberdata import MemberData
 
-from byoda.util.logger import Logger
+
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 

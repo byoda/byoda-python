@@ -6,8 +6,8 @@ Schema for server to server APIs
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from pydantic import BaseModel
 

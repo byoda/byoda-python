@@ -39,8 +39,6 @@ from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from podserver.util import get_environment_vars

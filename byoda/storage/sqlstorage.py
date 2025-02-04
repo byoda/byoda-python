@@ -12,8 +12,8 @@ from uuid import UUID
 from typing import TypeVar
 from datetime import UTC
 from datetime import datetime
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datamodel.sqltable import SqlTable
 from byoda.datamodel.datafilter import DataFilterSet

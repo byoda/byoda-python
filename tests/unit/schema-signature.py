@@ -13,11 +13,9 @@ import sys
 import shutil
 import unittest
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datamodel.schema import Schema
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

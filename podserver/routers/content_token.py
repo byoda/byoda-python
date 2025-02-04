@@ -8,7 +8,7 @@
 
 
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import APIRouter
 from fastapi import Request
@@ -32,8 +32,6 @@ from byoda.datatypes import IdType
 from byoda.datastore.data_store import DataStore
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

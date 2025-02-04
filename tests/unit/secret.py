@@ -8,6 +8,7 @@ Test cases for secrets
 :license    : GPLv3
 '''
 
+from logging import Logger
 import sys
 import os
 import shutil
@@ -29,8 +30,6 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes
-
-from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -436,6 +435,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

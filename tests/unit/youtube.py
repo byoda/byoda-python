@@ -8,7 +8,7 @@ from byoda.data_import.youtube import YouTube
 from byoda.data_import.youtube_video import YouTubeVideo
 from byoda.data_import.youtube_channel import YouTubeChannel
 
-from byoda.util.logger import Logger
+
 
 _LOGGER = None
 

@@ -8,8 +8,8 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from typing import Annotated
 

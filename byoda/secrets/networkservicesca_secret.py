@@ -8,7 +8,7 @@ Cert manipulation of network secrets: root CA, accounts CA and services CA
 
 from copy import copy
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -18,7 +18,7 @@ from byoda.util.paths import Paths
 from byoda.datatypes import EntityId, IdType
 from byoda.datatypes import CsrSource
 
-from byoda.util.logger import Logger
+
 
 from .secret import CSR
 from .ca_secret import CaSecret

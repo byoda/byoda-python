@@ -16,7 +16,7 @@ import base64
 
 from typing import Self
 from typing import Literal
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -24,8 +24,6 @@ from pymerkle import BaseMerkleTree
 from pymerkle.utils import decompose
 
 from pymerkle.hasher import MerkleHasher
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

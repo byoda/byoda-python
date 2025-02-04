@@ -11,8 +11,7 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from typing import override
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
 
 from cryptography.x509 import Certificate
 from cryptography.x509 import CertificateSigningRequest

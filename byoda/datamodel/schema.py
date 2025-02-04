@@ -17,8 +17,8 @@ from typing import TypeVar
 from typing import Optional
 from types import ModuleType
 from dataclasses import dataclass
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 import jinja2
 
@@ -129,11 +129,11 @@ class Schema:
         self.verify_signatures: bool = verify_signatures
 
         self.verified_signatures: set[MessageSignature] = set()
-        self._service_signature: ServiceSignature = None
-        self._network_signature: NetworkSignature = None
+        self._service_signature: ServiceSignature | None = None
+        self._network_signature: NetworkSignature | None = None
 
-        self.service_data_secret: ServiceDataSecret = None
-        self.network_data_secret: NetworkDataSecret = None
+        self.service_data_secret: ServiceDataSecret | None = None
+        self.network_data_secret: NetworkDataSecret | None = None
 
     def as_dict(self) -> dict:
         '''

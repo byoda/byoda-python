@@ -10,9 +10,7 @@ the new version of the service contract for a service.
 import os
 import signal
 
-from logging import getLogger
-from byoda.util.logger import Logger
-
+from logging import Logger, getLogger
 _LOGGER: Logger = getLogger(__name__)
 
 # podserver/files/startup.sh specifies this location for the pid file to

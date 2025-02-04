@@ -7,8 +7,8 @@ API for submitting App certificates for signature by the service
 '''
 
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import APIRouter
 from fastapi import Depends

@@ -11,11 +11,11 @@ class
 
 from enum import Enum
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import HTTPException
 
-from byoda.util.logger import Logger
+
 
 from .lite_store import LiteStore
 

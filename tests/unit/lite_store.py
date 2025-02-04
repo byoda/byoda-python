@@ -9,7 +9,7 @@ from datetime import datetime
 
 from redis import Redis
 
-from byoda.util.logger import Logger
+
 
 from byotubesvr.models.lite_api_models import NetworkLinkResponseModel
 

@@ -12,7 +12,7 @@ from copy import copy
 from typing import Self
 from typing import TypeVar
 from typing import override
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -31,7 +31,7 @@ from byoda.util.paths import Paths
 
 from byoda import config
 
-from byoda.util.logger import Logger
+
 
 from .secret import Secret
 

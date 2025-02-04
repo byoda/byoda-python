@@ -8,9 +8,10 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
+from typing import override
 from typing import Annotated
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import Request
 from fastapi import HTTPException
@@ -28,8 +29,6 @@ from byoda.servers.server import Server
 from byoda.exceptions import ByodaMissingAuthInfo
 
 from byoda import config
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 
@@ -61,6 +60,7 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization: str = authorization
 
+    @override
     async def authenticate(self) -> None:
         server: Server = config.server
         try:
@@ -128,6 +128,7 @@ class MemberRequestAuthFast(RequestAuth):
         else:
             self.service_id = None
 
+    @override
     async def authenticate(self) -> None:
         server: Server = config.server
         try:

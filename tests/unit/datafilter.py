@@ -18,7 +18,7 @@ from datetime import timezone
 
 from byoda.datamodel.datafilter import DataFilter
 
-from byoda.util.logger import Logger
+
 
 
 class TestAccountManager(unittest.TestCase):

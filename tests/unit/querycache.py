@@ -11,7 +11,7 @@ import sys
 import shutil
 import unittest
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.member import Member
 

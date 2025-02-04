@@ -9,8 +9,8 @@ provides helper functions to authenticate the client making the request
 '''
 
 from typing import Annotated
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import Request
 from fastapi import HTTPException

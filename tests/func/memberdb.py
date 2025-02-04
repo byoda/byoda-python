@@ -17,7 +17,7 @@ from uuid import UUID
 
 from byoda.datatypes import MemberStatus
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 

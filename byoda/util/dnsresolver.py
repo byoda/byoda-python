@@ -8,8 +8,8 @@ provides basic functionality to lookup A records
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 from datetime import timezone
 

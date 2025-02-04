@@ -11,8 +11,8 @@ import os
 from copy import copy
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -48,8 +48,6 @@ from .member import Member
 from .service import Service
 
 from byoda import config
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
@@ -78,7 +76,7 @@ class Account:
         self.account: str = account
 
         # This is the password to use for HTTP Basic Auth
-        self.password: str = None
+        self.password: str | None = None
 
         if isinstance(account_id, UUID):
             self.account_id: UUID = account_id

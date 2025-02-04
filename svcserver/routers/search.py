@@ -7,8 +7,8 @@ API search APIs for assets and channels on BYO.Tube
 '''
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from pydantic import BaseModel
 

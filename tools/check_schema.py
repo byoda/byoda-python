@@ -11,7 +11,7 @@ from byoda.datamodel.schema import Schema
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.logger import Logger
+
 
 
 async def main(_) -> None:

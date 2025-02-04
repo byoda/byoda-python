@@ -7,13 +7,16 @@ Cert manipulation
 '''
 
 import os
+
 from copy import deepcopy
-from logging import getLogger
+from typing import override
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
 from cryptography import x509
+
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datatypes import EntityId
@@ -21,8 +24,6 @@ from byoda.datatypes import IdType
 from byoda.datatypes import CsrSource
 
 from byoda.storage.filestorage import FileStorage
-
-from byoda.util.logger import Logger
 
 from .secret import Secret
 from .secret import CertChain
@@ -72,6 +73,7 @@ class CaSecret(Secret):
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    @override
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None) -> None:
         '''
@@ -94,6 +96,7 @@ class CaSecret(Secret):
         # CSRs
         self.accepted_csrs: dict[IdType, int] = self.ACCEPTED_CSRS
 
+    @override
     def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
         Check whether the CSR meets our requirements
@@ -191,6 +194,7 @@ class CaSecret(Secret):
 
         raise ValueError(f'commonname not found in {name}')
 
+    @override
     def review_commonname(self, commonname: str, uuid_identifier=True,
                           check_service_id=True) -> str:
         '''
@@ -227,6 +231,7 @@ class CaSecret(Secret):
 
         return entity_id
 
+    @override
     @staticmethod
     def review_commonname_by_parameters(
             commonname: str, network: str, accepted_csrs: dict[IdType, int],

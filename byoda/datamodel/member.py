@@ -12,7 +12,7 @@ from uuid import UUID
 from uuid import uuid4
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 
 import orjson
@@ -57,8 +57,6 @@ from byoda.util.fastapi import update_cors_origins
 
 from byoda.util.angieconfig import AngieConfig
 from byoda.util.angieconfig import ANGIE_SITE_CONFIG_DIR
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

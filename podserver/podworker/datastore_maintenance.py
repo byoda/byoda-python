@@ -6,7 +6,7 @@ Various utility classes, variables and functions
 :license    : GPLv3
 '''
 
-from logging import getLogger
+from logging import Logger, getLogger
 
 from anyio import create_task_group
 
@@ -18,8 +18,6 @@ from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datastore.cache_store import CacheStore
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

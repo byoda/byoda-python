@@ -10,7 +10,7 @@ a server that hosts a BYODA Service
 import os
 from uuid import UUID
 from typing import Literal
-from logging import getLogger
+from logging import Logger, getLogger
 
 from aiosqlite import connect as sqlite_connect
 
@@ -32,8 +32,6 @@ from byoda.requestauth.jwt import JWT
 from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

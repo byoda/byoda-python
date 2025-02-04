@@ -9,8 +9,8 @@ Schema for requesting claims
 from uuid import UUID
 from typing import Optional
 from datetime import datetime
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from pydantic import BaseModel
 

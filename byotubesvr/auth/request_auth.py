@@ -8,7 +8,7 @@ Helper functions for Lite API request authentication
 
 from uuid import UUID
 from logging import Logger
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import Request
 from fastapi import HTTPException

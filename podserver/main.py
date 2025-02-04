@@ -38,8 +38,6 @@ from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .routers import account as AccountRouter

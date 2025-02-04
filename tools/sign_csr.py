@@ -42,7 +42,7 @@ from byoda.datatypes import IdType
 
 from byoda import config
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.setup import setup_network
 

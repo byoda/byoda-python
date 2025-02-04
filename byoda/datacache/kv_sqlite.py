@@ -10,7 +10,7 @@ storing data about their members
 
 from copy import copy
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 from typing import Iterable, Self
 from typing import LiteralString
 from datetime import datetime
@@ -24,8 +24,6 @@ import aiosqlite
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -216,7 +214,7 @@ class KVSqlite(KVCache):
             return False
 
     async def incr(self, key: str | UUID, value: int = 1,
-                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int | None:
         '''
         increments the value for the key in the cache
 

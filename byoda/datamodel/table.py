@@ -11,15 +11,13 @@ SQL will be supported
 
 from uuid import UUID
 from hashlib import sha1
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from collections import namedtuple
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.datafilter import DataFilterSet
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 # These are columns we add to all tables to track
@@ -121,6 +119,7 @@ class Table:
 
         raise NotImplementedError
 
+    @staticmethod
     def get_field_name(column: str) -> str:
         '''
         Returns the name of the JSONSchema field for a column in the table

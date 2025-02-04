@@ -31,7 +31,7 @@ from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+
 from byoda.util.fastapi import setup_api
 
 from byoda import config

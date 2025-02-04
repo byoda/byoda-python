@@ -7,8 +7,8 @@ Schema for server to server APIs
 '''
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from pydantic import BaseModel
 

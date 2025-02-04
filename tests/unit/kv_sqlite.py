@@ -18,7 +18,7 @@ from byoda.datatypes import CacheTech
 
 from byoda.datacache.kv_cache import KVCache
 
-from byoda.util.logger import Logger
+
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 

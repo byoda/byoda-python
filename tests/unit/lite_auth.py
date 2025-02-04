@@ -14,8 +14,6 @@ import unittest
 from uuid import UUID
 from uuid import uuid4
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byotubesvr.auth.password import hash_password, verify_password

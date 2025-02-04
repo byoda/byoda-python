@@ -24,7 +24,7 @@ Azure Storage has limitation of 250 storage accounts per subscription per region
 from typing import Self
 from typing import BinaryIO
 from io import BufferedRandom
-from logging import getLogger
+from logging import Logger, getLogger
 from tempfile import TemporaryFile
 from collections import namedtuple
 
@@ -42,7 +42,7 @@ from azure.storage.blob.aio._download_async import StorageStreamDownloader
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
 
-from byoda.util.logger import Logger
+
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode

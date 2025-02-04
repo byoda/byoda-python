@@ -10,13 +10,11 @@ import base64
 
 from datetime import UTC
 from datetime import datetime
-from logging import getLogger
+from logging import Logger, getLogger
 
 from fastapi import Request
 from fastapi import APIRouter
 from fastapi import HTTPException
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

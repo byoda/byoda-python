@@ -15,9 +15,9 @@ from enum import Enum
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from byoda.datamodel.sqltable import SqlTable
-from byoda.util.logger import Logger
+
 
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer

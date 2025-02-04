@@ -42,7 +42,7 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import ApiClient
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.fastapi import setup_api
 

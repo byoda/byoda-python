@@ -9,7 +9,7 @@ import unittest
 from byoda.util.merkletree import ByoMerkleTree
 from byoda.util.merkletree import BLOCKSIZE
 
-from byoda.util.logger import Logger
+
 
 ASSET_DIR: str = 'tests/collateral/local/video_asset'
 TEST_DIR: str = '/tmp/byoda-tests/merkle'

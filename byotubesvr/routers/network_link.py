@@ -9,7 +9,7 @@ APIs for managing a BYO.Tube-lite account
 
 from uuid import UUID
 from logging import Logger
-from logging import getLogger
+from logging import Logger, getLogger
 from typing import Annotated
 
 from fastapi import APIRouter

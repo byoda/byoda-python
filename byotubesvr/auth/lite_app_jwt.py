@@ -7,7 +7,7 @@ Wrapper class for the PyJWT module
 '''
 
 from uuid import UUID
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -21,8 +21,6 @@ from prometheus_client import Counter
 from .lite_jwt import LiteJWT
 
 from byoda.limits import MAX_APP_TOKEN_EXPIRATION
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

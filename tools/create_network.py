@@ -17,7 +17,7 @@ import shutil
 import asyncio
 import argparse
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 
@@ -49,7 +49,7 @@ async def main(argv):
     _LOGGER.debug(
         f'Creating root CA cert and private key under {args.root_directory}'
     )
-    await Network.create(args.network, root_dir, args.password)
+    await Network.create(args.network, root_dir, args.password, renew=True)
 
 
 if __name__ == '__main__':

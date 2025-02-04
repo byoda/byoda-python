@@ -10,8 +10,8 @@ import os
 
 from uuid import UUID
 from uuid import uuid4
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 from datetime import timezone
 

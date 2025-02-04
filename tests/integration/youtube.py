@@ -46,7 +46,7 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.fastapi import setup_api
 

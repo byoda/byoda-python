@@ -10,7 +10,7 @@ about registered clients
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 from ipaddress import ip_address
@@ -21,8 +21,6 @@ from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -55,6 +53,7 @@ class MemberDb:
         self.network_name: str = network_name
         self.kvcache: KVCache | None = None
 
+    @staticmethod
     async def setup(connection_string: str, service_id: int, network_name: str
                     ) -> Self:
         '''

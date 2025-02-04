@@ -8,8 +8,8 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import HTTPException
 
@@ -72,7 +72,7 @@ class MemberRequestAuth(RequestAuth):
         return self.is_authenticated
 
     @staticmethod
-    def get_service_id(commonname: str) -> str:
+    def get_service_id(commonname: str) -> int:
         '''
         Extracts the service_id from the IdType from a common name
         in a x.509 certificate for Memberships

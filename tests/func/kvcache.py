@@ -14,7 +14,7 @@ import yaml
 import shutil
 import unittest
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 

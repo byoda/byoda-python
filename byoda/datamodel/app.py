@@ -8,8 +8,8 @@ Class for modeling app on a social network
 
 
 from uuid import UUID
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service

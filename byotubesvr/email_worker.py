@@ -26,7 +26,7 @@ from prometheus_client import Counter
 
 from byoda.storage.message_queue import Queue
 
-from byoda.util.logger import Logger
+
 
 from byotubesvr.datamodel.email import EmailMessage
 

@@ -13,7 +13,7 @@ from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
 from random import random
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import datetime
 from datetime import timezone
 from urllib.parse import urlparse
@@ -50,7 +50,7 @@ from byoda.requestauth.jwt import JWT
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
+
 
 from byoda.exceptions import ByodaRuntimeError
 

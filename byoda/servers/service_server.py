@@ -9,8 +9,8 @@ a server that hosts a BYODA Service
 
 from typing import Self
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network

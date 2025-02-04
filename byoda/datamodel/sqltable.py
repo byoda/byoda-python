@@ -15,7 +15,7 @@ from typing import Self
 from typing import TypeVar
 from datetime import UTC
 from datetime import datetime
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -38,8 +38,6 @@ from byoda.datamodel.dataclass import SchemaDataScalar
 from byoda.datamodel.dataclass import SchemaDataArray
 
 from byoda.datamodel.datafilter import DataFilterSet
-
-from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
 

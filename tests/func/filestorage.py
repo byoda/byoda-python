@@ -36,7 +36,7 @@ from byoda.storage.aws import AwsFileStorage
 from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
 
-from byoda.util.logger import Logger
+
 
 from byoda.storage import FileStorage
 from byoda.datatypes import StorageType

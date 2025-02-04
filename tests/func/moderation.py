@@ -44,8 +44,6 @@ from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.api_client import HttpMethod
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byoda.util.fastapi import setup_api

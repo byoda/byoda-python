@@ -43,8 +43,6 @@ from byoda.util.updates_listener import UpdateListenerMember
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from podserver.podworker.discovery import listen_local_network_links_tables

@@ -21,7 +21,7 @@ from uuid import uuid4, UUID
 
 import httpx
 
-from byoda.util.logger import Logger
+
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 

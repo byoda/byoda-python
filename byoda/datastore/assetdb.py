@@ -9,8 +9,8 @@ about registered clients
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 from datetime import datetime
 from datetime import timezone
 from ipaddress import IPv4Address
@@ -165,7 +165,7 @@ class AssetDb:
         _LOGGER.debug(f'Adding member f{member_id} to ASSETS_LIST')
         self.kvcache.push(ASSETS_LIST, str(member_id))
 
-    def delete_ASSETS_LIST(self):
+    def delete_assets_list(self):
         '''
         Delete the list of members.
 
@@ -174,7 +174,7 @@ class AssetDb:
 
         ret = self.kvcache.delete(ASSETS_LIST)
 
-        exists = ret != 0
+        exists: bool = ret != 0
 
         if exists:
             _LOGGER.debug('Deleted the list of members')

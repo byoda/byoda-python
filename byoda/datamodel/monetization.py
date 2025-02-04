@@ -12,7 +12,7 @@ from typing import Self
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
-from logging import getLogger
+from logging import Logger, getLogger
 
 import orjson
 
@@ -23,8 +23,6 @@ from byoda.models.content_key import BurstAttestModel
 
 from byoda.datatypes import IdType
 from byoda.datatypes import MonetizationType
-
-from byoda.util.logger import Logger
 
 
 _LOGGER: Logger = getLogger(__name__)
@@ -75,7 +73,8 @@ class Monetizations:
 
     async def evaluate(self, service_id: int, member_id: UUID, id_type: IdType,
                        attestation: BurstAttestModel,
-                       min_burst_points: int = MIN_BURST_POINTS) -> bool:
+                       min_burst_points: int = MIN_BURST_POINTS
+                       ) -> tuple[bool, str]:
         '''
         Evaluate whether the conditions of at least one
         monetization is met
@@ -186,8 +185,17 @@ class FreeMonetization(Monetization):
 
     async def evaluate(self, service_id: int, member_id: UUID, id_type: UUID,
                        attestation: BurstAttestModel, min_burst_points
-                       ) -> bool:
-        _LOGGER.debug('Approving access to free asset')
+                       ) -> tuple[bool, str]:
+        _LOGGER.debug(
+            'Approving access to free asset',
+            log_extra={
+                'service_id': service_id,
+                'member_id': member_id,
+                'id_type': id_type,
+                'attestation': attestation,
+                'min_burst_points': min_burst_points
+            }
+        )
         return True, 'Free asset'
 
 
@@ -344,7 +352,16 @@ class SubscriptionMonetization(Monetization):
     async def evaluate(self, service_id: int, member_id: UUID, id_type: UUID,
                        attestation: BurstAttestModel, min_burst_points
                        ) -> bool:
-        _LOGGER.debug('Subscriptions not implemented')
+        _LOGGER.debug(
+            'Subscriptions are not implemented',
+            extra={
+                'service_id': service_id,
+                'member_id': member_id,
+                'id_type': id_type,
+                'attestation': attestation,
+                'min_burst_points': min_burst_points
+            }
+        )
         return False, 'Subscriptions not implemented'
 
     @staticmethod
@@ -364,8 +381,17 @@ class PayPerViewMonetization(Monetization):
 
     async def evaluate(self, service_id: int, member_id: UUID, id_type: UUID,
                        attestation: BurstAttestModel, min_burst_points
-                       ) -> bool:
-        _LOGGER.debug('PPV not implemented')
+                       ) -> tuple[bool, str]:
+        _LOGGER.debug(
+            'PPV not implemented',
+            extra={
+                'service_id': service_id,
+                'member_id': member_id,
+                'id_type': id_type,
+                'attestation': attestation,
+                'min_burst_points': min_burst_points
+            }
+        )
         return False, 'Pay Per View not implemented'
 
     @staticmethod
@@ -385,8 +411,17 @@ class SubscriptionPayPerViewMonetization(Monetization):
 
     async def evaluate(self, service_id: int, member_id: UUID, id_type: UUID,
                        attestation: BurstAttestModel, min_burst_points
-                       ) -> bool:
-        _LOGGER.debug('SPPV not implemented')
+                       ) -> tuple[bool, str]:
+        _LOGGER.debug(
+            'SPPV not implemented',
+            log_extra={
+                'service_id': service_id,
+                'member_id': member_id,
+                'id_type': id_type,
+                'attestation': attestation,
+                'min_burst_points': min_burst_points
+            }
+        )
         return False, 'Subscription Pay Per View not implemented'
 
     @staticmethod

@@ -15,13 +15,11 @@ import shutil
 from enum import Enum
 from typing import Self
 from typing import BinaryIO
-from logging import getLogger
+from logging import Logger, getLogger
 
 from byoda.datatypes import CloudType
 from byoda.datatypes import StorageType
 from byoda.datatypes import ContentTypesByExtension
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

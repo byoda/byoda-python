@@ -13,7 +13,7 @@ import subprocess
 
 from uuid import UUID
 from typing import TypeVar
-from logging import getLogger
+from logging import Logger, getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -29,6 +29,7 @@ from httpx import Response as HttpResponse
 from ssl import SSLCertVerificationError
 
 from cryptography import x509
+from cryptography import exceptions as crypto_exceptions
 from cryptography.x509.oid import NameOID
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import hashes
@@ -42,8 +43,6 @@ from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 from .certchain import CertChain
 
@@ -108,10 +107,10 @@ class Secret:
         :raises: (none)
         '''
 
-        self.private_key: rsa.RSAPrivateKey = None
+        self.private_key: rsa.RSAPrivateKey | None = None
         self.private_key_file: str = key_file
 
-        self.cert: Certificate = None
+        self.cert: Certificate | None = None
         self.cert_file: str = cert_file
 
         # Some derived classes already set self.paths before
@@ -122,15 +121,15 @@ class Secret:
 
         # The password to use for saving the private key
         # to a file
-        self.password: str = None
+        self.password: str | None = None
 
-        self.common_name: str = None
+        self.common_name: str | None = None
         self.service_id: str | None = None
-        self.id_type: IdType = None
+        self.id_type: IdType | None = None
 
         # Subject Alternative Name, usually same as common name
         # except for App Data certs
-        self.sans: list[str] = None
+        self.sans: list[str] | None = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -147,14 +146,14 @@ class Secret:
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
         self.signs_ca_certs: bool = False
-        self.max_path_length: int = None
+        self.max_path_length: int | None = None
 
-        self.accepted_csrs: dict[IdType, int] = ()
+        self.accepted_csrs: dict[IdType, int] = {}
 
     async def create(self, common_name: str, issuing_ca: CaSecret = None,
                      expire: int = None, key_size: int = _RSA_KEYSIZE,
-                     private_key: rsa.RSAPrivateKey = None, ca: bool = False
-                     ) -> None:
+                     private_key: rsa.RSAPrivateKey = None, ca: bool = False,
+                     pathlen: int | None = None) -> None:
         '''
         Creates an RSA private key and either a self-signed X.509 cert
         or a cert signed by the issuing_ca. The latter is a one-step
@@ -196,7 +195,7 @@ class Secret:
 
         if issuing_ca:
             # TODO: SECURITY: add constraints
-            csr = await self.create_csr(ca)
+            csr = await self.create_csr(ca, pathlen=pathlen)
             self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
@@ -262,7 +261,8 @@ class Secret:
 
     async def create_csr(self, common_name: str, sans: str | list[str] = [],
                          key_size: int = _RSA_KEYSIZE, ca: bool = False,
-                         renew: bool = False) -> CSR:
+                         pathlen: int | None = None, renew: bool = False
+                         ) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
@@ -315,12 +315,15 @@ class Secret:
             x509.CertificateSigningRequestBuilder().subject_name(
                 self._generate_cert_name()
             ).add_extension(
-                x509.BasicConstraints(
-                    ca=ca, path_length=self.max_path_length
-                ), critical=True,
-            ).add_extension(
                 x509.SubjectAlternativeName(san_names),
                 critical=True
+            )
+
+        if ca:
+            self.max_path_length = pathlen
+            csr_builder.add_extension(
+                x509.BasicConstraints(ca=False, path_length=pathlen),
+                critical=True,
             )
 
         csr: x509.CertificateSigningRequest = csr_builder.sign(
@@ -479,7 +482,7 @@ class Secret:
 
     async def load(self, with_private_key: bool = True,
                    password: str = 'byoda',
-                   storage_driver: FileStorage = None) -> None:
+                   storage_driver: FileStorage | None = None) -> None:
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -551,21 +554,48 @@ class Secret:
         self.private_key = None
         if with_private_key:
             try:
-                _LOGGER.debug(
-                    f'Reading private key from {self.private_key_file}'
-                )
-                data: str = await storage_driver.read(
-                    self.private_key_file, file_mode=FileMode.BINARY
-                )
-
-                self.private_key = serialization.load_pem_private_key(
-                    data, password=str.encode(password)
-                )
+                await self.load_private_key(password)
             except FileNotFoundError:
                 _LOGGER.exception(
                     f'CA private key file not found: {self.private_key_file}'
                 )
                 raise
+
+    async def load_private_key(self, password: str = 'byoda',
+                               storage_driver: FileStorage | None = None
+                               ) -> None:
+        '''
+        Load the private key from the file
+
+        :param password: password to decrypt the private_key
+        :returns: (none)
+        :raises: FileNotFoundError if the file with the private key does not
+        exist
+        '''
+
+        if not storage_driver:
+            if not self.storage_driver:
+                raise ValueError('No storage driver set')
+            storage_driver = self.storage_driver
+
+        if not self.private_key_file:
+            raise ValueError('No private key file set')
+
+        if not self.storage_driver.exists(self.private_key_file):
+            raise FileNotFoundError(
+                f'Private key file not found: {self.private_key_file}'
+            )
+
+        _LOGGER.debug(
+            f'Reading private key from {self.private_key_file}'
+        )
+        data: str = await storage_driver.read(
+            self.private_key_file, file_mode=FileMode.BINARY
+        )
+
+        self.private_key = serialization.load_pem_private_key(
+            data, password=str.encode(password)
+        )
 
     def from_string(self, cert: str, certchain: str = None) -> None:
         '''
@@ -595,20 +625,20 @@ class Secret:
 
         if len(certs) == 0:
             raise ValueError(f'No cert found in {cert}')
-        elif len(certs) == 1:
+
+        try:
             self.cert = x509.load_pem_x509_certificate(
                 str.encode(certs[0])
             )
-        elif len(certs) > 1:
-            self.cert = x509.load_pem_x509_certificate(
-                str.encode(certs[0])
+        except crypto_exceptions.InvalidSignature as exc:
+            raise ValueError(f'Invalid signature in cert: {exc}')
+
+        self.cert_chain = [
+            x509.load_pem_x509_certificate(
+                str.encode(cert_data)
             )
-            self.cert_chain = [
-                x509.load_pem_x509_certificate(
-                    str.encode(cert_data)
-                )
-                for cert_data in certs[1:]
-            ]
+            for cert_data in certs[1:]
+        ]
 
     @staticmethod
     def csr_from_string(csr: str) -> x509.CertificateSigningRequest:

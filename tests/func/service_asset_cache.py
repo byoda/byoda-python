@@ -35,7 +35,7 @@ from datetime import UTC
 from byoda.datacache.asset_list import AssetList
 from byoda.datacache.searchable_cache import SearchableCache
 
-from byoda.util.logger import Logger
+
 
 LUA_SCRIPT_FILEPATH: str = 'byotubesvr/redis.lua'
 

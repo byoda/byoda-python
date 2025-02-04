@@ -17,8 +17,8 @@ The registration of a service in the network takes four steps:
 '''
 
 
-from logging import getLogger
-from byoda.util.logger import Logger
+from logging import Logger, getLogger
+
 
 from fastapi import APIRouter, Request
 from fastapi import HTTPException

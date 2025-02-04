@@ -12,7 +12,7 @@ from enum import Enum
 from uuid import uuid4
 from uuid import UUID
 from typing import Self
-from logging import getLogger
+from logging import Logger, getLogger
 from urllib.parse import urlparse
 from urllib.parse import ParseResult
 
@@ -28,7 +28,7 @@ from byoda.storage.filestorage import FileStorage
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.paths import Paths
 
@@ -156,7 +156,7 @@ class YouTubeThumbnail:
             self.youtube_url = self.url
         log_extra['youtube_url'] = self.youtube_url
 
-        _LOGGER.debug(f'Downloading thumbnail', extra=log_extra)
+        _LOGGER.debug('Downloading thumbnail', extra=log_extra)
 
         try:
             parsed_url: ParseResult = urlparse(self.url)
@@ -205,7 +205,7 @@ class YouTubeThumbnail:
                 )
 
             _LOGGER.debug(
-                f'Using POD custom domain for thumbnail', extra=log_extra
+                'Using POD custom domain for thumbnail', extra=log_extra
             )
             self.url = Paths.PUBLIC_THUMBNAIL_POD_URL.format(
                 custom_domain=custom_domain, asset_id=video_id,
