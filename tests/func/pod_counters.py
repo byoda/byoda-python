@@ -17,6 +17,7 @@ import socket
 import unittest
 
 from uuid import uuid4
+from logging import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -33,8 +34,9 @@ from byoda.util.api_client.api_client import ApiClient
 
 from byoda.servers.pod_server import PodServer
 
-
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -55,13 +57,13 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.auth import get_member_auth_header
 
 # Settings must match config.yml used by directory server
-NETWORK = config.DEFAULT_NETWORK
+NETWORK: str = config.DEFAULT_NETWORK
 
 TEST_DIR = '/tmp/byoda-tests/podserver'
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
-POD_ACCOUNT: Account = None
+POD_ACCOUNT: Account | None = None
 
 APP: FastAPI | None = None
 
@@ -187,6 +189,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

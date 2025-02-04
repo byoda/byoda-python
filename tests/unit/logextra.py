@@ -12,6 +12,6 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=True)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=True)
 
     main()

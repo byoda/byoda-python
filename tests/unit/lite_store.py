@@ -147,5 +147,5 @@ class TestLiteStore(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

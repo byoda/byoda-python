@@ -35,6 +35,8 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from .routers import service as ServiceRouter
@@ -58,7 +60,7 @@ async def lifespan(app: FastAPI):
     verbose: bool = not debug
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=server_config['svcserver'].get('logfile')
     )

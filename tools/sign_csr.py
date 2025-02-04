@@ -40,9 +40,9 @@ from byoda.secrets.secret import CertChain
 from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 
+from byoda.util.logger import Logger
+
 from byoda import config
-
-
 
 from tests.lib.setup import setup_network
 
@@ -101,11 +101,11 @@ async def main(argv) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, json_out=False, loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], json_out=False, loglevel=logging.WARNING
         )
 

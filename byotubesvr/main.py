@@ -41,6 +41,8 @@ from byoda.util.fastapi import setup_api
 
 from byoda.util.paths import Paths
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from .database.sql import SqlStorage
@@ -79,7 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config.debug = debug
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=svc_config['svcserver'].get('logfile')
     )

@@ -8,6 +8,7 @@ from byoda.data_import.youtube import YouTube
 from byoda.data_import.youtube_video import YouTubeVideo
 from byoda.data_import.youtube_channel import YouTubeChannel
 
+from byoda.util.logger import Logger as ByodaLogger
 
 
 _LOGGER = None
@@ -65,6 +66,6 @@ class TestYouTubeScrape(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

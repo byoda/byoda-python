@@ -38,6 +38,8 @@ from byoda.util.api_client.api_client import HttpMethod
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.network_data_secret import NetworkDataSecret
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 _LOGGER = None
@@ -67,7 +69,7 @@ async def main(argv) -> None:
     password: str = app_config['svcserver']['private_key_password']
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )

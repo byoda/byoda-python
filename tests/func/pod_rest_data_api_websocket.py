@@ -42,9 +42,9 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import ApiClient
 
-
-
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -301,7 +301,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     result: int = sock.connect_ex(('127.0.0.1', 8000))

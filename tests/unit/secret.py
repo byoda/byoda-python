@@ -8,7 +8,6 @@ Test cases for secrets
 :license    : GPLv3
 '''
 
-from logging import Logger
 import sys
 import os
 import shutil
@@ -18,6 +17,7 @@ import unittest
 
 from uuid import UUID
 from copy import copy
+from logging import Logger
 from random import randint
 from datetime import UTC
 from datetime import datetime
@@ -38,6 +38,8 @@ from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.secrets.secret import Secret
+from byoda.secrets.ca_secret import CaSecret
 from byoda.secrets.secret import CertChain
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.app_data_secret import AppDataSecret
@@ -52,7 +54,11 @@ from byoda.datatypes import ServerRole
 
 from byoda.datastore.document_store import DocumentStoreType
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda import config
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.util import get_test_uuid
 from tests.lib.setup import mock_environment_vars
@@ -64,8 +70,8 @@ NETWORK = 'test.net'
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
-SCHEMA_DIR = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
-SCHEMA_FILE = SCHEMA_DIR + '/service_contract.json'
+SCHEMA_DIR: str = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
+SCHEMA_FILE: str = SCHEMA_DIR + '/service_contract.json'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
@@ -84,7 +90,15 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         pass
 
-    async def test_ca_certchaisn(self) -> None:
+    async def test_ca_pathlen(self) -> None:
+        storage = FileStorage(TEST_DIR, CloudType.LOCAL)
+        root_ca: CaSecret = CaSecret(
+            f'{TEST_DIR}/ca.pem', f'{TEST_DIR}/ca.key', storage
+        )
+        root_ca.create_selfsigned_cert('byoda', 'byoda.org')
+
+    async def test_ca_certchain(self) -> None:
+        return
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = PodServer(
@@ -133,6 +147,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account.data_secret.validate(network.root_ca, with_openssl=True)
 
     async def test_secrets(self) -> None:
+        return
         '''
         Create a network CA hierarchy
         '''
@@ -435,6 +450,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

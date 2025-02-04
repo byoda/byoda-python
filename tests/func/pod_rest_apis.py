@@ -44,6 +44,8 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.fastapi import setup_api
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from podserver.routers import account as AccountRouter
@@ -737,5 +739,5 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

@@ -11,7 +11,7 @@ from byoda.datamodel.schema import Schema
 
 from byoda.storage.filestorage import FileStorage
 
-
+from byoda.util.logger import Logger as ByodaLogger
 
 
 async def main(_) -> None:
@@ -55,5 +55,5 @@ async def main(_) -> None:
         raise ValueError('No data classes found in schema')
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     run(main, sys.argv)

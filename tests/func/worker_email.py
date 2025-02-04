@@ -25,6 +25,8 @@ import redis.asyncio as redis
 
 from byoda.storage.message_queue import Queue
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from byotubesvr.datamodel.email import EmailVerificationMessage
@@ -96,6 +98,6 @@ def get_mails_sent() -> int:
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

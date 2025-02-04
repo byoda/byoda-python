@@ -31,7 +31,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         mock_environment_vars(TEST_DIR)
 
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         try:
             shutil.rmtree(TEST_DIR)
@@ -69,6 +69,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

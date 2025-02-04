@@ -23,9 +23,9 @@ from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 from byotubesvr.models.lite_api_models import AssetReactionResponseModel
 from tests.lib.util import get_test_uuid
 
-
-
 from byotubesvr.database.asset_reaction_store import AssetReactionStore
+
+from byoda.util.logger import Logger as ByodaLogger
 
 REDIS_URL: str = 'redis://192.168.1.13:6379/0?decode_responses=True&protocol=3'
 
@@ -283,5 +283,5 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

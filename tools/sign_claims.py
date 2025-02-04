@@ -31,9 +31,9 @@ from byoda.datatypes import ClaimStatus
 
 from byoda.servers.app_server import AppServer
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
-
-
 
 _LOGGER = None
 
@@ -56,11 +56,11 @@ async def main(argv) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, json_out=False, loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], json_out=False, loglevel=logging.WARNING
         )
 

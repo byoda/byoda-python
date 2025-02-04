@@ -36,11 +36,11 @@ from byoda.storage.aws import AwsFileStorage
 from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
 
-
-
 from byoda.storage import FileStorage
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
 from tests.lib.defines import GCP_RESTRICTED_BUCKET_FILE
@@ -186,6 +186,6 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

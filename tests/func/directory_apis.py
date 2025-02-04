@@ -51,6 +51,8 @@ from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from byoda.util.fastapi import setup_api
@@ -78,7 +80,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self) -> None:
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
             TestDirectoryApis.APP_CONFIG: dict[str, any] = yaml.load(
@@ -362,6 +364,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

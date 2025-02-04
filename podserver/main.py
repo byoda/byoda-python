@@ -87,7 +87,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     logfile: str = network_data.get('logdir', '/var/log/byoda') + '/pod.log'
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=True, debug=config.debug,
         loglevel=network_data['loglevel'], logfile=logfile
     )

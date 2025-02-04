@@ -35,7 +35,7 @@ from datetime import UTC
 from byoda.datacache.asset_list import AssetList
 from byoda.datacache.searchable_cache import SearchableCache
 
-
+from byoda.util.logger import Logger as ByodaLogger
 
 LUA_SCRIPT_FILEPATH: str = 'byotubesvr/redis.lua'
 
@@ -287,5 +287,5 @@ async def populate_cache(cache: SearchableCache, list_name: str,
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

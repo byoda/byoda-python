@@ -37,11 +37,11 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-
-
 from podserver.util import get_environment_vars
 
 from logging import Logger, getLogger
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -179,12 +179,12 @@ async def main(argv: list[str]) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, verbose=False, json_out=False,
             loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=False, verbose=False, json_out=False,
             loglevel=logging.WARNING
         )

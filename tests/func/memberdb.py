@@ -17,11 +17,11 @@ from uuid import UUID
 
 from byoda.datatypes import MemberStatus
 
-
-
 from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -37,7 +37,7 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
             TestKVCache.APP_CONFIG = yaml.load(
@@ -144,6 +144,6 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

@@ -17,9 +17,9 @@ import shutil
 import asyncio
 import argparse
 
-
-
 from byoda.datamodel.network import Network
+
+from byoda.util.logger import Logger as ByodaLogger
 
 _LOGGER = None
 
@@ -36,7 +36,7 @@ async def main(argv):
     args = parser.parse_args()
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )

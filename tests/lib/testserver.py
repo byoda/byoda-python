@@ -27,8 +27,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from byoda import config
+from byoda.util.logger import Logger as ByodaLogger
 
+from byoda import config
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -64,7 +65,7 @@ from podserver.routers import accountdata as AccountDataRouter
 from podserver.routers import content_token as ContentTokenRouter
 
 _LOGGER = None
-LOG_FILE = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
+LOG_FILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
@@ -147,7 +148,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=False, debug=config.debug,
         loglevel=data['loglevel'], logfile=LOG_FILE
     )

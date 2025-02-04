@@ -35,6 +35,8 @@ from byoda.util.paths import Paths
 
 from byoda.servers.service_server import ServiceServer
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from byoda.datacache.asset_cache import AssetCache
@@ -160,7 +162,7 @@ async def setup_server() -> tuple[Service, ServiceServer]:
         not server_config.debug and server_config.loglevel == 'INFO'
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=True,
         debug=server_config.debug, verbose=verbose,
         logfile=server_config.logfile, loglevel=server_config.loglevel

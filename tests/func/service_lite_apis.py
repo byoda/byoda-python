@@ -75,6 +75,8 @@ from byotubesvr.routers import settings as SettingsRouter
 from byotubesvr.routers.support import EMAIL_SALT
 from byotubesvr.routers.support import SUBSCRIPTIONS_FILE
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from tests.lib.util import get_test_uuid
 
 from tests.lib.defines import DATHES_POD_MEMBER_ID
@@ -998,5 +1000,5 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

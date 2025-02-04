@@ -37,6 +37,8 @@ from byoda.util.fastapi import setup_api
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from byotubesvr.routers import search as SearchRouter
@@ -475,5 +477,5 @@ def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

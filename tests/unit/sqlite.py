@@ -35,9 +35,9 @@ from byoda.storage.sqlite import SqliteStorage
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
-
-
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
@@ -520,5 +520,5 @@ def compare_network_invite(data: list[QueryResult],
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

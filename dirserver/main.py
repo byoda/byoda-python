@@ -24,6 +24,8 @@ from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.fastapi import setup_api
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from .routers import account as AccountRouter
@@ -42,7 +44,7 @@ async def lifespan(app: FastAPI):
     debug = app_config['application']['debug']
     verbose = not debug
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['dirserver'].get('logfile')
     )

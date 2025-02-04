@@ -16,10 +16,10 @@ import sys
 import unittest
 
 import httpx
+
 from requests.structures import CaseInsensitiveDict
 
-
-
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import TEST_IDS
@@ -114,5 +114,5 @@ def do_location(testcase, cloud: str, fqdn: str, location: str,
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

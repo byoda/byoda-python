@@ -15,10 +15,9 @@ import shutil
 import argparse
 
 from uuid import uuid4
+from logging import Logger
 
 import httpx
-
-
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -32,6 +31,8 @@ from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 from byoda.servers.pod_server import PodServer
 
 from podserver.util import get_environment_vars
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -71,7 +72,7 @@ async def main(argv) -> None:
     network_data: dict[str, str | int | bool | None] = get_environment_vars()
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )

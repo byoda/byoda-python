@@ -17,7 +17,7 @@ proxy
 import sys
 import unittest
 
-
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
@@ -72,5 +72,5 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

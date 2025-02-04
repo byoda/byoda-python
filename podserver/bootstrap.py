@@ -41,6 +41,7 @@ import logging
 import asyncio
 
 from uuid import UUID
+from logging import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -57,6 +58,8 @@ from byoda.datastore.document_store import DocumentStoreType
 from byoda.servers.pod_server import PodServer
 
 from byoda.util.angieconfig import AngieConfig, ANGIE_SITE_CONFIG_DIR
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -81,7 +84,7 @@ async def main(argv) -> None:
 
     log_file: str = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'),
         logfile=log_file

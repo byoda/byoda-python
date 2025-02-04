@@ -47,7 +47,7 @@ TEST_NETWORK = None
 
 class TestDnsDb(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         await delete_test_data()
 

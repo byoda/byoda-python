@@ -21,7 +21,9 @@ from uuid import uuid4, UUID
 
 import httpx
 
+from byoda.util.logger import Logger as ByodaLogger
 
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
@@ -222,5 +224,5 @@ def get_token(url: str, asset_id: UUID, cloud: str) -> tuple[int, str]:
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

@@ -43,6 +43,8 @@ from byoda.util.updates_listener import UpdateListenerMember
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from podserver.podworker.discovery import listen_local_network_links_tables
@@ -307,5 +309,5 @@ async def setup_listener_for_membership(
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

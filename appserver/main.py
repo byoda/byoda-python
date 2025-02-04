@@ -27,11 +27,14 @@ from byoda.servers.app_server import AppServer
 
 from byoda.util.fastapi import setup_api
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from .routers import status as StatusRouter
 from .routers import moderate as ModerateRouter
 from .routers import cdn as CdnRouter
+
 _LOGGER = None
 
 
@@ -46,7 +49,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     debug: str = app_config['application']['debug']
     verbose: bool = not bool(debug)
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['appserver'].get('logfile')
     )

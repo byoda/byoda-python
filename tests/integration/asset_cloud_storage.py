@@ -15,6 +15,7 @@ from urllib.parse import urlparse, ParseResult
 
 import httpx
 
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
@@ -52,5 +53,5 @@ class TestAssetStorage(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()
