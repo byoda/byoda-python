@@ -322,7 +322,7 @@ class Secret:
         if ca:
             self.max_path_length = pathlen
             csr_builder.add_extension(
-                x509.BasicConstraints(ca=False, path_length=pathlen),
+                x509.BasicConstraints(ca=True, path_length=pathlen),
                 critical=True,
             )
 
@@ -402,7 +402,7 @@ class Secret:
         self.cert = cert_chain.signed_cert
         self.cert_chain = cert_chain.cert_chain
 
-    def validate(self, root_ca: CaSecret, with_openssl: bool = True) -> None:
+    def validate(self, issuing_ca: CaSecret, with_openssl: bool = True) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
         This function does not check certificate recovation or OCSP
@@ -414,16 +414,10 @@ class Secret:
         :raises: ValueError if the certchain is invalid
         '''
 
-        pem_signed_cert: bytes = self.cert_as_pem()
-        pem_cert_chain: list[bytes] = [
-            cert.public_bytes(serialization.Encoding.PEM)
-            for cert in self.cert_chain
-        ]
-
         tmpdir = tempfile.TemporaryDirectory()
-        rootfile: str = tmpdir.name + '/rootca.pem'
-        with open(rootfile, 'w') as file_desc:
-            file_desc.write(root_ca.cert_as_pem().decode('utf-8'))
+        ca_file: str = tmpdir.name + '/ca.pem'
+        with open(ca_file, 'w') as file_desc:
+            file_desc.write(issuing_ca.cert_as_pem().decode('utf-8'))
 
         certfile: str = tmpdir.name + '/cert.pem'
         with open(certfile, 'w') as file_desc:
@@ -431,19 +425,19 @@ class Secret:
 
         cmd: list[str] = [
             'openssl', 'verify',
-            '-CAfile', rootfile,
+            '-CAfile', ca_file,
         ]
 
         if self.cert_chain:
-            chainfile: str = tmpdir.name + '/chain.pem'
-            with open(chainfile, 'w') as file_desc:
+            # Openssl 'verify' requires all certs in the chain to be in
+            # CA file
+            with open(ca_file, 'a') as file_desc:
                 for cert in self.cert_chain:
                     file_desc.write(
                         cert.public_bytes(
                             serialization.Encoding.PEM
                         ).decode('utf-8')
                     )
-            cmd.extend(['-untrusted', chainfile])
 
         cmd.append(certfile)
         result: subprocess.CompletedProcess[bytes] = subprocess.run(cmd)
@@ -452,14 +446,14 @@ class Secret:
             raise ValueError(
                 f'Certificate validation with command {" ".join(cmd)} '
                 f'failed: {result.returncode} for cert {certfile} and '
-                f'root CA {rootfile}'
+                f'root CA {ca_file}'
             )
 
         tmpdir.cleanup()
 
         _LOGGER.debug(
             'Successfully validated certchain using OpenSSL for '
-            f'cert {certfile} and root CA {rootfile}'
+            f'cert {certfile} and root CA {ca_file}'
         )
 
     async def cert_file_exists(self) -> bool:
@@ -581,7 +575,7 @@ class Secret:
         if not self.private_key_file:
             raise ValueError('No private key file set')
 
-        if not self.storage_driver.exists(self.private_key_file):
+        if not await self.storage_driver.exists(self.private_key_file):
             raise FileNotFoundError(
                 f'Private key file not found: {self.private_key_file}'
             )

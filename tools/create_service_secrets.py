@@ -90,9 +90,8 @@ async def main(argv) -> None:
 
     if not os.path.exists(network_cert_filepath):
         os.makedirs(network_dir, exist_ok=True)
-        resp: httpx.Response = httpx.get(
-            f'https://dir.{args.network}/root-ca.pem'
-        )
+        url: str = f'https://dir.{args.network}/root-ca.pem'
+        resp: httpx.Response = httpx.get(url)
         with open(network_cert_filepath, 'w') as file_desc:
             file_desc.write(resp.text)
 

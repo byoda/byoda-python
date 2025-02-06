@@ -196,7 +196,7 @@ class CaSecret(Secret):
 
     @override
     def review_commonname(self, commonname: str, uuid_identifier=True,
-                          check_service_id=True) -> str:
+                          check_service_id=True) -> EntityId:
         '''
         Checks if the structure of common name matches of a byoda secret.
         Parses the entity type, the identifier and optionally the service_id
@@ -293,7 +293,8 @@ class CaSecret(Secret):
                     f'{type(expire)}'
                 )
         else:
-            entity_id: str = self.review_csr(csr, source=CsrSource.LOCAL)
+            common_name: str = self.review_csr(csr, source=CsrSource.LOCAL)
+            entity_id: EntityId = self.review_commonname(common_name)
             if entity_id.id_type not in self.accepted_csrs:
                 raise ValueError(
                     f'We do not sign CSRs for entity type: {entity_id.id_type}'

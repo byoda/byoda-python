@@ -44,6 +44,7 @@ from byoda.secrets.secret import CertChain
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.app_data_secret import AppDataSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
+from byoda.secrets.secret import _RSA_KEYSIZE
 
 from byoda.datastore.data_store import DataStoreType
 from byoda.datastore.cache_store import CacheStoreType
@@ -82,7 +83,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             pass
 
         mock_environment_vars(TEST_DIR)
-        os.mkdir(TEST_DIR)
         os.makedirs(TEST_DIR + SCHEMA_DIR)
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
         config.test_case = True
@@ -93,9 +93,92 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def test_ca_pathlen(self) -> None:
         storage = FileStorage(TEST_DIR, CloudType.LOCAL)
         root_ca: CaSecret = CaSecret(
-            f'{TEST_DIR}/ca.pem', f'{TEST_DIR}/ca.key', storage
+            'root-ca.pem', 'root-ca.key', storage
         )
-        root_ca.create_selfsigned_cert('byoda', 'byoda.org')
+        root_ca.private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=_RSA_KEYSIZE,
+        )
+        root_ca.common_name = 'test-root-ca'
+        root_ca.create_selfsigned_cert(ca=True)
+        await root_ca.save()
+
+        services_ca: CaSecret = CaSecret(
+            'services-ca.pem', 'services-ca.key', storage
+        )
+        services_ca_csr: x509.CertificateSigningRequest = \
+            await services_ca.create_csr(
+                'test-services-ca', ca=True, pathlen=1
+            )
+        certchain: CertChain = root_ca.sign_csr(services_ca_csr, expire=3)
+        services_ca.from_signed_cert(certchain)
+        await services_ca.save(with_fingerprint=True)
+        services_ca.validate(root_ca, with_openssl=False)
+        services_ca.validate(root_ca, with_openssl=True)
+
+        service_ca: CaSecret = CaSecret(
+            'service-ca.pem', 'service-ca.key', storage
+        )
+        service_ca_csr: x509.CertificateSigningRequest = \
+            await service_ca.create_csr(
+                'test-service-ca', ca=True, pathlen=1
+            )
+        certchain: CertChain = services_ca.sign_csr(service_ca_csr, expire=3)
+        service_ca.from_signed_cert(certchain)
+        await service_ca.save(with_fingerprint=True)
+        service_ca.validate(root_ca, with_openssl=False)
+        service_ca.validate(root_ca, with_openssl=True)
+
+        member_secret: Secret = Secret(
+            'member.pem', 'member.key', storage
+        )
+        member_csr: x509.CertificateSigningRequest = \
+            await member_secret.create_csr(
+                'test-member', ca=False, pathlen=None
+            )
+        certchain: CertChain = service_ca.sign_csr(member_csr, expire=3)
+        member_secret.from_signed_cert(certchain)
+        await member_secret.save(with_fingerprint=True)
+        member_secret.validate(root_ca, with_openssl=False)
+        member_secret.validate(root_ca, with_openssl=True)
+
+    async def test_ca_pathlen_fail(self) -> None:
+        return
+        storage = FileStorage(TEST_DIR, CloudType.LOCAL)
+        root_ca: CaSecret = CaSecret(
+            'root-ca.pem', 'root-ca.key', storage
+        )
+        root_ca.private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=_RSA_KEYSIZE,
+        )
+        root_ca.common_name = 'test-root-ca'
+        root_ca.create_selfsigned_cert(ca=True)
+        await root_ca.save()
+
+        services_ca: CaSecret = CaSecret(
+            'services-ca.pem', 'services-ca.key', storage
+        )
+        services_ca_csr: x509.CertificateSigningRequest = \
+            await services_ca.create_csr(
+                'test-services-ca', ca=True, pathlen=1
+            )
+        certchain: CertChain = root_ca.sign_csr(services_ca_csr, expire=3)
+        services_ca.from_signed_cert(certchain)
+        await services_ca.save()
+        services_ca.validate(root_ca, with_openssl=False)
+        services_ca.validate(root_ca, with_openssl=True)
+
+        service_ca: CaSecret = CaSecret(
+            'service-ca.pem', 'service-ca.key', storage
+        )
+        service_ca_csr: x509.CertificateSigningRequest = \
+            await service_ca.create_csr(
+                'test-service-ca', ca=True, pathlen=1
+            )
+        certchain: CertChain = root_ca.sign_csr(service_ca_csr, expire=3)
+        service_ca.from_signed_cert(certchain)
+        await service_ca.save()
+        service_ca.validate(root_ca, with_openssl=False)
+        service_ca.validate(root_ca, with_openssl=True)
 
     async def test_ca_certchain(self) -> None:
         return
@@ -450,6 +533,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()
