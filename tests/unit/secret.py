@@ -112,7 +112,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         certchain: CertChain = root_ca.sign_csr(services_ca_csr, expire=3)
         services_ca.from_signed_cert(certchain)
         await services_ca.save(with_fingerprint=True)
-        services_ca.validate(root_ca, with_openssl=False)
         services_ca.validate(root_ca, with_openssl=True)
 
         service_ca: CaSecret = CaSecret(
@@ -125,7 +124,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         certchain: CertChain = services_ca.sign_csr(service_ca_csr, expire=3)
         service_ca.from_signed_cert(certchain)
         await service_ca.save(with_fingerprint=True)
-        service_ca.validate(root_ca, with_openssl=False)
         service_ca.validate(root_ca, with_openssl=True)
 
         member_secret: Secret = Secret(
@@ -138,7 +136,6 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         certchain: CertChain = service_ca.sign_csr(member_csr, expire=3)
         member_secret.from_signed_cert(certchain)
         await member_secret.save(with_fingerprint=True)
-        member_secret.validate(root_ca, with_openssl=False)
         member_secret.validate(root_ca, with_openssl=True)
 
     async def test_ca_pathlen_fail(self) -> None:

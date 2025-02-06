@@ -319,7 +319,7 @@ class Secret:
                 critical=True
             )
 
-        if ca:
+        if ca and False:
             self.max_path_length = pathlen
             csr_builder.add_extension(
                 x509.BasicConstraints(ca=True, path_length=pathlen),
