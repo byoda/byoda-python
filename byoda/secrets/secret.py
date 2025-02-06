@@ -247,7 +247,7 @@ class Secret:
             x509.random_serial_number()
         ).not_valid_before(
             datetime.now(tz=UTC)
-        ).not_valid_after_utc(
+        ).not_valid_after(
             expiration
         ).add_extension(
             x509.SubjectAlternativeName(

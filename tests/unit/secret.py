@@ -368,7 +368,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             x509.random_serial_number()
         ).not_valid_before(
             datetime.now(tz=UTC)
-        ).not_valid_after_utc(
+        ).not_valid_after(
             datetime.now(tz=UTC) + timedelta(days=1)
         ).add_extension(
             x509.SubjectAlternativeName([x509.DNSName(u"localhost")]),
