@@ -2,15 +2,16 @@
 Pydantic model for submitting a request using the REST Data APIs.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import uuid4
 
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 import orjson
 

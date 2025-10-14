@@ -2,7 +2,7 @@
 Test cases for Query ID cache
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,11 +11,13 @@ import sys
 import shutil
 import unittest
 
-from byoda.util.logger import Logger
+from logging import Logger
 
 from byoda.datamodel.member import Member
 
 from byoda.datacache.querycache import QueryCache
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
@@ -28,11 +30,9 @@ TEST_DIR = '/tmp/byoda-tests/query_cache'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    @classmethod
+    async def asyncSetUp(cls) -> None:
         mock_environment_vars(TEST_DIR)
-
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -69,6 +69,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

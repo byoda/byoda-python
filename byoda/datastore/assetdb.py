@@ -3,14 +3,15 @@ Class AssetDb stores information for the Service and Directory servers
 about registered clients
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 from datetime import datetime
 from datetime import timezone
 from ipaddress import IPv4Address
@@ -165,7 +166,7 @@ class AssetDb:
         _LOGGER.debug(f'Adding member f{member_id} to ASSETS_LIST')
         self.kvcache.push(ASSETS_LIST, str(member_id))
 
-    def delete_ASSETS_LIST(self):
+    def delete_assets_list(self) -> bool:
         '''
         Delete the list of members.
 
@@ -174,7 +175,7 @@ class AssetDb:
 
         ret = self.kvcache.delete(ASSETS_LIST)
 
-        exists = ret != 0
+        exists: bool = ret != 0
 
         if exists:
             _LOGGER.debug('Deleted the list of members')
@@ -187,7 +188,7 @@ class AssetDb:
         '''
         Saves the data for a member
         '''
-        mid = ASSET_ID_DATA_FORMAT.format(member_id=str(member_id))
+        mid: str = ASSET_ID_DATA_FORMAT.format(member_id=str(member_id))
 
         ret = self.kvcache.set(mid, data)
 
@@ -200,7 +201,7 @@ class AssetDb:
         :raises: KeyError if the member is not in the database
         '''
 
-        mid = ASSET_ID_DATA_FORMAT.format(member_id=str(member_id))
+        mid: str = ASSET_ID_DATA_FORMAT.format(member_id=str(member_id))
         data = self.kvcache.get(mid)
 
         return data

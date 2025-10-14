@@ -560,3 +560,4 @@ fi
 echo "Launching containers using postfix ${POSTFIX} and tag ${TAG}"
 
 docker compose -f ${HOME_DIR}/docker-compose.yaml up -d
+

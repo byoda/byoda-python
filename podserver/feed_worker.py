@@ -4,7 +4,7 @@
 Listen for updates of pods in the network and store them in the local pod
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license
 '''
 
@@ -14,6 +14,7 @@ import sys
 from uuid import UUID
 from datetime import UTC
 from datetime import datetime
+from logging import Logger
 
 from anyio import run
 from anyio import create_task_group
@@ -45,7 +46,7 @@ from byoda.datastore.document_store import DocumentStoreType
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -76,7 +77,7 @@ async def main(argv) -> None:
 
     program_name: str = os.path.basename(argv[0]).rstrip('.py')
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER: Logger = ByodaLogger.getLogger(
         program_name, json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'ERROR'), logfile=LOGFILE
     )

@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -13,6 +13,7 @@ import subprocess
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -29,11 +30,23 @@ from httpx import Response as HttpResponse
 from ssl import SSLCertVerificationError
 
 from cryptography import x509
+from cryptography import exceptions as crypto_exceptions
 from cryptography.x509.oid import NameOID
 from cryptography.x509 import Certificate
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.hashes import SHA256
+
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import \
+    EllipticCurvePrivateKey
+
+# For certchain validation
+from cryptography.x509.verification import ServerVerifier
+from cryptography.x509 import Certificate, DNSName, load_pem_x509_certificates
+from cryptography.x509.verification import PolicyBuilder, Store
 
 from byoda.storage.filestorage import FileStorage, FileMode
 
@@ -43,25 +56,9 @@ from byoda.datatypes import EntityId
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from .certchain import CertChain
 
 _LOGGER: Logger = getLogger(__name__)
-
-_RSA_KEYSIZE: int = 3072
-
-VALID_SIGNATURE_ALGORITHMS: set[str] = set(
-    [
-        'sha256WithRSAEncryption'
-    ]
-)
-VALID_SIGNATURE_HASHES: set[str] = set(
-    [
-        'sha256'
-    ]
-)
-IGNORED_X509_NAMES: set[str] = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
 
@@ -76,7 +73,7 @@ class Secret:
     Properties:
     - cert                 : instance of cryptography.x509
     - key                  : instance of
-                             cryptography.hazmat.primitives.asymmetric.rsa
+                             cryptography.hazmat.primitives.asymmetric.ElipticCurvePrivateKey
     - password             : string protecting the private key
     - shared_key           : unprotected shared secret used by Fernet
     - protected_shared_key : protected shared secret used by Fernet
@@ -87,15 +84,37 @@ class Secret:
         'private_key', 'private_key_file', 'cert', 'cert_file', 'paths',
         'password', 'common_name', 'service_id', 'id_type', 'sans',
         'storage_driver', 'cert_chain', 'is_root_cert', 'ca',
-        'signs_ca_certs', 'max_path_length', 'accepted_csrs'
+        'max_path_length', 'accepted_csrs', 'key_usage_constraints',
+        'extended_key_usage'
     ]
 
     # When should the secret be renewed
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
-    # We don't sign any CSRs as we are not a CA
-    ACCEPTED_CSRS = None
+    _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
+                'digital_signature': True,
+                'content_commitment': False,
+                'key_encipherment': False,
+                'data_encipherment': False,
+                'key_agreement': False,
+                'key_cert_sign': False,
+                'crl_sign': False,
+                'encipher_only': False,
+                'decipher_only': False,
+    }
+    _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
+        x509.ExtendedKeyUsageOID.SERVER_AUTH,
+        x509.ExtendedKeyUsageOID.CLIENT_AUTH,
+        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        # x509.ExtendedKeyUsageOID.TIME_STAMPING,
+        # x509.ExtendedKeyUsageOID.OCSP_SIGNING,
+        # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,
+        # x509.ExtendedKeyUsageOID.KERBEROS_PKINIT_KDC,
+        # x509.ExtendedKeyUsageOID.IPSEC_IKE,
+        # x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,
+    ]
 
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None) -> None:
@@ -108,10 +127,10 @@ class Secret:
         :raises: (none)
         '''
 
-        self.private_key: rsa.RSAPrivateKey = None
+        self.private_key: EllipticCurvePrivateKey | RSAPrivateKey | None = None
         self.private_key_file: str = key_file
 
-        self.cert: Certificate = None
+        self.cert: Certificate | None = None
         self.cert_file: str = cert_file
 
         # Some derived classes already set self.paths before
@@ -122,15 +141,15 @@ class Secret:
 
         # The password to use for saving the private key
         # to a file
-        self.password: str = None
+        self.password: str | None = None
 
-        self.common_name: str = None
+        self.common_name: str | None = None
         self.service_id: str | None = None
-        self.id_type: IdType = None
+        self.id_type: IdType | None = None
 
         # Subject Alternative Name, usually same as common name
         # except for App Data certs
-        self.sans: list[str] = None
+        self.sans: list[str] | None = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
@@ -146,17 +165,26 @@ class Secret:
         # X.509 constraints
         # is this a secret of a CA. For CAs, use the CaSecret class
         self.ca: bool = False
-        self.signs_ca_certs: bool = False
-        self.max_path_length: int = None
+        self.max_path_length: int | None = None
+        self.key_usage_constraints: dict[str, bool] = \
+            Secret._KEY_USAGE_CONSTRAINTS
+        self.extended_key_usage: list[x509.ObjectIdentifier] = \
+            Secret._EXTENDED_KEY_USAGE
+        self.accepted_csrs: dict[IdType, int] = {}
 
-        self.accepted_csrs: dict[IdType, int] = ()
+    def generate_private_key(self) -> EllipticCurvePrivateKey:
+        '''
+        Generates and returns an Elliptic Curve private key
+        '''
+
+        return ec.generate_private_key(ec.SECP256R1())
 
     async def create(self, common_name: str, issuing_ca: CaSecret = None,
-                     expire: int = None, key_size: int = _RSA_KEYSIZE,
-                     private_key: rsa.RSAPrivateKey = None, ca: bool = False
-                     ) -> None:
+                     expire: int = None,
+                     private_key: EllipticCurvePrivateKey = None,
+                     ca: bool = False) -> None:
         '''
-        Creates an RSA private key and either a self-signed X.509 cert
+        Creates a private key and either a self-signed X.509 cert
         or a cert signed by the issuing_ca. The latter is a one-step
         process if you have access to the private key of the issuing CA
 
@@ -165,7 +193,6 @@ class Secret:
         a self-signed cert will be created
         :param expire: days after which the cert should expire, only used
         for self-signed certs
-        :param key_size: length of the key in bits
         :param ca: create a secret for an CA
         :returns: (none)
         :raises: ValueError if the Secret instance already has a private key
@@ -182,28 +209,29 @@ class Secret:
         self.ca = ca or self.ca
 
         _LOGGER.debug(
-            f'Generating a private key with key size {key_size}, '
-            f'expiration {expire}  and commonname {common_name} '
-            f'with CA is {self.ca}'
+            f'Generating a private key with expiration {expire} and '
+            f'commonname {common_name} with CA is {self.ca}'
         )
 
         if private_key:
             self.private_key = private_key
         else:
-            self.private_key = rsa.generate_private_key(
-                public_exponent=65537, key_size=key_size
-            )
+            # self.private_key = X25519PrivateKey.generate()
+            # Cryptography python example shows use of
+            self.private_key: EllipticCurvePrivateKey | RSAPrivateKey = \
+                self.generate_private_key()
 
         if issuing_ca:
             # TODO: SECURITY: add constraints
-            csr = await self.create_csr(ca)
+            csr: CSR = await self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
 
     def create_selfsigned_cert(self,
                                expire: int | datetime | timedelta = 10950,
-                               ca: bool = False) -> None:
+                               ca: bool = False,
+                               pathlen: int | None = None) -> None:
         '''
         Create a self_signed certificate. Self-signed certs have
         a expiration of 30 years by default
@@ -217,6 +245,8 @@ class Secret:
         :raises: (none)
         '''
 
+        subject: x509.Name
+        issuer: x509.Name
         subject = issuer = self._generate_cert_name()
 
         if expire:
@@ -237,7 +267,8 @@ class Secret:
             expiration: datetime = datetime.now(tz=UTC) + timedelta(days=3650)
 
         self.is_root_cert = True
-        self.cert = x509.CertificateBuilder().subject_name(
+        cert_builder: x509.CertificateBuilder = x509.CertificateBuilder(
+        ).subject_name(
             subject
         ).issuer_name(
             issuer
@@ -256,12 +287,25 @@ class Secret:
             critical=False
         ).add_extension(
             x509.BasicConstraints(
-                ca=ca, path_length=None
+                ca=ca, path_length=pathlen
             ), critical=True,
-        ).sign(self.private_key, hashes.SHA256())
+        ).add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(
+                self.private_key.public_key()
+            ), critical=False
+        ).add_extension(
+            x509.KeyUsage(
+                **self.key_usage_constraints
+            ), critical=True
+        )
+
+        if self.extended_key_usage:
+            cert_builder = cert_builder.add_extension(
+                x509.ExtendedKeyUsage(self.extended_key_usage), critical=False
+            )
+        self.cert = cert_builder.sign(self.private_key, hashes.SHA256())
 
     async def create_csr(self, common_name: str, sans: str | list[str] = [],
-                         key_size: int = _RSA_KEYSIZE, ca: bool = False,
                          renew: bool = False) -> CSR:
         '''
         Creates an RSA private key and a CSR. After calling this function,
@@ -269,8 +313,7 @@ class Secret:
         generate the signed certificate
 
         :param common_name: common_name for the certificate
-        :param key_size: length of the key in bits
-        :param ca: create a secret for an CA
+        :param sans:
         :param renew: should any existing private key be used to
         renew an existing certificate
         :returns: the Certificate Signature Request
@@ -293,19 +336,21 @@ class Secret:
                 raise ValueError('sans parameter must be a list or str')
 
         _LOGGER.debug(
-            f'Generating a private key with key size {key_size} '
-            f'and commonname {self.common_name}'
+            f'Generating a private key with commonname {self.common_name}'
         )
 
         if renew:
             if not self.private_key:
                 await self.load(with_private_key=True)
         else:
-            self.private_key = rsa.generate_private_key(
-                public_exponent=65537, key_size=_RSA_KEYSIZE,
-            )
+            self.private_key: EllipticCurvePrivateKey = \
+                self.generate_private_key()
 
-        _LOGGER.debug(f'Generating a CSR for {self.common_name}')
+        _LOGGER.debug(
+            f'Generating a CSR for {self.common_name}. '
+            f'Are we a CA?: {self.ca}, '
+            f'path len: {self.max_path_length}'
+        )
 
         san_names: list[str] = []
         for san in self.sans:
@@ -315,16 +360,29 @@ class Secret:
             x509.CertificateSigningRequestBuilder().subject_name(
                 self._generate_cert_name()
             ).add_extension(
-                x509.BasicConstraints(
-                    ca=ca, path_length=self.max_path_length
-                ), critical=True,
-            ).add_extension(
                 x509.SubjectAlternativeName(san_names),
                 critical=True
+            ).add_extension(
+                x509.KeyUsage(**self.key_usage_constraints), critical=True
+            )
+        if self.extended_key_usage:
+            csr_builder = csr_builder.add_extension(
+                x509.ExtendedKeyUsage(self.extended_key_usage), critical=False
             )
 
+        if self.ca and self.max_path_length is not None:
+            csr_builder = csr_builder.add_extension(
+                x509.BasicConstraints(
+                    ca=True, path_length=self.max_path_length
+                ),
+                critical=True,
+            )
+
+        algo: SHA256 | None = hashes.SHA256()
+        if isinstance(self.private_key, Ed25519PrivateKey):
+            algo = None
         csr: x509.CertificateSigningRequest = csr_builder.sign(
-            self.private_key, hashes.SHA256()
+            self.private_key, algorithm=algo
         )
 
         return csr
@@ -399,10 +457,12 @@ class Secret:
         self.cert = cert_chain.signed_cert
         self.cert_chain = cert_chain.cert_chain
 
-    def validate(self, root_ca: CaSecret, with_openssl: bool = True) -> None:
+    def validate(self, root_ca: CaSecret, with_openssl: bool = True
+                 ) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
-        This function does not check certificate recovation or OCSP
+        This function does not check certificate recovation or OCSP. It requires
+        the openssl utilities to be installed on the system it is run
 
         :param Secret root_ca: the self-signed root CA to validate against
         :param with_openssl: [deprecated] also use the openssl binary to
@@ -411,52 +471,69 @@ class Secret:
         :raises: ValueError if the certchain is invalid
         '''
 
-        pem_signed_cert: bytes = self.cert_as_pem()
-        pem_cert_chain: list[bytes] = [
-            cert.public_bytes(serialization.Encoding.PEM)
-            for cert in self.cert_chain
-        ]
+        if not with_openssl:
+            self.validate_python_cryptography(root_ca)
 
-        tmpdir = tempfile.TemporaryDirectory()
-        rootfile: str = tmpdir.name + '/rootca.pem'
-        with open(rootfile, 'w') as file_desc:
+        self.validate_with_openssl(root_ca)
+
+    def validate_python_cryptography(self, root_ca: CaSecret) -> None:
+        store = Store(load_pem_x509_certificates(root_ca.cert_as_pem()))
+        builder: PolicyBuilder = PolicyBuilder().store(store)
+        # builder = builder.time(datetime(tz=UTC))
+        verifier: ServerVerifier = builder.build_server_verifier(
+            DNSName(self.common_name)
+        )
+
+        try:
+            chain: list[Certificate] = verifier.verify(self.cert, self.cert_chain)
+        except x509.verification.VerificationError:
+            # it throws an error on missing ExtendedKeyUsage even when it is present
+            # still, it is good to check this manually once in a while
+            pass
+
+    def validate_with_openssl(self, root_ca: CaSecret) -> None:
+        tmpdir: tempfile.TemporaryDirectory = tempfile.TemporaryDirectory()
+        ca_file: str = tmpdir.name + '/ca.pem'
+        with open(ca_file, 'w') as file_desc:
             file_desc.write(root_ca.cert_as_pem().decode('utf-8'))
 
-        certfile: str = tmpdir.name + '/cert.pem'
-        with open(certfile, 'w') as file_desc:
+        cert_file: str = tmpdir.name + '/cert.pem'
+        with open(cert_file, 'w') as file_desc:
             file_desc.write(self.cert_as_pem().decode('utf-8'))
 
         cmd: list[str] = [
             'openssl', 'verify',
-            '-CAfile', rootfile,
+            '-CAfile', ca_file,
         ]
 
         if self.cert_chain:
-            chainfile: str = tmpdir.name + '/chain.pem'
-            with open(chainfile, 'w') as file_desc:
+            intermediate_file: str = tmpdir.name + '/intermediates.pem'
+            cmd += ['-untrusted', intermediate_file]
+            # TODO: add check whether intermediate CA is self-signed as
+            # the openssl command will accept that
+            with open(intermediate_file, 'a') as file_desc:
                 for cert in self.cert_chain:
                     file_desc.write(
                         cert.public_bytes(
                             serialization.Encoding.PEM
                         ).decode('utf-8')
                     )
-            cmd.extend(['-untrusted', chainfile])
 
-        cmd.append(certfile)
+        cmd.append(cert_file)
         result: subprocess.CompletedProcess[bytes] = subprocess.run(cmd)
 
         if result.returncode != 0:
             raise ValueError(
                 f'Certificate validation with command {" ".join(cmd)} '
-                f'failed: {result.returncode} for cert {certfile} and '
-                f'root CA {rootfile}'
+                f'failed: {result.returncode} for cert {cert_file} and '
+                f'root CA {ca_file}'
             )
 
         tmpdir.cleanup()
 
         _LOGGER.debug(
             'Successfully validated certchain using OpenSSL for '
-            f'cert {certfile} and root CA {rootfile}'
+            f'cert {cert_file} and root CA {ca_file}'
         )
 
     async def cert_file_exists(self) -> bool:
@@ -479,7 +556,7 @@ class Secret:
 
     async def load(self, with_private_key: bool = True,
                    password: str = 'byoda',
-                   storage_driver: FileStorage = None) -> None:
+                   storage_driver: FileStorage | None = None) -> None:
         '''
         Load a cert and private key from their respective files. The
         certificate file can include a cert chain. The cert chain should
@@ -551,21 +628,48 @@ class Secret:
         self.private_key = None
         if with_private_key:
             try:
-                _LOGGER.debug(
-                    f'Reading private key from {self.private_key_file}'
-                )
-                data: str = await storage_driver.read(
-                    self.private_key_file, file_mode=FileMode.BINARY
-                )
-
-                self.private_key = serialization.load_pem_private_key(
-                    data, password=str.encode(password)
-                )
+                await self.load_private_key(password)
             except FileNotFoundError:
                 _LOGGER.exception(
                     f'CA private key file not found: {self.private_key_file}'
                 )
                 raise
+
+    async def load_private_key(self, password: str = 'byoda',
+                               storage_driver: FileStorage | None = None
+                               ) -> None:
+        '''
+        Load the private key from the file
+
+        :param password: password to decrypt the private_key
+        :returns: (none)
+        :raises: FileNotFoundError if the file with the private key does not
+        exist
+        '''
+
+        if not storage_driver:
+            if not self.storage_driver:
+                raise ValueError('No storage driver set')
+            storage_driver = self.storage_driver
+
+        if not self.private_key_file:
+            raise ValueError('No private key file set')
+
+        if not await self.storage_driver.exists(self.private_key_file):
+            raise FileNotFoundError(
+                f'Private key file not found: {self.private_key_file}'
+            )
+
+        _LOGGER.debug(
+            f'Reading private key from {self.private_key_file}'
+        )
+        data: str = await storage_driver.read(
+            self.private_key_file, file_mode=FileMode.BINARY
+        )
+
+        self.private_key = serialization.load_pem_private_key(
+            data, password=str.encode(password)
+        )
 
     def from_string(self, cert: str, certchain: str = None) -> None:
         '''
@@ -595,20 +699,20 @@ class Secret:
 
         if len(certs) == 0:
             raise ValueError(f'No cert found in {cert}')
-        elif len(certs) == 1:
+
+        try:
             self.cert = x509.load_pem_x509_certificate(
                 str.encode(certs[0])
             )
-        elif len(certs) > 1:
-            self.cert = x509.load_pem_x509_certificate(
-                str.encode(certs[0])
+        except crypto_exceptions.InvalidSignature as exc:
+            raise ValueError(f'Invalid signature in cert: {exc}')
+
+        self.cert_chain = [
+            x509.load_pem_x509_certificate(
+                str.encode(cert_data)
             )
-            self.cert_chain = [
-                x509.load_pem_x509_certificate(
-                    str.encode(cert_data)
-                )
-                for cert_data in certs[1:]
-            ]
+            for cert_data in certs[1:]
+        ]
 
     @staticmethod
     def csr_from_string(csr: str) -> x509.CertificateSigningRequest:

@@ -2,13 +2,15 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -19,8 +21,6 @@ from cryptography.x509 import CertificateSigningRequest
 from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
-
-from byoda.util.logger import Logger
 
 from .data_secret import DataSecret
 
@@ -40,6 +40,7 @@ class AccountDataSecret(DataSecret):
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
+    @override
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None) -> None:
         '''
@@ -67,6 +68,7 @@ class AccountDataSecret(DataSecret):
         self.network: Network = network
         self.id_type = IdType.ACCOUNT_DATA
 
+    @override
     async def create_csr(self, account_id: UUID = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -91,6 +93,4 @@ class AccountDataSecret(DataSecret):
             f'{self.account_id}.{self.id_type.value}.{self.network.name}'
         )
 
-        return await super().create_csr(
-            common_name, key_size=4096, ca=self.ca, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)

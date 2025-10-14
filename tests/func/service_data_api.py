@@ -2,7 +2,7 @@
 Test cases for service data API cache
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2024
+:copyright  : Copyright 2023, 2024, 2025, 2024
 :license    : GPLv3
 '''
 
@@ -13,6 +13,7 @@ import unittest
 
 from copy import copy
 from uuid import UUID
+from logging import Logger
 from datetime import UTC
 from datetime import datetime
 
@@ -37,7 +38,7 @@ from byoda.util.fastapi import setup_api
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -477,5 +478,7 @@ def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

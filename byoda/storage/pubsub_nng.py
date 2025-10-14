@@ -2,7 +2,7 @@
 PubSub using Nano Next Generation (NNG) as the underlying technology
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,8 +12,8 @@ import asyncio
 
 from copy import copy
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import pynng
 
@@ -29,7 +29,7 @@ Schema = TypeVar('Schema')
 
 
 class PubSubNng(PubSub):
-    ___slots__ = [
+    ___slots__: list[str] = [
         'work_dir', 'schema', 'pub', 'subs', 'is_sender'
     ]
     SEND_TIMEOUT = 100

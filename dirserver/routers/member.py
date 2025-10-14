@@ -2,7 +2,7 @@
 /network/member API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 
 The /network/member API is called by pods:
@@ -13,8 +13,8 @@ The /service/service POST/DELETE APIs have the same signature but only
 informs the service about the availability of the pod.
 '''
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 

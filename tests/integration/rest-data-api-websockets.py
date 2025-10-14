@@ -5,6 +5,8 @@ import sys
 import unittest
 
 from uuid import UUID
+from logging import Logger
+
 from datetime import datetime
 from datetime import timezone
 
@@ -31,8 +33,9 @@ from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -52,13 +55,14 @@ from tests.lib.auth import get_member_auth_header
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 
 from podserver.codegen.pydantic_service_4294929430_1 import asset
+
 TEST_DIR: str = '/tmp/byoda-tests/podserver'
 
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
-        network_data = await setup_network(delete_tmp_dir=False)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=False)
         network_data['account_id'] = get_account_id(network_data)
 
         config.test_case = 'TEST_CLIENT'
@@ -72,7 +76,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         global APP
-        APP = setup_api(
+        APP: FastAPI = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,
@@ -89,7 +93,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             )
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
 
     async def test_websocket_updates(self):
@@ -116,7 +120,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                     append_data, member_auth_header, service_id, class_name
                 )
 
-    async def test_websocket_counter(self):
+    async def test_websocket_counter(self) -> None:
         service_id: int = ADDRESSBOOK_SERVICE_ID
         class_name: str = 'network_assets'
 
@@ -139,13 +143,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                     append_data, member_auth_header, service_id, class_name
                 )
 
-    async def test_data_wsapi_counter(self):
+    async def test_data_wsapi_counter(self) -> None:
         server: PodServer = config.server
         account: Account = server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         class_name: str = 'network_assets'
         action: DataRequestType = DataRequestType.COUNTER
-        member = await account.get_membership(service_id)
+        member: AccountRouter.Member | None = await account.get_membership(
+            service_id
+        )
 
         member_auth_header: dict[str, str] = await get_member_auth_header(
             service_id, APP
@@ -160,13 +166,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 append_data, member_auth_header, service_id, class_name
             )
 
-    async def test_data_wsapi_updates(self):
+    async def test_data_wsapi_updates(self) -> None:
         server: PodServer = config.server
         account: Account = server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
         class_name: str = 'network_assets'
         action: DataRequestType = DataRequestType.UPDATES
-        member = await account.get_membership(service_id)
+        member: AccountRouter.Member | None = await account.get_membership(
+            service_id
+        )
 
         member_auth_header: dict[str, str] = await get_member_auth_header(
             service_id, APP
@@ -181,7 +189,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
                 append_data, member_auth_header, service_id, class_name
             )
 
-    async def test_websocket_no_subscribe_right(self):
+    async def test_websocket_no_subscribe_right(self) -> None:
         server: PodServer = config.server
         account: Account = server.account
         service_id: int = ADDRESSBOOK_SERVICE_ID
@@ -241,7 +249,7 @@ async def send_api_request(
         websocket: WebSocketClientProtocol,
         task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
     _LOGGER.info('Sending message')
-    model = {
+    model: dict[str, any] = {
         'query_id': get_test_uuid(),
         'depth': 0,
     }
@@ -263,7 +271,7 @@ async def listen_api(
 
         node = data['node']
         test.assertIsNotNone(node)
-        model = asset.model_validate(node)
+        model: asset = asset.model_validate(node)
         test.assertEqual(model.asset_type, 'post')
     else:
         data = orjson.loads(response)
@@ -277,7 +285,7 @@ async def append_data(member_auth_header: dict[str, str], service_id: int,
                       class_name: str, app: FastAPI = None) -> HttpResponse:
     count: int = 0
 
-    vars = {
+    vars: dict[str, any] = {
         'created_timestamp': str(
             datetime.now(tz=timezone.utc).isoformat()
         ),
@@ -337,7 +345,7 @@ async def append_data(member_auth_header: dict[str, str], service_id: int,
 
 async def append_datalogs(member_auth_header: dict[str, str], service_id: int
                           ) -> HttpResponse:
-    vars = {
+    vars: dict[str, str] = {
         'created_timestamp': str(
             datetime.now(tz=timezone.utc).isoformat()
         ),
@@ -363,6 +371,6 @@ async def append_datalogs(member_auth_header: dict[str, str], service_id: int
     return resp
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

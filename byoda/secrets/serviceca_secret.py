@@ -2,11 +2,13 @@
 Cert manipulation for service secrets: Service CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -19,8 +21,6 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType
 from byoda.datatypes import EntityId
 from byoda.datatypes import CsrSource
-
-from byoda.util.logger import Logger
 
 from .ca_secret import CaSecret
 
@@ -37,13 +37,17 @@ class ServiceCaSecret(CaSecret):
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    ACCEPTED_CSRS: dict[IdType, int] = {
+    _ACCEPTED_CSRS: dict[IdType, int] = {
             IdType.MEMBERS_CA: 5 * 365,
             IdType.APPS_CA: 5 * 365,
             IdType.SERVICE: 2 * 365,
             IdType.SERVICE_DATA: 5 * 365,
     }
 
+    # The longest path under service CA is: -> members_ca
+    _PATHLEN = 1
+
+    @override
     def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the Service CA secret. Either paths or network
@@ -88,11 +92,11 @@ class ServiceCaSecret(CaSecret):
         self.id_type = IdType.SERVICE_CA
 
         self.ca: bool = True
-        self.signs_ca_certs: bool = True
-        self.max_path_length: int = 1
+        self.max_path_length = self._PATHLEN
 
-        self.accepted_csrs = self.ACCEPTED_CSRS
+        self.accepted_csrs = self._ACCEPTED_CSRS
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -111,10 +115,9 @@ class ServiceCaSecret(CaSecret):
             f'{self.network}'
         )
 
-        return await super().create_csr(
-            commonname, key_size=4096, ca=self.ca, renew=renew
-        )
+        return await super().create_csr(commonname, renew=renew)
 
+    @override
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
@@ -133,6 +136,7 @@ class ServiceCaSecret(CaSecret):
 
         return entity_id
 
+    @override
     def review_csr(self, csr: CertificateSigningRequest,
                    source: CsrSource = CsrSource.WEBAPI) -> EntityId:
         '''

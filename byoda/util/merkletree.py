@@ -7,7 +7,7 @@ hash of that file. The sh256 has of the manifest file is available to store
 in the membership db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -16,6 +16,7 @@ import base64
 
 from typing import Self
 from typing import Literal
+from logging import Logger
 from logging import getLogger
 
 import orjson
@@ -24,8 +25,6 @@ from pymerkle import BaseMerkleTree
 from pymerkle.utils import decompose
 
 from pymerkle.hasher import MerkleHasher
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

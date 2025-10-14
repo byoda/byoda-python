@@ -2,7 +2,7 @@
 /network/member API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 
 It takes 3 steps for a pod to become a member of service:
@@ -13,8 +13,8 @@ It takes 3 steps for a pod to become a member of service:
 '''
 
 from copy import copy
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Depends, Request
 from fastapi import HTTPException

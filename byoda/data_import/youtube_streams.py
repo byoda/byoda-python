@@ -2,7 +2,7 @@
 Definitions for the tracks containing audio and video of a Youtube video
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -159,7 +159,7 @@ TARGET_AUDIO_STREAMS: dict[str, dict[str, str | int]] = {
 # 269, resolution: 256x144, AVC1.4D400C', 30fps, HLS
 # 229, resolution: 426x240, AVC1.4D4015, 30fps, HLS
 # 230: resolution: 640x360, AVC1.4D401E, 30fps, HLS
-# 18: video + audio, resolution: 640x360, AVC1.42001E, 30fps, MP4 + AAC-LC 44.1khz  
+# 18: video + audio, resolution: 640x360, AVC1.42001E, 30fps, MP4 + AAC-LC 44.1khz
 # 231: resolution: 854x480, AVC1.4D401f, 30fps, HLS
 # 606: resolution: 854x480, AVC1, 30fps, HLS
 # 22: resolution: 1280x720, AVC1.64001F, 30fps, MP4, audio: mp4a.40.2, channels: 2, ASR: 44100

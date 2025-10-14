@@ -2,12 +2,14 @@
 Cert manipulation for service secrets: Apps CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -20,8 +22,6 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType, EntityId
 from byoda.datatypes import CsrSource
-
-from byoda.util.logger import Logger
 
 from .ca_secret import CaSecret
 
@@ -36,7 +36,10 @@ class AppsCaSecret(CaSecret):
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=1800)
 
     # CSRs that we are willing to sign
-    ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
+    _ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
+
+    # There are no CAs allowed under the Apps CA
+    _PATHLEN = 0
 
     __slots__: list[str] = ['network', 'service_id']
 
@@ -45,8 +48,10 @@ class AppsCaSecret(CaSecret):
         Class for the Apps CA secret. Either paths or network parameters must
         be provided. If paths parameter is not provided, the cert_file and
         private_key_file attributes of the instance must be set before the
-        save() or load() apps are called
+        save() or load() methods are called
 
+        :param service_id: the number of the service
+        :param network: the BYODA network that the AppsCa is in
         :returns: ValueError if both 'paths' and 'network' parameters are
         specified
         :raises: (none)
@@ -55,7 +60,7 @@ class AppsCaSecret(CaSecret):
         service_id = int(service_id)
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = service_id
+        self.paths.service_id = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -74,11 +79,11 @@ class AppsCaSecret(CaSecret):
 
         # X.509 constraints
         self.ca: bool = True
-        self.max_path_length: int = 0
+        self.max_path_length: int = self._PATHLEN
 
-        self.signs_ca_certs: bool = False
-        self.accepted_csrs: dict[IdType, int] = AppsCaSecret.ACCEPTED_CSRS
+        self.accepted_csrs: dict[IdType, int] = AppsCaSecret._ACCEPTED_CSRS
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -97,9 +102,7 @@ class AppsCaSecret(CaSecret):
             f'{self.network}'
         )
 
-        return await super().create_csr(
-            common_name, key_size=4096, ca=True, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
@@ -132,13 +135,14 @@ class AppsCaSecret(CaSecret):
         by instances of this class        '''
 
         entity_id: EntityId = CaSecret.review_commonname_by_parameters(
-            commonname, network, AppsCaSecret.ACCEPTED_CSRS,
+            commonname, network, AppsCaSecret._ACCEPTED_CSRS,
             service_id=int(service_id),
             uuid_identifier=True, check_service_id=True
         )
 
         return entity_id
 
+    @override
     def review_csr(self, csr: CertificateSigningRequest,
                    source: CsrSource = None) -> EntityId:
         '''
@@ -161,6 +165,7 @@ class AppsCaSecret(CaSecret):
 
         return entity_id
 
+    @override
     def review_subjectalternative_name(self, csr: CertificateSigningRequest
                                        ) -> str:
         '''
@@ -181,9 +186,10 @@ class AppsCaSecret(CaSecret):
         if not common_name:
             raise ValueError('CSR has no common name')
 
-        extention = csr.extensions.get_extension_for_class(
-            x509.SubjectAlternativeName
-        )
+        extention: x509.Extension[x509.SubjectAlternativeName] = \
+            csr.extensions.get_extension_for_class(
+                x509.SubjectAlternativeName
+            )
 
         dnsnames: list[str] = extention.value.get_values_for_type(x509.DNSName)
 

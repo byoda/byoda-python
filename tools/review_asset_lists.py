@@ -12,12 +12,13 @@ import sys
 import os
 import logging
 import argparse
-
 import anyio
+
+from logging import Logger
 
 from byoda.datacache.asset_cache import AssetCache
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 _LOGGER: Logger | None = None
 
@@ -41,11 +42,11 @@ async def main(argv: list) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             argv[0], debug=True, json_out=True, loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             argv[0], json_out=False, loglevel=logging.WARNING
         )
 

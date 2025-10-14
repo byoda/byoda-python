@@ -2,23 +2,21 @@
 Bootstrap the account for a pod
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 from abc import ABC
 from abc import abstractmethod
 
 from jinja2 import Template
 
 from byoda.datatypes import IdType
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 ANGIE_SITE_CONFIG_DIR: str = '/etc/angie/conf.d'

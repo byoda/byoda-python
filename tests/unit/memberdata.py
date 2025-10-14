@@ -2,17 +2,19 @@
 Test cases for Memberdata class
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import sys
-
 import unittest
+
+from logging import Logger
 
 from byoda.datamodel.memberdata import MemberData
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
+
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 
@@ -25,17 +27,17 @@ class Field:
 
 class DataClass:
     def __init__(self, name: str, fields: dict, referenced_class):
-        self.name = name
+        self.name: str = name
         self.fields = fields
-        self.referenced_class = referenced_class
+        self.referenced_class: any = referenced_class
 
 
 class TestAccountManager(unittest.TestCase):
 
-    def test_cache_keys(self):
+    def test_cache_keys(self) -> None:
         _LOGGER.debug('test_cache_keys')
-        test_data = {'a': 1, 'b': 2, 'c': 3}
-        field_data = {
+        test_data: dict[str, int] = {'a': 1, 'b': 2, 'c': 3}
+        field_data: dict[str, Field] = {
             'a': Field('a', True),
             'b': Field('b', True),
             'c': Field('c', True),
@@ -48,7 +50,9 @@ class TestAccountManager(unittest.TestCase):
         filter_data = DataClass(
             'gaap', field_data, referenced_class
         )
-        keys = MemberData._get_counter_key_permutations(filter_data, test_data)
+        keys: set[str] = MemberData._get_counter_key_permutations(
+            filter_data, test_data
+        )
         self.assertEqual(
             keys,
             set(
@@ -65,7 +69,7 @@ class TestAccountManager(unittest.TestCase):
             )
         )
 
-        counter_filter = {
+        counter_filter: dict[str, int] = {
             'a': 1,
             'b': 2,
         }
@@ -86,6 +90,6 @@ class TestAccountManager(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

@@ -2,7 +2,7 @@
 DataApiClient, derived from ApiClient for calling REST Data APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -10,6 +10,7 @@ from copy import copy
 from uuid import UUID
 from uuid import uuid4
 
+from logging import Logger
 from logging import getLogger
 
 from fastapi import FastAPI
@@ -26,13 +27,9 @@ from byoda.datatypes import DATA_API_PROXY_URL
 from byoda.secrets.secret import Secret
 from byoda.secrets.member_secret import MemberSecret
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .api_client import ApiClient, HttpMethod
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 

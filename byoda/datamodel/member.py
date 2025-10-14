@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,6 +12,7 @@ from uuid import UUID
 from uuid import uuid4
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 
@@ -39,6 +40,7 @@ from byoda.datacache.counter_cache import CounterCache
 
 from byoda.storage import FileStorage
 
+from byoda.secrets.secret import CSR
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.service_data_secret import ServiceDataSecret
 from byoda.secrets.member_secret import MemberSecret
@@ -57,8 +59,6 @@ from byoda.util.fastapi import update_cors_origins
 
 from byoda.util.angieconfig import AngieConfig
 from byoda.util.angieconfig import ANGIE_SITE_CONFIG_DIR
-
-from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -615,7 +615,7 @@ class Member:
                 await self.register(secret)
 
         else:
-            csr = await secret.create_csr()
+            csr: CSR = await secret.create_csr()
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
             certchain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)

@@ -16,9 +16,8 @@ from uuid import UUID
 from uuid import uuid4
 from datetime import UTC
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
-
-from byoda.util.logger import Logger
 
 from byotubesvr.models.lite_api_models import NetworkLinkResponseModel
 

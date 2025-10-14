@@ -2,7 +2,7 @@
 Cert manipulation signing data by an app
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,8 +11,8 @@ from uuid import UUID
 from copy import copy
 from typing import TypeVar
 from typing import override
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import Certificate
 from cryptography.x509 import CertificateSigningRequest
@@ -111,8 +111,7 @@ class AppDataSecret(DataSecret):
         )
 
         return await super().create_csr(
-            common_name, sans=[self.fqdn], key_size=4096, ca=self.ca,
-            renew=renew
+            common_name, sans=[self.fqdn], renew=renew
         )
 
     @staticmethod

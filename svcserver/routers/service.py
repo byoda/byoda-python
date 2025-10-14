@@ -2,7 +2,7 @@
 /network/service API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 
 The registration of a service in the network takes four steps:
@@ -17,8 +17,8 @@ The registration of a service in the network takes four steps:
 '''
 
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import APIRouter, Request
 from fastapi import HTTPException

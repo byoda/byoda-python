@@ -2,7 +2,7 @@
 Test cases for PubSub
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ import sys
 import shutil
 import unittest
 
+from logging import Logger
 from logging import getLogger
 
 import pynng
@@ -32,7 +33,7 @@ from byoda.storage.filestorage import FileStorage
 from byoda.storage.pubsub import PubSub
 from byoda.storage.pubsub_nng import PubSubNng
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -181,7 +182,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
-        test_data = {
+        test_data: dict[str, any] = {
             'member_id': get_test_uuid(),
             'relation': 'friend',
             'created_timestamp': datetime.now(tz=timezone.utc)
@@ -189,7 +190,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         pub = PubSub.setup('test', data_class, schema, is_sender=True)
 
-        subs = [
+        subs: list[PubSub] = [
             PubSub.setup('test', data_class, schema, is_sender=False),
             PubSub.setup('test', data_class, schema, is_sender=False)
         ]
@@ -204,7 +205,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(messages[0][0].data, test_data)
         self.assertEqual(messages[1][0].data, test_data)
 
-    async def test_two_senders_one_receiver(self):
+    async def test_two_senders_one_receiver(self) -> None:
         _LOGGER.debug('test_two_senders_one_receiver')
 
         storage: FileStorage = FileStorage(TEST_DIR)
@@ -217,7 +218,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
-        test_data = [
+        test_data: list[dict[str, any]] = [
             {
                 'member_id': get_test_uuid(),
                 'relation': 'friend',
@@ -232,12 +233,12 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         # For the second instance of pubs, we bypass PubSub.setup() and
         # directly call PubSubNng() so that we can set the process_id
-        pubs = [
+        pubs: list[PubSub] = [
             PubSub.setup('test', data_class, schema, is_sender=True),
             PubSubNng(data_class, schema, False, is_sender=True, process_id=1),
         ]
 
-        sub = PubSub.setup('test', data_class, schema, is_sender=False)
+        sub: PubSub = PubSub.setup('test', data_class, schema, is_sender=False)
 
         test_messages: list[PubSubDataAppendMessage] = [
             PubSubDataAppendMessage.create(
@@ -258,5 +259,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

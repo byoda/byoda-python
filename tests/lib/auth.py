@@ -2,7 +2,7 @@
 helper functions for authentication test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -37,14 +37,15 @@ from tests.lib.defines import BYOTUBE_SERVICE_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 
 
-def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
+def get_jwt_header(base_url: str = BASE_URL,
+                   principal_id: UUID = None,
                    secret: str = None,
                    service_id: int = ADDRESSBOOK_SERVICE_ID,
                    app: FastAPI | None = None) -> dict[str, str]:
 
-    if not id:
+    if not principal_id:
         account: Account = config.server.account
-        id = account.account_id
+        principal_id: UUID = account.account_id
 
     if not secret:
         secret = os.environ['ACCOUNT_SECRET']
@@ -52,7 +53,7 @@ def get_jwt_header(base_url: str = BASE_URL, id: UUID = None,
     url: str = base_url + '/v1/pod/authtoken'
 
     data: dict[str, str] = {
-        'username': str(id)[:8],
+        'username': str(principal_id)[:8],
         'password': secret,
     }
     if service_id is not None:

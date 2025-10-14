@@ -4,13 +4,13 @@ import sys
 import unittest
 
 from uuid import UUID, uuid4
+from logging import Logger
 from datetime import UTC
 from datetime import datetime
 
 from redis import Redis
 
-from byoda.util.logger import Logger
-
+from byoda.util.logger import Logger as ByodaLogger
 from byotubesvr.models.lite_api_models import NetworkLinkResponseModel
 
 from byotubesvr.database.network_link_store import NetworkLinkStore
@@ -22,14 +22,16 @@ LITE = None
 
 
 class TestLiteStore(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+    @classmethod
+    async def asyncSetUp(cls) -> None:
         client: Redis[bytes] = Redis.from_url(REDIS_URL)
         client.flushall()
 
         global LITE
         LITE = NetworkLinkStore(REDIS_URL)
 
-    async def asyncTearDown(self) -> None:
+    @classmethod
+    async def asyncTearDown(cls) -> None:
         await LITE.close()
 
     async def test_lite_store(self) -> None:
@@ -147,5 +149,7 @@ class TestLiteStore(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

@@ -2,12 +2,13 @@
 Helper functions for API request processing
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from ipaddress import ip_address as IpAddress
 
@@ -39,8 +40,6 @@ from byoda.servers.server import Server
 from byoda.util.api_client.api_client import HttpMethod
 
 from byoda.exceptions import ByodaMissingAuthInfo
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

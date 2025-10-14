@@ -10,7 +10,7 @@ These tests need a local webserver running on port 8000 as the
 pynng does not allow you to spawn a server from the test code.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -19,6 +19,7 @@ import sys
 import socket
 import unittest
 
+from logging import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -42,9 +43,9 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import ApiClient
 
-from byoda.util.logger import Logger
-
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -301,7 +302,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     result: int = sock.connect_ex(('127.0.0.1', 8000))

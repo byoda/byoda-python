@@ -2,7 +2,7 @@
 Listen to updates and persist the updates
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ from uuid import UUID
 from uuid import uuid4
 from typing import Self
 from random import random
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -57,8 +58,6 @@ from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.requestauth.jwt import JWT
 
 from byoda.util.test_tooling import is_test_uuid
-
-from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
 

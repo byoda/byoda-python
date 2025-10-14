@@ -13,9 +13,9 @@ import unittest
 
 from uuid import UUID
 from uuid import uuid4
+from logging import Logger
 
-from byoda.util.logger import Logger
-
+from byoda.util.logger import Logger as ByodaLogger
 from byoda import config
 
 from byotubesvr.auth.password import hash_password, verify_password
@@ -57,6 +57,8 @@ class TestAccountManager(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

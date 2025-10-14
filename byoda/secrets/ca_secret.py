@@ -2,12 +2,15 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
+
 from copy import deepcopy
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -22,29 +25,13 @@ from byoda.datatypes import CsrSource
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.logger import Logger
-
 from .secret import Secret
 from .secret import CertChain
 
 _LOGGER: Logger = getLogger(__name__)
 
-_RSA_KEYSIZE: int = 3072
-
 _BYODA_DIR: str = '/.byoda/'
 _ROOT_DIR: str = os.environ['HOME'] + _BYODA_DIR
-
-VALID_SIGNATURE_ALGORITHMS: set[str] = set(
-    [
-        'sha256WithRSAEncryption'
-    ]
-)
-VALID_SIGNATURE_HASHES: set[str] = set(
-    [
-        'sha256'
-    ]
-)
-IGNORED_X509_NAMES: set[str] = set(['C', 'ST', 'L', 'O'])
 
 CSR = x509.CertificateSigningRequest
 
@@ -57,7 +44,45 @@ class CaSecret(Secret):
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    ACCEPTED_CSRS: dict[IdType, int] = {}
+    _ACCEPTED_CSRS: dict[IdType, int] = {}
+
+    # Maximum length of path in CA hierarchy under us.
+    _PATHLEN: int | None = 1
+
+    VALID_SIGNATURE_ALGORITHMS: set[str] = {
+        'sha256WithRSAEncryption',
+        'ed25519',
+        'ecdsa-with-SHA256'
+    }
+
+    VALID_SIGNATURE_HASHES: set[str] = {'sha256'}
+
+    IGNORED_X509_NAMES: set[str] = {'C', 'ST', 'L', 'O'}
+
+    _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
+                'digital_signature': False,
+                'content_commitment': False,
+                'key_encipherment': False,
+                'data_encipherment': False,
+                'key_agreement': False,
+                'key_cert_sign': True,
+                'crl_sign': True,
+                'encipher_only': False,
+                'decipher_only': False,
+    }
+
+    _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
+        x509.ExtendedKeyUsageOID.OCSP_SIGNING,
+        x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,
+        # x509.ExtendedKeyUsageOID.SERVER_AUTH,
+        # x509.ExtendedKeyUsageOID.CLIENT_AUTH,
+        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        # x509.ExtendedKeyUsageOID.TIME_STAMPING,
+        # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,
+        # x509.ExtendedKeyUsageOID.KERBEROS_PKINIT_KDC,
+        # x509.ExtendedKeyUsageOID.IPSEC_IKE,
+    ]
 
     '''
     Interface class for the various types of secrets BYODA uses
@@ -72,6 +97,7 @@ class CaSecret(Secret):
     - fernet               : instance of cryptography.fernet.Fernet
     '''
 
+    @override
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None) -> None:
         '''
@@ -87,13 +113,18 @@ class CaSecret(Secret):
 
         # X.509 constraints
         self.ca: bool = True
-        self.max_path_length: int = 0
+        self.max_path_length: int = self._PATHLEN
+        self.key_usage_constraints: dict[str, bool] = \
+            CaSecret._KEY_USAGE_CONSTRAINTS
+        self.extended_key_usage: dict[str, x509.ObjectIdentifier] = \
+            CaSecret._EXTENDED_KEY_USAGE
 
         # These are the different identity types of the
         # certificates for which this secret will sign
         # CSRs
-        self.accepted_csrs: dict[IdType, int] = self.ACCEPTED_CSRS
+        self.accepted_csrs: dict[IdType, int] = self._ACCEPTED_CSRS
 
+    @override
     def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
         Check whether the CSR meets our requirements
@@ -115,12 +146,13 @@ class CaSecret(Secret):
             raise ValueError('CSR with invalid signature')
 
         sign_algo: str = csr.signature_algorithm_oid._name
-        if sign_algo not in VALID_SIGNATURE_ALGORITHMS:
+        if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
             raise ValueError(f'Invalid algorithm: {sign_algo}')
 
-        hash_algo: str = csr.signature_hash_algorithm.name
-        if hash_algo not in VALID_SIGNATURE_HASHES:
-            raise ValueError(f'Invalid algorithm: {hash_algo}')
+        if csr.signature_hash_algorithm:
+            hash_algo: str = csr.signature_hash_algorithm.name
+            if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
+                raise ValueError(f'Invalid algorithm: {hash_algo}')
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names
@@ -146,7 +178,7 @@ class CaSecret(Secret):
         Extracts the subject alternative name extension of the CSR
         '''
 
-        extention = csr.extensions.get_extension_for_class(
+        extention: x509.Extension = csr.extensions.get_extension_for_class(
             x509.SubjectAlternativeName
         )
         dnsnames: list[str] = extention.value.get_values_for_type(x509.DNSName)
@@ -181,7 +213,7 @@ class CaSecret(Secret):
             key, value = dn.split('=')
             if not key or not value:
                 raise ValueError(f'Invalid commonname: {name}')
-            if key in IGNORED_X509_NAMES:
+            if key in CaSecret.IGNORED_X509_NAMES:
                 continue
             if key == 'CN':
                 commonname: str = value
@@ -191,8 +223,9 @@ class CaSecret(Secret):
 
         raise ValueError(f'commonname not found in {name}')
 
+    @override
     def review_commonname(self, commonname: str, uuid_identifier=True,
-                          check_service_id=True) -> str:
+                          check_service_id=True) -> EntityId:
         '''
         Checks if the structure of common name matches of a byoda secret.
         Parses the entity type, the identifier and optionally the service_id
@@ -227,6 +260,7 @@ class CaSecret(Secret):
 
         return entity_id
 
+    @override
     @staticmethod
     def review_commonname_by_parameters(
             commonname: str, network: str, accepted_csrs: dict[IdType, int],
@@ -288,7 +322,7 @@ class CaSecret(Secret):
                     f'{type(expire)}'
                 )
         else:
-            entity_id: str = self.review_csr(csr, source=CsrSource.LOCAL)
+            entity_id: EntityId = self.review_csr(csr, source=CsrSource.LOCAL)
             if entity_id.id_type not in self.accepted_csrs:
                 raise ValueError(
                     f'We do not sign CSRs for entity type: {entity_id.id_type}'
@@ -299,16 +333,33 @@ class CaSecret(Secret):
                 datetime.now(tz=UTC) + timedelta(days=expiration_days)
 
         try:
-            extension: x509.Extension[x509.BasicConstraints] = \
+            ca_extension: x509.Extension[x509.BasicConstraints] = \
                 csr.extensions.get_extension_for_class(x509.BasicConstraints)
-            is_ca: bool = extension.value.ca
+            is_ca: bool = ca_extension.value.ca
         except x509.ExtensionNotFound:
             is_ca = False
 
+        try:
+            keyusage_extension: x509.Extension[x509.KeyUsage] = \
+                csr.extensions.get_extension_for_class(x509.KeyUsage)
+        except x509.ExtensionNotFound:
+            raise ValueError(
+                'CSR does not have Key Usage Constraints extension'
+            )
+
+        extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage]
+        try:
+            extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage] = \
+                csr.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
+        except x509.ExtensionNotFound:
+            extended_keyusage_extension = None
+
         dnsname: str = self.review_subjectalternative_name(csr)
 
-        _LOGGER.debug('Signing cert with cert %s', self.common_name)
-        cert: x509.Certificate = x509.CertificateBuilder().subject_name(
+        _LOGGER.debug(f'Signing cert with cert {self.common_name}')
+
+        cert_builder: x509.CertificateBuilder = x509.CertificateBuilder(
+        ).subject_name(
             csr.subject
         ).issuer_name(
             self.cert.subject
@@ -329,7 +380,29 @@ class CaSecret(Secret):
             x509.BasicConstraints(
                 ca=is_ca, path_length=None
             ), critical=True,
-        ).sign(self.private_key, hashes.SHA256())
+        ).add_extension(
+            x509.SubjectKeyIdentifier.from_public_key(
+                csr.public_key()
+            ), critical=False
+        ).add_extension(
+            keyusage_extension.value, critical=True
+        )
+
+        if extended_keyusage_extension:
+            cert_builder = cert_builder.add_extension(
+                extended_keyusage_extension.value, critical=False
+            )
+
+        if not self.is_root_cert:
+            cert_builder = cert_builder.add_extension(
+                x509.AuthorityKeyIdentifier.from_issuer_public_key(
+                    self.private_key.public_key()
+                ), critical=False
+            )
+
+        cert: x509.Certificate = cert_builder.sign(
+            self.private_key, hashes.SHA256()
+        )
 
         cert_chain = []
         if not self.is_root_cert:

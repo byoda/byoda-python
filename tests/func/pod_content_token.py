@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -16,6 +16,7 @@ import sys
 import unittest
 
 from uuid import uuid4, UUID
+from logging import Logger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -47,8 +48,9 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.api_client.restapi_client import HttpMethod
 
-from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -452,5 +454,7 @@ async def test_content_keys(test, table, keys_expected,
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

@@ -2,14 +2,16 @@
 Test cases for Key/Value class using SQLite backend
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 import sys
 import shutil
+
 from uuid import uuid4
+from logging import Logger
 
 import unittest
 
@@ -17,16 +19,13 @@ from byoda.datatypes import CacheType
 from byoda.datatypes import CacheTech
 
 from byoda.datacache.kv_cache import KVCache
-
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
-
+    async def asyncSetUp(self) -> None:
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -35,7 +34,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         os.makedirs(TEST_DIR)
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         pass
 
     async def test_cache(self):
@@ -64,6 +63,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

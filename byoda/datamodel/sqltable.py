@@ -3,7 +3,7 @@ Class for SQL tables generated based on data classes
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -15,6 +15,7 @@ from typing import Self
 from typing import TypeVar
 from datetime import UTC
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
 
 import orjson
@@ -38,8 +39,6 @@ from byoda.datamodel.dataclass import SchemaDataScalar
 from byoda.datamodel.dataclass import SchemaDataArray
 
 from byoda.datamodel.datafilter import DataFilterSet
-
-from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
 

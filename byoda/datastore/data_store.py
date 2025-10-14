@@ -6,7 +6,7 @@ The DataStore can be extended to support different backend storage. It
 currently only supports Sqlite3.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -15,9 +15,10 @@ from enum import Enum
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from byoda.datamodel.sqltable import SqlTable
-from byoda.util.logger import Logger
+
 
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer

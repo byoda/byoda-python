@@ -12,7 +12,7 @@ search. In this module we use the prefix '<list_name>:' so all assets
 are stored in keys starting with that prefix.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -20,6 +20,7 @@ from uuid import UUID
 from typing import Self
 from hashlib import sha256
 from base64 import b64encode
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -48,8 +49,6 @@ from prometheus_client import Gauge
 
 from byoda.datatypes import IngestStatus
 from byoda.models.data_api_models import DEFAULT_PAGE_LENGTH
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

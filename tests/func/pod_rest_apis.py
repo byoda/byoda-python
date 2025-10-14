@@ -7,21 +7,17 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 import sys
-import asyncio
 import unittest
 
 from uuid import UUID
 from datetime import datetime
 from datetime import timezone
-from multiprocessing import Process
-
-import uvicorn
 
 import httpx
 
@@ -41,8 +37,10 @@ from byoda.util.api_client.data_api_client import DataApiClient
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
+
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -737,5 +735,5 @@ class TestPodApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

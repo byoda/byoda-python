@@ -2,7 +2,7 @@
 Pydantic model used for REST Data API queries
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ from uuid import UUID
 from typing import Generic
 from typing import TypeVar
 
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -29,8 +30,6 @@ from byoda.datatypes import IdType
 from byoda.datatypes import Currency
 from byoda.datatypes import DataFilterType
 from byoda.datatypes import MonetizationType
-
-from byoda.util.logger import Logger
 
 from byoda.limits import MAX_FIELD_NAME_LENGTH
 from byoda.limits import MAX_OBJECT_FIELD_COUNT

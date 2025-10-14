@@ -2,7 +2,7 @@
 Class for modeling the (JSON) schema to validating data
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -17,8 +17,9 @@ from typing import TypeVar
 from typing import Optional
 from types import ModuleType
 from dataclasses import dataclass
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 import jinja2
 
@@ -129,11 +130,11 @@ class Schema:
         self.verify_signatures: bool = verify_signatures
 
         self.verified_signatures: set[MessageSignature] = set()
-        self._service_signature: ServiceSignature = None
-        self._network_signature: NetworkSignature = None
+        self._service_signature: ServiceSignature | None = None
+        self._network_signature: NetworkSignature | None = None
 
-        self.service_data_secret: ServiceDataSecret = None
-        self.network_data_secret: NetworkDataSecret = None
+        self.service_data_secret: ServiceDataSecret | None = None
+        self.network_data_secret: NetworkDataSecret | None = None
 
     def as_dict(self) -> dict:
         '''

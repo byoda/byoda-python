@@ -2,7 +2,7 @@
 /data API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -10,8 +10,9 @@ import os
 
 from uuid import UUID
 from uuid import uuid4
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 from datetime import datetime
 from datetime import timezone
 

@@ -8,13 +8,14 @@ the angie configuration files for the account and for
 existing memberships.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 import sys
 
+from logging import Logger
 from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -37,8 +38,6 @@ from byoda.servers.pod_server import PodServer
 from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
-
-from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -89,7 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     logfile: str = network_data.get('logdir', '/var/log/byoda') + '/pod.log'
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=True, debug=config.debug,
         loglevel=network_data['loglevel'], logfile=logfile
     )

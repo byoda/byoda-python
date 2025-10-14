@@ -3,13 +3,14 @@ Class MemberDb stores information for the Service and Directory servers
 about registered clients
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -21,8 +22,6 @@ from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -55,6 +54,7 @@ class MemberDb:
         self.network_name: str = network_name
         self.kvcache: KVCache | None = None
 
+    @staticmethod
     async def setup(connection_string: str, service_id: int, network_name: str
                     ) -> Self:
         '''

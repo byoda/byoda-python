@@ -2,16 +2,17 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from copy import copy
 from typing import Self
+from typing import override
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -23,8 +24,6 @@ from byoda import config
 
 from .data_secret import DataSecret
 from .data_secret import Secret
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
@@ -34,6 +33,7 @@ Account = TypeVar('Account')
 class MemberDataSecret(DataSecret):
     __slots__: list[str] = ['member_id', 'network', 'service_id']
 
+    @override
     def __init__(self, member_id: UUID, service_id: int,
                  account: Account | None = None):
         '''
@@ -83,6 +83,7 @@ class MemberDataSecret(DataSecret):
         self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBER_DATA
 
+    @override
     async def create(self, expire: int = 109500) -> None:
         '''
         Creates an RSA private key and X.509 cert
@@ -101,6 +102,7 @@ class MemberDataSecret(DataSecret):
             common_name, expire=expire, key_size=4096, ca=self.ca
         )
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -118,10 +120,9 @@ class MemberDataSecret(DataSecret):
         )
 
         # TODO: SECURITY: add constraints
-        return await super().create_csr(
-            common_name, key_size=4096, ca=False, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)
 
+    @override
     @staticmethod
     def create_common_name(member_id: UUID, service_id: int,
                            network: Network | str) -> str:
@@ -141,6 +142,7 @@ class MemberDataSecret(DataSecret):
 
         return f'{member_id}.{IdType.MEMBER_DATA.value}{service_id}.{network}'
 
+    @override
     @staticmethod
     async def download(member_id: UUID, service_id: int,
                        network: Network | str) -> Self:
@@ -189,7 +191,7 @@ class MemberDataSecret(DataSecret):
 
         return member_data_secret
 
-    def from_string(self, cert: str, certchain: str = None):
+    def from_string(self, cert: str, certchain: str = None) -> None:
         '''
         Loads an X.509 cert and certchain from a string. If the cert has an
         certchain then the certchain can either be included at the end

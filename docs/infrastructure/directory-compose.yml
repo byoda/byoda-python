@@ -1,0 +1,59 @@
+---
+#  docker compose -f directory-compose.yml up -d
+
+secrets:
+  pdns_auth_api_key:
+    file: .secrets/powerdns-api.key
+  postgres_password:
+    file: .secrets/postgres.password
+  postgres_connection_string:
+    file: .secrets/postgres_connection_string
+  pdns-admin_key:
+    file: .secrets/pdns-admin.key
+
+services:
+  # https://github.com/docker-library/docs/blob/master/postgres/README.md
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    shm_size: '256m'
+    environment:
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    volumes:
+      - /var/lib/postgresql/data:/var/lib/postgresql/18/docker
+    ports:
+      - 5432:5432
+      - 8081:8081
+
+  # https://github.com/PowerDNS/pdns/blob/master/Dockerfile-auth
+  pdns-auth:
+    image: powerdns/pdns-auth-51:latest
+    container_name: pdns
+    hostname: dir
+    domainname: byoda.net
+    restart: unless-stopped
+    secrets:
+      - pdns_auth_api_key
+    volumes:
+      - /etc/powerdns:/etc/powerdns
+      - /var/lib/powerdns:/var/lib/powerdns
+    ports:
+      - 53:53/tcp
+      - 53:53/udp
+    entrypoint: ['/bin/bash', '-c', 'export PDNS_AUTH_API_KEY=$$(cat /run/secrets/pdns_auth_api_key) ; /usr/bin/tini -- /usr/local/sbin/pdns_server-startup']
+
+  pdns-admin:
+    image: powerdnsadmin/pda-legacy:latest
+    container_name: pdns-admin
+    environment:
+      - SECRET_KEY_FILE=/run/secrets/pdns-admin_key
+      - SQLALCHEMY_DATABASE_URI_FILE=/run/secrets/postgres_connection_string
+    secrets:
+      - pdns-admin_key
+      - postgres_connection_string
+    volumes:
+      - /var/lib/pda-data:/data
+    ports:
+      - 9191:9191

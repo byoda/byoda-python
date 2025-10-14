@@ -6,31 +6,31 @@ A basic BYODA network has the following server roles:
 - Postgres server as backend for the PowerDNS server
 - A PowerDNS server
 - An off-line root CA for the private keys of the network-root-ca of the network
-  and the service-ca of the 'directory' service
 - A BYODA Directory server hosting the 'network' APIs
-- A BYODA Service server for hosting the 'directory' service
 
 The roles can all be co-located on a single server or you can
-deploy them to multiple servers for additional resilience and scale
+deploy them to multiple servers for additional resilience, scale, and security
 
 ## Set up a domain
-You need a domain, we'll use 'somecooldomain.net' as example here. You'll have to register the
-domain with a domain registrar (like [hover.com](https://www.hover.com/)) and create NS and A records that point to the public IP address of your server.
+You need a domain, we'll use 'somecooldomain.net' as example here. You'll have to register the domain with a domain registrar (like [hover.com](https://www.hover.com/)) and create NS and A records that point to the public IP address of your server.
 
 ## Set up a Postgres server
 
 The Postgres server is the storage backend for the PowerDNS DNS server
-```
+```bash
 
 # Install docker from the official docker repo
+sudo apt-get remove docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
 sudo mkdir -m 0755 -p /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian\
   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 sudo apt-get update
-sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt-get install docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
 
 mkdir -p ~/.secrets
 chmod 700 ~/.secrets
@@ -41,23 +41,10 @@ fi
 
 export POSTGRES_PASSWORD=$(cat ~/.secrets/postgres.password)
 
-
 # https://github.com/docker-library/postgres
 POSTGRES_DIR=/var/lib/postgresql
 sudo mkdir -p $POSTGRES_DIR/data
 sudo chown -R 999:999 $POSTGRES_DIR/data
-sudo docker run -d --restart unless-stopped \
-    --publish=5432:5432 \
-    --publish=8081:8081 \
-    -v $POSTGRES_DIR/data:/var/lib/postgresql/data \
-    --shm-size=256m \
-    -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD} \
-    --name postgres \
-     postgres:16
-
-
-sudo apt-get -y install postgresql-client-common
-sudo apt-get -y install postgresql-client
 
 export DIRSERVER=$(curl -s http://ifconfig.me)
 
@@ -67,10 +54,61 @@ fi
 
 export SQL_DNS_PASSWORD=$(cat ~/.secrets/sql_powerdns.password)
 
+if [ ! -f ~/.secrets/pdns-admin.key ]; then
+  openssl rand -base64 32 | tr -dc _A-Z-a-z-0-9 | head -c ${1:-12} >~/.secrets/pdns-admin.key
+fi
+```
+
+## Set up a DNS server
+The ACLs for the server should allow TCP/UDP port 53 from anywhere and port 9191 from trusted IPs. All other ports should be blocked for external traffic.
+
+
+- Set up the name server
+
+PowerDNS
+
+```bash
+PDNS_API_FILE=~/.secrets/powerdns-api.key
+if [ ! -f ${PDNS_API_FILE} ]; then
+  openssl rand -base64 32 | tr -dc _A-Z-a-z-0-9 | head -c ${1:-12} >${PDNS_API_FILE}
+fi
+PDNS_API_KEY=$(cat ${PDNS_API_FILE})
+
+sudo systemctl disable --now systemd-resolved
+
+if [ ! -f ~/.secrets/powerdns-api.key ]; then
+  passgen -n 1 >${PDNS_API_FILE}
+fi
+API_KEY=$(cat ${PDNS_API_FILE})
+
+PRIVATE_IP=$(ip route get $(ip route show 0.0.0.0/0 | grep -oP 'via \K\S+') | grep -oP 'src \K\S+')
+
+sudo mkdir -p /etc/powerdns/pdns.d
+cat <<EOF | sudo tee /etc/powerdns/pdns.conf
+launch=
+launch+=gpgsql
+gpgsql-host=postgres
+gpgsql-port=5432
+gpgsql-dbname=byodadns
+gpgsql-user=powerdns
+gpgsql-password=${SQL_DNS_PASSWORD}
+gpgsql-dnssec=yes
+webserver=yes
+webserver-address=0.0.0.0
+webserver-allow-from=127.0.0.1,172.16.0.0/12,192.168.0.0/24
+api=yes
+api-key=${API_KEY}
+EOF
+
+# Here we bring up the containers for postgres, powerdns, and pdns-admin
+docker compose -f byoda-python/docs/infrastructuredirectory-compose.yml up -d
+
+sudo apt-get -y install postgresql-client-common
+sudo apt-get -y install postgresql-client
+
 echo "*:*:postgres:postgres:${POSTGRES_PASSWORD}" >~/.pgpass
 echo "*:*:byodadns:powerdns:${SQL_DNS_PASSWORD}" >>~/.pgpass
 chmod 600 ~/.pgpass
-
 
 cat >/tmp/byodadns.sql <<EOF
 CREATE DATABASE byodadns;
@@ -83,68 +121,11 @@ psql -h localhost -U postgres -d postgres -f /tmp/byodadns.sql
 rm /tmp/byodadns.sql
 
 psql -h localhost -U powerdns -d byodadns -f docs/infrastructure/powerdns-schema.psql
-```
-
-## Set up a DNS server
-The ACLs for the server should allow TCP/UDP port 53 from anywhere and port 9191 from trusted IPs. All other ports should be blocked for external traffic.
-
-
-- Set up the name server
-PowerDNS
-
-```
-sudo apt-get install pdns-server
-sudo apt-get install pdns-backend-pgsql
-sudo systemctl disable --now systemd-resolved
-sudo systemctl stop pdns
-
-if [ ! -f ~/.secrets/powerdns-api.key ]; then
-  passgen -n 1 >~/.secrets/powerdns-api.key
-fi
-API_KEY=$(cat ~/.secrets/powerdns-api.key)
-
-sudo -i
-
-cat >/etc/powerdns/pdns.conf <<EOF
-launch=
-launch+=gpgsql
-gpgsql-host=127.0.0.1
-gpgsql-port=5432
-gpgsql-dbname=byodadns
-gpgsql-user=powerdns
-gpgsql-password=${SQL_DNS_PASSWORD}
-gpgsql-dnssec=yes
-webserver=yes
-webserver-address=0.0.0.0
-webserver-allow-from=127.0.0.1,192.168.0.0/24
-api=yes
-api-key=${API_KEY}
-EOF
-
-```
-
-This table modification allows us to remove FQDNS from the database 1 week after they've last registered
-
-```
-cat > /tmp/add_db_expire.psql <<EOF
-ALTER TABLE RECORDS ADD db_expire integer;
-EOF
-
-psql -h localhost -U powerdns -d byodadns -f /tmp/add_db_expire.psql
-rm /tmp/add_db_expire.psql
 
 ```
 
 Using  http://${DIRSERVER}:9191/login, create DNS zone for byoda.net with NS records for subdomains {accounts,services,members}.byoda.net
 
-```
-docker run -d --restart unless-stopped \
-    -e SECRET_KEY=${API_KEY} \
-    -v pda-data:/data \
-    -p 9191:80 \
-    --name pdns-admin \
-    powerdnsadmin/pda-legacy:latest
-```
 
 ## Create your CA
 
@@ -155,7 +136,8 @@ Each network has the following secrets:
 - Network Data: Signed by Network Root CA, used to sign documents such as service schemas/data contracts so pods/clients can validate that the service is supported by the network
 
 On a private server, preferably air-gapped:
-```
+
+```bash
 cd ${BYODA_HOME}
 git clone https://github.com/byoda/byoda-python
 cd byoda-python
@@ -181,7 +163,7 @@ ssh ${DIRSERVER} "sudo chown -R $USER ${BYODA_HOME}"
 scp ~/.byoda/private/network-${BYODA_DOMAIN}-{accounts-ca,services-ca,data}.key \
      ${DIRSERVER}:${BYODA_HOME}/private/
 scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_DOMAIN}
-
+```
 - Set up the directory server
 
 This is the public server that exposes the APIs

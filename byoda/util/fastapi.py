@@ -3,10 +3,11 @@ Helper function to set up the Fastapi API, shared by directory, services
 and pod servers and the functional test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
 
 from starlette.middleware import Middleware
@@ -39,8 +40,6 @@ from opentelemetry.metrics import Meter
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 
 from prometheus_client import start_http_server
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

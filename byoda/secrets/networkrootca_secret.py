@@ -2,12 +2,14 @@
 Cert manipulation of network secrets: root CA
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 from copy import copy
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -24,8 +26,6 @@ from byoda.datatypes import IdType
 from byoda.storage.filestorage import FileStorage
 from byoda.storage.filestorage import FileMode
 
-from byoda.util.logger import Logger
-
 from .secret import CSR
 from .ca_secret import CaSecret
 
@@ -40,12 +40,17 @@ class NetworkRootCaSecret(CaSecret):
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=100 * 365)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    ACCEPTED_CSRS: dict[IdType, int] = {
+    _ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.ACCOUNTS_CA: 2 * 365,
         IdType.SERVICES_CA: 16 * 365,
         IdType.NETWORK_DATA: 2 * 365
     }
 
+    # The longest path under root CA is:
+    #   -> services_ca -> service_ca -> members_ca
+    _PATHLEN = 3
+
+    @override
     def __init__(self, paths: Paths = None, network: str = None) -> None:
         '''
         Class for the network root CA secret. Either paths or network
@@ -81,12 +86,12 @@ class NetworkRootCaSecret(CaSecret):
 
         # X.509 constraints
         self.ca: bool = True
-        self.max_path_length: int = 3
+        self.max_path_length: int = self._PATHLEN
 
         self.is_root_cert = True
-        self.signs_ca_certs = True
-        self.accepted_csrs = NetworkRootCaSecret.ACCEPTED_CSRS
+        self.accepted_csrs = NetworkRootCaSecret._ACCEPTED_CSRS
 
+    @override
     async def create(self, expire: int = 10950) -> None:
         '''
         Creates an RSA private key and X.509 cert
@@ -100,12 +105,14 @@ class NetworkRootCaSecret(CaSecret):
 
         common_name: str = f'root-ca.{self.network}'
         await super().create(
-            common_name, expire=expire, key_size=4096, ca=self.ca
+            common_name, expire=expire, ca=self.ca,
         )
 
-    async def create_csr(self, renew: bool = False):
+    @override
+    async def create_csr(self, renew: bool = False) -> CSR:
         raise NotImplementedError
 
+    @override
     def review_commonname(self, commonname: str) -> str:
         '''
         Checks if the structure of common name matches with a common name of
@@ -125,6 +132,7 @@ class NetworkRootCaSecret(CaSecret):
 
         return entity_id
 
+    @override
     @staticmethod
     def review_commonname_by_parameters(commonname: str, network: str
                                         ) -> str:
@@ -137,12 +145,13 @@ class NetworkRootCaSecret(CaSecret):
         by instances of this class        '''
 
         entity_id: EntityId = CaSecret.review_commonname_by_parameters(
-            commonname, network, NetworkRootCaSecret.ACCEPTED_CSRS,
+            commonname, network, NetworkRootCaSecret._ACCEPTED_CSRS,
             uuid_identifier=False, check_service_id=False
         )
 
         return entity_id
 
+    @override
     def review_csr(self, csr: CSR, source: CsrSource = CsrSource.WEBAPI
                    ) -> EntityId:
         '''
@@ -172,6 +181,7 @@ class NetworkRootCaSecret(CaSecret):
 
         return entity_id
 
+    @override
     async def save(self, password: str = 'byoda', overwrite: bool = False,
                    storage_driver: FileStorage = None) -> None:
         '''

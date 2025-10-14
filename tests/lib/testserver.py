@@ -5,7 +5,7 @@ This file should remain in sync with podserver/main.py
 except where noted in comments in the code
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -17,6 +17,7 @@ import sys
 ###
 import shutil
 from uuid import UUID
+from logging import Logger
 from tests.lib.util import get_test_uuid
 ###
 ###
@@ -27,8 +28,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
-from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -64,7 +66,7 @@ from podserver.routers import accountdata as AccountDataRouter
 from podserver.routers import content_token as ContentTokenRouter
 
 _LOGGER = None
-LOG_FILE = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
+LOG_FILE: str = os.environ.get('LOGDIR', '/var/log/byoda') + '/pod.log'
 
 DIR_API_BASE_URL = 'https://dir.{network}/api'
 
@@ -147,7 +149,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER: Logger = ByodaLogger.getLogger(
         sys.argv[0], json_out=False, debug=config.debug,
         loglevel=data['loglevel'], logfile=LOG_FILE
     )

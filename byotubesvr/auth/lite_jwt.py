@@ -7,6 +7,7 @@ Wrapper class for the PyJWT module
 '''
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -15,8 +16,6 @@ from datetime import timedelta
 import jwt as py_jwt
 
 from prometheus_client import Counter
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

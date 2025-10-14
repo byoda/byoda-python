@@ -6,11 +6,12 @@ for cache keys, such as there is for the document store. The KV-cache does not
 provide encryption/decryption capabilities
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import Self
+from logging import Logger
 from logging import getLogger
 from typing import TypeVar
 from abc import ABC, abstractmethod
@@ -18,8 +19,6 @@ from abc import ABC, abstractmethod
 
 from byoda.datatypes import CacheTech
 from byoda.datatypes import CacheType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

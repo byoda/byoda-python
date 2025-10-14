@@ -3,11 +3,12 @@ The KV Redis data cache provides ephemeral data storage, such as services
 storing data about their members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import Self
+from logging import Logger
 from logging import getLogger
 
 import orjson
@@ -17,8 +18,6 @@ import redis.asyncio as redis
 from byoda.datatypes import CacheType
 
 from .kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -44,7 +43,7 @@ class KVRedis(KVCache):
             server_type=server_type, identifier=cache_type.value
         )
 
-        self.connection_string: str = None
+        self.connection_string: str | None = None
         self.driver = None
 
     @staticmethod

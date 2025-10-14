@@ -3,7 +3,7 @@ Test cases for byoda.util.updates_listener class and classes derived
 from it
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -14,6 +14,7 @@ import shutil
 import unittest
 
 from uuid import UUID
+from logging import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -43,9 +44,9 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
-
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -342,6 +343,8 @@ def get_asset(asset_id: str = TEST_ASSET_ID) -> dict[str, object]:
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

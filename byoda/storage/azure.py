@@ -17,13 +17,14 @@ blob_client: https://docs.microsoft.com/en-us/python/api/azure-storage-blob/azur
 Azure Storage has limitation of 250 storage accounts per subscription per region: https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits   # noqa: E501
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import Self
 from typing import BinaryIO
 from io import BufferedRandom
+from logging import Logger
 from logging import getLogger
 from tempfile import TemporaryFile
 from collections import namedtuple
@@ -41,8 +42,6 @@ from azure.storage.blob.aio._download_async import StorageStreamDownloader
 
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
-
-from byoda.util.logger import Logger
 
 from .filestorage import FileStorage
 from .filestorage import OpenMode, FileMode

@@ -17,7 +17,7 @@ Instructions to set up YouTube Data API key:
 https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -25,7 +25,8 @@ import os
 
 from uuid import UUID
 from random import sample
-from logging import getLogger, Logger
+from logging import Logger
+from logging import getLogger
 
 from byoda.datamodel.member import Member
 from byoda.datamodel.table import Table

@@ -3,12 +3,14 @@ Cert manipulation for service secrets: Service CA, Service Members CA and
 Service secret
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -21,8 +23,6 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType, EntityId
 from byoda.datatypes import CsrSource
 
-from byoda.util.logger import Logger
-
 from .ca_secret import CaSecret
 
 _LOGGER: Logger = getLogger(__name__)
@@ -31,18 +31,22 @@ Network = TypeVar('Network')
 
 
 class MembersCaSecret(CaSecret):
-    __slots__ = ['network', 'service_id']
+    __slots__: list[str] = ['network', 'service_id']
 
     # When should the Members CA secret be renewed
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    ACCEPTED_CSRS: dict[IdType, int] = {
+    _ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.MEMBER: 365,
         IdType.MEMBER_DATA: 365
     }
 
+    # There are no CAs allowed under the Members CA
+    _PATHLEN = 0
+
+    @override
     def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the Service Members CA secret.
@@ -65,7 +69,7 @@ class MembersCaSecret(CaSecret):
         service_id = int(service_id)
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = service_id
+        self.paths.service_id = service_id
 
         super().__init__(
             cert_file=self.paths.get(
@@ -82,11 +86,11 @@ class MembersCaSecret(CaSecret):
 
         # X.509 constraints
         self.ca: bool = True
-        self.max_path_length: int = 0
+        self.max_path_length = self._PATHLEN
 
-        self.signs_ca_certs: bool = False
-        self.accepted_csrs: dict[IdType, int] = MembersCaSecret.ACCEPTED_CSRS
+        self.accepted_csrs: dict[IdType, int] = MembersCaSecret._ACCEPTED_CSRS
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -106,9 +110,7 @@ class MembersCaSecret(CaSecret):
             f'{self.network}'
         )
 
-        return await super().create_csr(
-            common_name, key_size=4096, ca=True, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)
 
     def review_commonname(self, commonname: str) -> EntityId:
         '''
@@ -125,6 +127,7 @@ class MembersCaSecret(CaSecret):
 
         return entity_id
 
+    @override
     @staticmethod
     def review_commonname_by_parameters(commonname: str, network: str,
                                         service_id: int) -> EntityId:
@@ -137,13 +140,14 @@ class MembersCaSecret(CaSecret):
         by instances of this class        '''
 
         entity_id: EntityId = CaSecret.review_commonname_by_parameters(
-            commonname, network, MembersCaSecret.ACCEPTED_CSRS,
+            commonname, network, MembersCaSecret._ACCEPTED_CSRS,
             service_id=int(service_id), uuid_identifier=True,
             check_service_id=True
         )
 
         return entity_id
 
+    @override
     def review_csr(self, csr: CertificateSigningRequest,
                    source: CsrSource = None) -> EntityId:
         '''

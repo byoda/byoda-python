@@ -10,7 +10,8 @@ import base64
 
 from uuid import UUID
 from typing import Self
-from logging import getLogger, Logger
+from logging import Logger
+from logging import getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta

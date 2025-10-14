@@ -4,12 +4,13 @@ request_auth
 provides helper functions to authenticate the client making the request
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from fastapi import HTTPException
 
@@ -72,7 +73,7 @@ class MemberRequestAuth(RequestAuth):
         return self.is_authenticated
 
     @staticmethod
-    def get_service_id(commonname: str) -> str:
+    def get_service_id(commonname: str) -> int:
         '''
         Extracts the service_id from the IdType from a common name
         in a x.509 certificate for Memberships

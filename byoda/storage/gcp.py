@@ -3,11 +3,12 @@ Bring your own data & algorithm backend storage for the server running on
 Google Cloud Platform.
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import Self
+from logging import Logger
 from logging import getLogger
 from tempfile import TemporaryFile
 
@@ -18,8 +19,6 @@ from google.cloud.storage.bucket import Bucket
 from google.cloud.storage.blob import Blob
 
 from byoda.datatypes import StorageType, CloudType
-
-from byoda.util.logger import Logger
 
 from .filestorage import FileStorage
 from .filestorage import FileMode

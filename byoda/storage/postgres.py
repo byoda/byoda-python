@@ -7,7 +7,7 @@ Each membership of a service gets its own SqlLite DB file under the
 root-directory, ie.: /byoda/sqlite/<member_id>.db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -21,6 +21,7 @@ from uuid import UUID
 from typing import Self, Tuple
 from typing import TypeVar
 from typing import override
+from logging import Logger
 from logging import getLogger
 
 import orjson
@@ -52,8 +53,6 @@ from byoda.datatypes import AnyScalarType
 from byoda.secrets.data_secret import DataSecret
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

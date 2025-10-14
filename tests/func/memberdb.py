@@ -4,7 +4,7 @@
 Test the MemberDB
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -13,15 +13,17 @@ import sys
 import yaml
 import shutil
 import unittest
+
 from uuid import UUID
+from logging import Logger
 
 from byoda.datatypes import MemberStatus
-
-from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 
 from byoda.servers.service_server import ServiceServer
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -36,8 +38,8 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    async def asyncSetUp(self) -> None:
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
             TestKVCache.APP_CONFIG = yaml.load(
@@ -69,10 +71,10 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         await member_db.delete_members_list()
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         pass
 
-    async def test_memberdb_ops(self):
+    async def test_memberdb_ops(self) -> None:
         member_db = config.server.member_db
 
         with self.assertRaises(ValueError):
@@ -100,7 +102,7 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         for key in data.keys():
             self.assertTrue(data[key], value[key])
 
-        data = {
+        data: dict[str, any] = {
             'member_id': TEST_MEMBER_UUID,
             'remote_addr': '10.10.10.10',
             'schema_version': 5,
@@ -144,6 +146,6 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

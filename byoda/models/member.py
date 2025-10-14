@@ -2,17 +2,16 @@
 API models for IP Addresses
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 from typing import LiteralString
 
 from pydantic import BaseModel
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

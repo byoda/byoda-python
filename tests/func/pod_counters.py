@@ -7,16 +7,17 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license
 '''
 
 import os
 import sys
-import socket
 import unittest
 
+from uuid import UUID
 from uuid import uuid4
+from logging import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -33,8 +34,9 @@ from byoda.util.api_client.api_client import ApiClient
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -55,22 +57,22 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.auth import get_member_auth_header
 
 # Settings must match config.yml used by directory server
-NETWORK = config.DEFAULT_NETWORK
+NETWORK: str = config.DEFAULT_NETWORK
 
 TEST_DIR = '/tmp/byoda-tests/podserver'
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
-POD_ACCOUNT: Account = None
+POD_ACCOUNT: Account | None = None
 
 APP: FastAPI | None = None
 
 
 class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
 
-        network_data = await setup_network(delete_tmp_dir=False)
+        network_data: dict[str, str] = await setup_network(delete_tmp_dir=False)
 
         network_data['account_id'] = get_account_id(network_data)
 
@@ -80,12 +82,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         config.disable_pubsub = False
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
-        account = await setup_account(
+        account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
         )
 
@@ -131,7 +133,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             start_counter = 0
 
         for count in range(1, 5):
-            asset_id = uuid4()
+            asset_id: UUID = uuid4()
             asset_ids.append(asset_id)
             data = {
                 'data': {
@@ -170,7 +172,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(resp, 1)
 
-        cache_value = await counter_cache.get(class_name)
+        cache_value: int = await counter_cache.get(class_name)
         self.assertEqual(cache_value, count + start_counter - 1)
 
         data_filter = {'asset_id': {'eq': str(asset_ids[1])}}
@@ -187,6 +189,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

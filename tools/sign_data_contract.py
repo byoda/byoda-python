@@ -4,7 +4,7 @@
 Manages the signing of a data contract of a service.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -13,6 +13,8 @@ import sys
 import yaml
 import asyncio
 import argparse
+
+from logging import Logger
 
 from byoda.util.api_client.api_client import HttpResponse
 
@@ -30,7 +32,7 @@ from byoda.servers.service_server import ServiceServer
 from byoda.datatypes import CloudType
 
 from byoda.util.message_signature import SignatureType
-from byoda.util.logger import Logger
+
 from byoda.util.paths import Paths
 
 from byoda.util.api_client.restapi_client import RestApiClient
@@ -38,9 +40,11 @@ from byoda.util.api_client.api_client import HttpMethod
 from byoda.secrets.service_secret import ServiceSecret
 from byoda.secrets.network_data_secret import NetworkDataSecret
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
 _ROOT_DIR: str = os.environ['HOME'] + '/.byoda'
 
@@ -67,7 +71,7 @@ async def main(argv) -> None:
     password: str = app_config['svcserver']['private_key_password']
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )

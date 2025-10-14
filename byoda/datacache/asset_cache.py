@@ -9,6 +9,7 @@ Asset Cache maintains lists of assets
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -35,15 +36,11 @@ from byoda.secrets.service_secret import ServiceSecret
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
-
 from byoda.datacache.searchable_cache import SearchableCache
 
 from byoda import config
 
 from .asset_list import AssetList
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 
