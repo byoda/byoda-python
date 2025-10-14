@@ -3,7 +3,7 @@ Class QueryCache tracks the query IDs from REST Data API queries to prevent
 the pod from forwarding loops; executing and forwarding the same query twice
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,6 +12,7 @@ from os import makedirs
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 
 
@@ -21,8 +22,6 @@ from byoda.datatypes import CacheType
 from byoda.datacache.kv_cache import KVCache
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

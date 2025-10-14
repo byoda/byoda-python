@@ -9,7 +9,7 @@ To run this service in a test environment:
 - scp azureuser@dir.byoda.net:/opt/byoda/dirserver/network-byoda.net/services/service-4294929430/service-contract.json .
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -35,7 +35,7 @@ from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     verbose: bool = not debug
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER: Logger = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=server_config['svcserver'].get('logfile')
     )

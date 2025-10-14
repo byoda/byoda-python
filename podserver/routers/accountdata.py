@@ -2,11 +2,12 @@
 memberdata API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
+from logging import Logger
 from logging import getLogger
 
 from fastapi import APIRouter
@@ -22,8 +23,6 @@ from byoda.datatypes import IdType
 from byoda.datatypes import CloudType
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

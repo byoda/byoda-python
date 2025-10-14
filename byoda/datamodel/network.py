@@ -2,12 +2,13 @@
 Class for modeling a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 
+from logging import Logger
 from logging import getLogger
 from typing import LiteralString
 
@@ -30,18 +31,15 @@ from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.service_secret import ServiceSecret
+from byoda.secrets.secret import CSR
 
 from byoda.util.paths import Paths
 
 from byoda.util.api_client.api_client import ApiClient
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .service import Service
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 
@@ -93,29 +91,29 @@ class Network:
         # TODO: continue reducing the length of this constructor
 
         # Loading secrets for when operating as a directory server
-        self.accounts_ca: NetworkAccountsCaSecret = None
-        self.services_ca: NetworkServicesCaSecret = None
-        self.tls_secret: Secret = None
+        self.accounts_ca: NetworkAccountsCaSecret | None = None
+        self.services_ca: NetworkServicesCaSecret | None = None
+        self.tls_secret: Secret | None = None
 
         self.services: dict[int: Service] = dict()
         self.service_summaries: dict[int, dict[str, str | int | None]] = {}
 
         # Secrets for a service must be loaded using SvcServer.load_secrets()
-        self.service_ca: ServiceCaSecret = None
-        self.tls_secret: ServiceSecret = None
-        self.member_ca: MembersCaSecret = None
+        self.service_ca: ServiceCaSecret | None = None
+        self.tls_secret: ServiceSecret | None = None
+        self.member_ca: MembersCaSecret | None = None
 
         # Loading secrets when operating as a pod
-        self.account_id = None
-        self.account_secret = None
-        self.member_secrets = set()
+        self.account_id: int | None = None
+        self.account_secret: str | None = None
+        self.member_secrets: set[Secret] = set()
         self.account = None
 
         self.name: str = application.get('network', config.DEFAULT_NETWORK)
 
         _LOGGER.debug(f'Instantiating network {self.name}')
         self.dnsdb = None
-        self.paths: Paths = None
+        self.paths: Paths | None = None
 
         roles: set[str] = server.get('roles', [])
         if roles and type(roles) not in (set, list):
@@ -147,7 +145,8 @@ class Network:
         self.cloud: str = server.get('cloud', 'LOCAL')
 
     @staticmethod
-    async def create(network_name: str, root_dir: str, password: str):
+    async def create(network_name: str, root_dir: str, password: str,
+                     renew: bool = False):
         '''
         Factory for creating a new Byoda network and its secrets.
 
@@ -178,14 +177,22 @@ class Network:
         if await root_ca.cert_file_exists():
             await root_ca.load(with_private_key=True, password=password)
         else:
-            await root_ca.create(expire=100*365)
-            root_ca_password: LiteralString = passgen.passgen(length=48)
-            await root_ca.save(password=root_ca_password)
-            _LOGGER.info(
-                f'!!! Saving root CA using password {root_ca_password}'
-            )
+            if await root_ca.private_key_file_exists():
+                if renew:
+                    await root_ca.load_private_key(password=password)
+                else:
+                    raise ValueError(
+                        'Private key exists but no renew flag was set'
+                    )
+            else:
+                await root_ca.create(expire=100*365)
+                root_ca_password: LiteralString = passgen.passgen(length=48)
+                await root_ca.save(password=root_ca_password)
+                _LOGGER.info(
+                    f'!!! Saved root CA using password {root_ca_password}'
+                )
 
-        network_data = {
+        network_data: dict[str, any] = {
             'network': network_name, 'root_dir': root_dir,
             'private_key_password': password, 'roles': ['test']
         }
@@ -221,7 +228,7 @@ class Network:
     @staticmethod
     async def _create_secret(network: str, secret_cls: callable,
                              issuing_ca: Secret, paths: Paths, password: str,
-                             renew: bool = False):
+                             renew: bool = False) -> Secret:
         '''
         Abstraction helper for creating secrets for a Network to avoid
         repetition of code for creating the various member secrets of the
@@ -243,7 +250,7 @@ class Network:
                 f'{type(secret_cls)}'
             )
 
-        secret = secret_cls(paths=paths)
+        secret: Secret = secret_cls(paths=paths)
 
         if (await secret.cert_file_exists()
                 or await secret.private_key_file_exists()):
@@ -256,9 +263,9 @@ class Network:
             return secret
 
         # TODO: SECURITY: add constraints
-        csr = await secret.create_csr()
+        csr: CSR = await secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-        certchain = issuing_ca.sign_csr(csr)
+        certchain = issuing_ca.sign_csr(csr, expire=365)
         secret.from_signed_cert(certchain)
         await secret.save(password=password, overwrite=True)
 

@@ -2,14 +2,14 @@
 RestApiClient, derived from ApiClient for calling REST APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from fastapi import FastAPI
 
@@ -19,8 +19,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from .api_client import ApiClient
 from .api_client import HttpMethod
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 

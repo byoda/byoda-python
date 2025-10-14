@@ -3,13 +3,14 @@ Class ServiceServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 from uuid import UUID
 from typing import Literal
+from logging import Logger
 from logging import getLogger
 
 from aiosqlite import connect as sqlite_connect
@@ -32,8 +33,6 @@ from byoda.requestauth.jwt import JWT
 from byoda.servers.server import Server
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

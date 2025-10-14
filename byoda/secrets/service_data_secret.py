@@ -2,14 +2,15 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -26,7 +27,8 @@ Network = TypeVar('Network')
 class ServiceDataSecret(DataSecret):
     __slots__: list[str] = ['service_id', 'network']
 
-    def __init__(self, service_id: int, network: Network):
+    @override
+    def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the account-data secret. This secret is used to encrypt
         account data.
@@ -34,7 +36,7 @@ class ServiceDataSecret(DataSecret):
         '''
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = int(service_id)
+        self.paths.service_id = int(service_id)
 
         super().__init__(
             cert_file=self.paths.get(Paths.SERVICE_DATA_CERT_FILE),
@@ -48,7 +50,8 @@ class ServiceDataSecret(DataSecret):
 
         self.accepted_csrs: dict[IdType, int] = ()
 
-    async def create_csr(self, service_id: int = None, renew: bool = False
+    @override
+    async def create_csr(self, service_id: int = None, renew: bool = False,
                          ) -> CertificateSigningRequest:
         '''
         Creates an RSA private key and X.509 CSR
@@ -65,10 +68,8 @@ class ServiceDataSecret(DataSecret):
             self.service_id = int(service_id)
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'data.{self.id_type.value}{self.service_id}.{self.network}'
         )
 
-        return await super().create_csr(
-            common_name, key_size=4096, ca=self.ca, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)

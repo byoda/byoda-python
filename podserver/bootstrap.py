@@ -31,7 +31,7 @@ Azure we use a single storage account with three containers instead of 3
 buckets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -41,6 +41,7 @@ import logging
 import asyncio
 
 from uuid import UUID
+from logging import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -58,7 +59,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.angieconfig import AngieConfig, ANGIE_SITE_CONFIG_DIR
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -83,7 +84,7 @@ async def main(argv) -> None:
 
     log_file: str = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER: Logger = ByodaLogger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'),
         logfile=log_file

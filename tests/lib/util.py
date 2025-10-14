@@ -2,7 +2,7 @@
 Helper functions for tests
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -22,10 +22,9 @@ from byoda.util.api_client.api_client import HttpResponse
 
 
 def get_test_uuid() -> UUID:
-    id = str(uuid4())
-    id: str = 'aaaaaaaa' + id[8:]
-    id = UUID(id)
-    return id
+    principal_id: str = str(uuid4())
+    principal_id: str = 'aaaaaaaa' + principal_id[8:]
+    return UUID(principal_id)
 
 
 def get_account_tls_headers(account_id: UUID, network: str) -> dict:

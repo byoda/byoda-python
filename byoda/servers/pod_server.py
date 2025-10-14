@@ -3,13 +3,14 @@ Class PodServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import TypeVar
 from hashlib import sha256
+from logging import Logger
 from logging import getLogger
 
 from byoda.datamodel.table import Table
@@ -39,13 +40,9 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from .server import Server
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 

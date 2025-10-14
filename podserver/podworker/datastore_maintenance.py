@@ -2,10 +2,11 @@
 Various utility classes, variables and functions
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
 
 from anyio import create_task_group
@@ -18,8 +19,6 @@ from byoda.datamodel.dataclass import SchemaDataItem
 from byoda.datastore.cache_store import CacheStore
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

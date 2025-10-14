@@ -4,7 +4,7 @@
 Test cases for SchemaItem.normalize
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -14,6 +14,7 @@ import shutil
 import unittest
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -22,15 +23,12 @@ from byoda.datamodel.schema import Schema
 
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
-from byoda.util.logger import Logger
-
-from tests.lib.setup import setup_network
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
+from tests.lib.setup import setup_network
 from tests.lib.util import get_test_uuid
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 NETWORK: str = config.DEFAULT_NETWORK
@@ -114,6 +112,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

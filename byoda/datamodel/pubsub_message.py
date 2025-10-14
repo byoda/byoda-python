@@ -3,13 +3,14 @@ The generic PubSub classes from which tech-specific classes should
 derive
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 
 import orjson
@@ -19,8 +20,6 @@ from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datatypes import IdType
 from byoda.datatypes import PubSubMessageType
 from byoda.datatypes import PubSubMessageAction
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -129,6 +128,7 @@ class PubSubMessage():
 
         return msg
 
+    @staticmethod
     def create(data: object) -> None:
         '''
         Factory for creating messages, all classes derived from PubSubMessage

@@ -1,7 +1,7 @@
 '''
 ApiClient, base class for RestApiClient, and GqlApiClient
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -13,6 +13,7 @@ from enum import Enum
 from copy import deepcopy
 from typing import TypeVar
 from random import random
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -49,8 +50,6 @@ from byoda.secrets.service_secret import ServiceSecret
 from byoda.requestauth.jwt import JWT
 
 from byoda.util.paths import Paths
-
-from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
 

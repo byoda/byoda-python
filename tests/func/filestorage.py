@@ -22,7 +22,7 @@ For AWS, create a ~/.aws/credentias file with as contents:
   aws_secret_access_key = <your-secret-access-key>
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -32,15 +32,17 @@ import httpx
 import shutil
 import unittest
 
+from logging import Logger
+
 from byoda.storage.aws import AwsFileStorage
 from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
 
-from byoda.util.logger import Logger
-
 from byoda.storage import FileStorage
 from byoda.datatypes import StorageType
 from byoda.datatypes import CloudType
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
 from tests.lib.defines import GCP_RESTRICTED_BUCKET_FILE
@@ -51,7 +53,7 @@ CLOUD_STORAGE_TYPES = (AzureFileStorage, AwsFileStorage, GcpFileStorage)
 
 
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         shutil.rmtree(ROOT_DIR, ignore_errors=True)
         os.makedirs(ROOT_DIR, exist_ok=True)
 
@@ -70,7 +72,7 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         bucket = storage.get_bucket(StorageType.PUBLIC)
         self.assertEqual(bucket, 'byoda-public')
 
-    async def test_azure_storage(self):
+    async def test_azure_storage(self) -> None:
         with open(AZURE_RESTRICTED_BUCKET_FILE) as file_desc:
             restricted_bucket = file_desc.read().strip()
         storage = await FileStorage.get_storage(
@@ -136,14 +138,14 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
     exists = await storage.exists('blahblah/blahblah')
     test.assertFalse(exists)
 
-    subdirs = await storage.get_folders('test/')
+    subdirs: list[str] = await storage.get_folders('test/')
     test.assertEqual(len(subdirs), 2)
 
     subdirs = await storage.get_folders('test/', prefix='sub')
     test.assertEqual(len(subdirs), 1)
 
     if type(storage) in CLOUD_STORAGE_TYPES:
-        url = storage.get_url(StorageType.PRIVATE) + 'test/profile'
+        url: str = storage.get_url(StorageType.PRIVATE) + 'test/profile'
 
         # This fails because anonymous access to private storage is
         # not allowed
@@ -177,7 +179,7 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
     await storage.delete('test/subdir/profile-write')
 
     # GCP delete also deletes empty parent 'folders'??
-    if not type(storage) in (AzureFileStorage, GcpFileStorage):
+    if type(storage) not in (AzureFileStorage, GcpFileStorage):
         await storage.delete('test/subdir/')
         await storage.delete('test/anothersubdir/')
         await storage.delete('test')
@@ -186,6 +188,6 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

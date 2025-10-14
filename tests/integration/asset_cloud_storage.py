@@ -4,17 +4,20 @@
 Test cloud storage
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
 import sys
 import unittest
 
+from logging import Logger
+
 from urllib.parse import urlparse, ParseResult
 
 import httpx
-from byoda.util.logger import Logger
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import AZURE_POD_MEMBER_ID
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
@@ -52,5 +55,5 @@ class TestAssetStorage(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

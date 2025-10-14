@@ -2,13 +2,15 @@
 Cert manipulation for accounts and members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -20,8 +22,6 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
-
-from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -43,6 +43,7 @@ class AccountSecret(Secret):
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
+    @override
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None) -> None:
         '''
@@ -73,6 +74,7 @@ class AccountSecret(Secret):
         self.network: Network = network
         self.id_type: IdType = IdType.ACCOUNT
 
+    @override
     async def create_csr(self, account_id: UUID = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -97,8 +99,9 @@ class AccountSecret(Secret):
             self.account_id, self.network.name
         )
 
-        return await super().create_csr(common_name, ca=self.ca, renew=renew)
+        return await super().create_csr(common_name, renew=renew)
 
+    @override
     @staticmethod
     def create_commonname(account_id: UUID, network: str) -> str:
         '''
@@ -117,6 +120,7 @@ class AccountSecret(Secret):
 
         return fqdn
 
+    @override
     def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the AccountSecret so angie and the python
@@ -126,6 +130,7 @@ class AccountSecret(Secret):
             filepath=self.get_tmp_private_key_filepath()
         )
 
+    @override
     def get_tmp_private_key_filepath(self) -> str:
         '''
         Gets the location where on local storage the unprotected private

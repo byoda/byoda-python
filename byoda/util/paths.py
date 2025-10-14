@@ -8,8 +8,8 @@ Python module for directory and file management a.o. for secrets
 
 import os
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.storage.filestorage import FileStorage
 

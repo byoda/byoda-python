@@ -8,7 +8,7 @@ on the 'byoda-python' repository to be available on the local
 file system
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -37,11 +37,12 @@ from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.data_wsapi_client import DataWsApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
-
 from podserver.util import get_environment_vars
 
+from logging import Logger
 from logging import getLogger
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -179,12 +180,12 @@ async def main(argv: list[str]) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, verbose=False, json_out=False,
             loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=False, verbose=False, json_out=False,
             loglevel=logging.WARNING
         )
@@ -203,7 +204,7 @@ async def main(argv: list[str]) -> None:
     member_id: str = args.member_id
     password: str = args.password
     object_name: str = args.object
-    action: str = DataRequestType(args.action)
+    action: DataRequestType = DataRequestType(args.action)
     depth: str = args.depth
     remote_member_id: str = args.remote_member_id
     custom_domain: str = args.custom_domain

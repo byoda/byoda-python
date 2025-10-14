@@ -5,21 +5,18 @@ be implemented once additional storage technologies other than
 SQL will be supported
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from hashlib import sha1
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from collections import namedtuple
 
-from byoda.util.logger import Logger
-
 from byoda.datamodel.datafilter import DataFilterSet
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 # These are columns we add to all tables to track
@@ -121,6 +118,7 @@ class Table:
 
         raise NotImplementedError
 
+    @staticmethod
     def get_field_name(column: str) -> str:
         '''
         Returns the name of the JSONSchema field for a column in the table

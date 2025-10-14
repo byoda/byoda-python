@@ -3,14 +3,14 @@ Class ServiceServer derived from Server class for modelling
 a server that hosts a BYODA Service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.datamodel.service import Service
 from byoda.datamodel.network import Network

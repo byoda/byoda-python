@@ -8,18 +8,20 @@ TODO: fix test case so it doesn't use the proxy when connecting to a pod
 with a custom domain
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
 import sys
 import unittest
 
+from logging import Logger
+
 import httpx
+
 from requests.structures import CaseInsensitiveDict
 
-from byoda.util.logger import Logger
-
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import TEST_IDS
@@ -114,5 +116,5 @@ def do_location(testcase, cloud: str, fqdn: str, location: str,
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

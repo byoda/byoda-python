@@ -2,12 +2,13 @@
 CDN App server /content_keys API API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 
+from logging import Logger
 from logging import getLogger
 from byoda.datatypes import AuthSource
 from datetime import datetime
@@ -25,8 +26,6 @@ from byoda.models.cdn_account_memberships import \
 from byoda.datatypes import IdType
 
 from byoda.servers.app_server import AppServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

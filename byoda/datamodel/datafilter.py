@@ -3,7 +3,7 @@ Classes for data filters for filtering results a Data API query based
 on the filter conditions defined in the query
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2024
 :license    : GPLv3
 '''
 
@@ -15,6 +15,7 @@ from datetime import UTC
 from datetime import date
 from datetime import time
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
 
 from opentelemetry.trace import get_tracer
@@ -27,8 +28,6 @@ from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.dataclass import SchemaDataArray
 
 from byoda.datatypes import AnyScalarType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
@@ -243,7 +242,8 @@ class StringDataFilter(DataFilter):
 
     def sql_eq(self, sql_field: str, where: bool = False,
                is_meta_filter: bool = False,
-               placeholder_function: callable = None) -> str:
+               placeholder_function: callable = None
+               ) -> tuple[str, str, str]:
         '''
         SQL code for equal operator
 
@@ -264,7 +264,8 @@ class StringDataFilter(DataFilter):
 
     def sql_ne(self, sql_field: str, where: bool = False,
                is_meta_filter: bool = False,
-               placeholder_function: callable = None) -> str:
+               placeholder_function: callable = None
+               ) -> tuple[str, str, str]:
         '''
         SQL code for not equal operator
 
@@ -286,7 +287,8 @@ class StringDataFilter(DataFilter):
 
     def sql_vin(self, sql_field: str, where: bool = False,
                 is_meta_filter: bool = False,
-                placeholder_function: callable = None) -> str:
+                placeholder_function: callable = None
+                ) -> tuple[str, str, str]:
         '''
 
         Returns: tuple of the SQL string with the placeholder included,
@@ -308,7 +310,8 @@ class StringDataFilter(DataFilter):
 
     def sql_nin(self, sql_field: str, where: bool = False,
                 is_meta_filter: bool = False,
-                placeholder_function: callable = None) -> str:
+                placeholder_function: callable = None
+                ) -> tuple[str, str, str]:
         '''
         SQL code for 'NOT IN' operator
 
@@ -330,7 +333,8 @@ class StringDataFilter(DataFilter):
 
     def sql_regex(self, sql_field: str, where: bool = False,
                   is_meta_filter: bool = False,
-                  placeholder_function: callable = None) -> str:
+                  placeholder_function: callable = None
+                  ) -> tuple[str, str, str]:
         '''
         SQL code for regular expression operator
 
@@ -352,7 +356,8 @@ class StringDataFilter(DataFilter):
 
     def sql_glob(self, sql_field: str, where: bool = False,
                  is_meta_filter: bool = False,
-                 placeholder_function: callable = None) -> str:
+                 placeholder_function: callable = None
+                 ) -> tuple[str, str, str]:
         '''
         SQL code for glob operator
 
@@ -382,7 +387,7 @@ class NumberDataFilter(DataFilter):
 
         if value is None:
             raise ValueError('Must provide a value to match against')
-        elif not type(value) in (int, float):
+        elif type(value) not in (int, float):
             raise ValueError(
                 f'Value {value} is a {type(value)} instead of a number'
             )
@@ -412,7 +417,7 @@ class NumberDataFilter(DataFilter):
         equal operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data == self.value
@@ -422,7 +427,7 @@ class NumberDataFilter(DataFilter):
         not-equal operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data != self.value
@@ -432,7 +437,7 @@ class NumberDataFilter(DataFilter):
         greater-than operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data > self.value
@@ -442,7 +447,7 @@ class NumberDataFilter(DataFilter):
         less-than operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data < self.value
@@ -452,7 +457,7 @@ class NumberDataFilter(DataFilter):
         equal-or-greater operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data >= self.value
@@ -462,7 +467,7 @@ class NumberDataFilter(DataFilter):
         equal or lesser operator
         '''
 
-        if not type(data) in (int, float):
+        if type(data) not in (int, float):
             raise ValueError(f'Data {data} is of type {type(data)}')
 
         return data < self.value
@@ -492,7 +497,7 @@ class NumberDataFilter(DataFilter):
 
     def sql_ne(self, sql_field: str, where: bool = False,
                is_meta_filter: bool = False,
-               placeholder_function: callable = None) -> str:
+               placeholder_function: callable = None) -> tuple[str, str, str]:
         '''
         SQL code for not equal operator
 
@@ -514,7 +519,7 @@ class NumberDataFilter(DataFilter):
 
     def sql_gt(self, sql_field: str, where: bool = False,
                is_meta_filter: bool = False,
-               placeholder_function: callable = None) -> str:
+               placeholder_function: callable = None) -> tuple[str, str, str]:
         '''
         SQL code for greater-than operator
 
@@ -536,7 +541,7 @@ class NumberDataFilter(DataFilter):
 
     def sql_lt(self, sql_field: str, where: bool = False,
                is_meta_filter: bool = False,
-               placeholder_function: callable = None) -> str:
+               placeholder_function: callable = None) -> tuple[str, str, str]:
         '''
         SQL code for less-than operator
 
@@ -558,7 +563,7 @@ class NumberDataFilter(DataFilter):
 
     def sql_egt(self, sql_field: str, where: bool = False,
                 is_meta_filter: bool = False,
-                placeholder_function: callable = None) -> str:
+                placeholder_function: callable = None) -> tuple[str, str, str]:
         '''
         SQL code for equal-or-greater-than operator
 
@@ -580,7 +585,7 @@ class NumberDataFilter(DataFilter):
 
     def sql_elt(self, sql_field: str, where: bool = False,
                 is_meta_filter: bool = False,
-                placeholder_function: callable = None) -> str:
+                placeholder_function: callable = None) -> tuple[str, str, str]:
         '''
         SQL code for equal-or-less-than operator
 
@@ -796,11 +801,11 @@ class DateTimeDataFilter(DataFilter):
         '''
 
         if isinstance(data, str):
-            if isinstance(self.value) == datetime:
+            if isinstance(self.value, datetime):
                 data = datetime.fromisoformat(data)
-            elif isinstance(self.value) == date:
+            elif isinstance(self.value, date):
                 data = date.fromisoformat(data)
-            elif isinstance(self.value) == time:
+            elif isinstance(self.value, time):
                 data = time.fromisoformat(data)
             else:
                 raise ValueError(f'Unexpected type of operator: {self.value}')
@@ -849,11 +854,6 @@ class DateTimeDataFilter(DataFilter):
         )
 
         field_placeholder: str = placeholder_function(sql_field_placeholder)
-
-        # return (
-        #     f'round({sql_field}, 5) = {field_placeholder}',
-        #     sql_field_placeholder, round(timestamp, 5)
-        # )
 
         return (
             f'{sql_field} = {field_placeholder}',
@@ -969,11 +969,6 @@ class DateTimeDataFilter(DataFilter):
 
         field_placeholder: str = placeholder_function(sql_field_placeholder)
 
-        # return (
-        #     f'round({sql_field}, 5) >= {field_placeholder}',
-        #     sql_field_placeholder, round(timestamp, 5)
-        # )
-
         return (
             f'{sql_field} >= {field_placeholder}',
             sql_field_placeholder, timestamp
@@ -999,10 +994,6 @@ class DateTimeDataFilter(DataFilter):
 
         field_placeholder: str = placeholder_function(sql_field_placeholder)
 
-        # return (
-        #     f'round({sql_field}, 5) <= {field_placeholder}',
-        #     sql_field_placeholder, round(timestamp, 5)
-        # )
 
         return (
             f'{sql_field} <= {field_placeholder}',

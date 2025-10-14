@@ -4,19 +4,18 @@ for generating the Rest Data API code based on Jinja2
 templates
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 
 from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import NetworkLink
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

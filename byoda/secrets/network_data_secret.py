@@ -2,13 +2,14 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from copy import copy
+from typing import override
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -21,9 +22,10 @@ _LOGGER: Logger = getLogger(__name__)
 
 
 class NetworkDataSecret(DataSecret):
-    __slots__ = ['network']
+    __slots__: list[str] = ['network']
 
-    def __init__(self, paths: Paths):
+    @override
+    def __init__(self, paths: Paths) -> None:
         '''
         Class for the Network Data secret. This secret is used to sign
         documentslike the list of services in the network
@@ -33,7 +35,7 @@ class NetworkDataSecret(DataSecret):
         specifiedq
         '''
 
-        self.network = paths.network
+        self.network: str = paths.network
         self.paths = copy(paths)
         super().__init__(
             cert_file=self.paths.get(Paths.NETWORK_DATA_CERT_FILE),
@@ -41,13 +43,10 @@ class NetworkDataSecret(DataSecret):
             storage_driver=self.paths.storage_driver
         )
 
-        # X.509 constraints
-        self.ca: bool = False
-        self.max_path_length: int | None = None
-
         self.id_type: IdType = IdType.NETWORK_DATA
 
-    async def create(self, expire: int = 1085):
+    @override
+    async def create(self, expire: int = 1085) -> None:
         '''
         Creates an RSA private key and X.509 cert
 
@@ -58,11 +57,12 @@ class NetworkDataSecret(DataSecret):
 
         '''
 
-        common_name = f'{self.account_id}.network_data.{self.network}'
+        common_name: str = f'{self.account_id}.network_data.{self.network}'
         await super().create(
             common_name, expire=expire, key_size=4096, ca=self.ca
         )
 
+    @override
     async def create_csr(self, network: str = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -80,10 +80,8 @@ class NetworkDataSecret(DataSecret):
             network = self.network
 
         # TODO: SECURITY: add constraints
-        common_name = (
+        common_name: str = (
             f'network.{IdType.NETWORK_DATA.value}.{network}'
         )
 
-        return await super().create_csr(
-            common_name, key_size=4096, ca=self.ca, renew=renew
-        )
+        return await super().create_csr(common_name, renew=renew)

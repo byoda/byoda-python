@@ -16,6 +16,7 @@ import unittest
 
 from uuid import UUID
 from typing import Self
+from logging import Logger
 from copy import deepcopy
 from datetime import UTC
 from datetime import datetime
@@ -42,13 +43,17 @@ from byoda.storage.sqlite import SqliteStorage
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 from byoda.datamodel.sqltable import SqlTable
 
 from byoda.storage.postgres import PostgresStorage
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -574,5 +579,7 @@ async def create_data(pool, table_name: str) -> None:
         await conn.execute(stmt)
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

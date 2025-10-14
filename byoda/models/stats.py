@@ -2,13 +2,13 @@
 Schema for server to server APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
@@ -25,14 +25,14 @@ class Stats():
         self.remote_addr = remote_addr
         self.dns_update = dns_update
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             f'<Stats(accounts={self.accounts},services={self.services},'
             f'uuid={self.uuid},remote_addr={self.remote_addr},'
             f'dns_update={self.dns_update})>'
         )
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, any]:
         return {
             'accounts': self.accounts,
             'services': self.services,

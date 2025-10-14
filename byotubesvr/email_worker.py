@@ -13,6 +13,8 @@ https://learn.microsoft.com/en-us/azure/communication-services/quickstarts/email
 import os
 import sys
 
+from logging import Logger
+
 from yaml import safe_load as yaml_safe_loader
 
 from anyio import run
@@ -26,7 +28,7 @@ from prometheus_client import Counter
 
 from byoda.storage.message_queue import Queue
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byotubesvr.datamodel.email import EmailMessage
 
@@ -46,7 +48,7 @@ async def main(args: list[str]) -> None:
 
     debug: bool = svc_config['application'].get('debug', False)
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         args[0], json_out=True, debug=debug, verbose=not debug,
         logfile=svc_config['svcserver']['email_worker_logfile']
     )

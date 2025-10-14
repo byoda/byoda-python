@@ -7,7 +7,7 @@ TODO: test case stopped passing since migration of postgres server to the
 cloud, likely because the 'byodafunctest.net' domain was not created.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -15,13 +15,14 @@ import sys
 import yaml
 import asyncio
 import unittest
-from ipaddress import ip_address
+
+from logging import Logger
+from ipaddress import IPv4Address, IPv6Address, ip_address
 
 import dns.resolver
 
 from sqlalchemy import delete, or_
 
-from byoda.util.logger import Logger
 from byoda.config import DEFAULT_NETWORK
 
 from byoda.datatypes import IdType
@@ -29,11 +30,12 @@ from byoda.datastore.dnsdb import DnsRecordType
 
 from byoda.datastore.dnsdb import DnsDb
 
+from byoda.util.logger import Logger as ByodaLogger
 
 # CONFIG = 'tests/collateral/config-dnsdb-test.yml'
 CONFIG = 'tests/collateral/config.yml'
 TEST_DIR = '/tmp/byoda-func-test-secrets'
-NETWORK = DEFAULT_NETWORK
+NETWORK: str = DEFAULT_NETWORK
 DNS_CACHE_PERIOD = 300
 
 TEST_SERVICE_ID = 4294967295
@@ -47,13 +49,13 @@ TEST_NETWORK = None
 
 class TestDnsDb(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         await delete_test_data()
 
     async def test_dnsdb(self):
         with open(CONFIG) as file_desc:
-            config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+            config: dict[str, any] = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
         global TEST_NETWORK
         TEST_NETWORK = config['application']['network']
@@ -65,10 +67,10 @@ class TestDnsDb(unittest.IsolatedAsyncioTestCase):
         # SERVICE
         uuid = TEST_SERVICE_UUID
         service_id = TEST_SERVICE_ID
-        first_ip = ip_address(TEST_FIRST_IP)
-        second_ip = ip_address(TEST_SECOND_IP)
+        first_ip: IPv4Address | IPv6Address = ip_address(TEST_FIRST_IP)
+        second_ip: IPv4Address | IPv6Address = ip_address(TEST_SECOND_IP)
 
-        service_fqdn = dnsdb.compose_fqdn(
+        service_fqdn: str = dnsdb.compose_fqdn(
             None, IdType.SERVICE, service_id=service_id
         )
         self.assertEqual(
@@ -206,7 +208,7 @@ class TestDnsDb(unittest.IsolatedAsyncioTestCase):
 
         # ACCOUNT
         uuid = TEST_ACCOUNT_UUID
-        account = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
+        account: str = dnsdb.compose_fqdn(uuid, IdType.ACCOUNT)
         self.assertEqual(account, f'{str(uuid)}.accounts.{TEST_NETWORK}')
 
         with self.assertRaises(KeyError):

@@ -4,7 +4,7 @@
 Creates secrets for a service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -15,10 +15,9 @@ import shutil
 import argparse
 
 from uuid import uuid4
+from logging import Logger
 
 import httpx
-
-from byoda.util.logger import Logger
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
@@ -33,11 +32,13 @@ from byoda.servers.pod_server import PodServer
 
 from podserver.util import get_environment_vars
 
+from byoda.util.logger import Logger as ByodaLogger
+
 from byoda import config
 
 _LOGGER: Logger | None = None
 
-_ROOT_DIR = os.environ['HOME'] + '/.byoda'
+_ROOT_DIR: str = os.environ['HOME'] + '/.byoda'
 
 
 async def main(argv) -> None:
@@ -71,7 +72,7 @@ async def main(argv) -> None:
     network_data: dict[str, str | int | bool | None] = get_environment_vars()
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], debug=args.debug, verbose=args.verbose,
         json_out=False
     )
@@ -89,9 +90,8 @@ async def main(argv) -> None:
 
     if not os.path.exists(network_cert_filepath):
         os.makedirs(network_dir, exist_ok=True)
-        resp: httpx.Response = httpx.get(
-            f'https://dir.{args.network}/root-ca.pem'
-        )
+        url: str = f'https://dir.{args.network}/root-ca.pem'
+        resp: httpx.Response = httpx.get(url)
         with open(network_cert_filepath, 'w') as file_desc:
             file_desc.write(resp.text)
 

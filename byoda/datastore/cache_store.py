@@ -6,12 +6,13 @@ The CacheStore can be extended to support different backend storage. It
 currently only supports Sqlite3.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from enum import Enum
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 from typing import Self
 from typing import TypeVar
@@ -49,8 +50,6 @@ from byoda.storage.sqlite import SqliteStorage
 
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
-
-from byoda.util.logger import Logger
 
 from byoda.exceptions import ByodaRuntimeError
 

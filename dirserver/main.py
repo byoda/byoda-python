@@ -2,7 +2,7 @@
 Directory server for Bring Your Own Data and Algorithms
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -24,7 +24,7 @@ from byoda.servers.directory_server import DirectoryServer
 
 from byoda.util.fastapi import setup_api
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     debug = app_config['application']['debug']
     verbose = not debug
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=app_config['dirserver'].get('logfile')
     )

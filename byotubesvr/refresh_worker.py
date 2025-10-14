@@ -5,7 +5,7 @@ Worker that performs queries against registered members of
 the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2024
 :license    : GPLv3
 '''
 
@@ -35,7 +35,7 @@ from byoda.util.paths import Paths
 
 from byoda.servers.service_server import ServiceServer
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -162,7 +162,7 @@ async def setup_server() -> tuple[Service, ServiceServer]:
         not server_config.debug and server_config.loglevel == 'INFO'
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=True,
         debug=server_config.debug, verbose=verbose,
         logfile=server_config.logfile, loglevel=server_config.loglevel

@@ -2,7 +2,7 @@
 DataApiClient, derived from ApiClient for calling REST Data APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -14,8 +14,8 @@ from uuid import uuid4
 from ssl import SSLContext
 from ssl import PROTOCOL_TLS_CLIENT
 
+from logging import Logger
 from logging import getLogger
-
 
 import orjson
 
@@ -38,8 +38,6 @@ from byoda.secrets.secret import Secret
 from byoda.secrets.member_secret import MemberSecret
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

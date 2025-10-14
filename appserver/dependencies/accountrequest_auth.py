@@ -8,9 +8,11 @@ provides helper functions to authenticate the client making the request
 :license    : GPLv3
 '''
 
+from typing import override
 from typing import Annotated
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from fastapi import Request
 from fastapi import HTTPException
@@ -66,6 +68,7 @@ class AccountRequestAuthFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization: str | None = None
 
+    @override
     async def authenticate(self) -> None:
         server: AppServer = config.server
 
@@ -76,7 +79,7 @@ class AccountRequestAuthFast(RequestAuth):
                 self.x_client_ssl_issuing_ca, self.x_client_ssl_cert, None
             )
         except ByodaMissingAuthInfo:
-            _LOGGER.debug('No client cert provided', extra=log_extra)
+            _LOGGER.debug('No client cert provided', extra=self.log_extra)
             raise HTTPException(
                 status_code=401,
                 detail=(

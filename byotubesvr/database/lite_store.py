@@ -12,13 +12,12 @@ class
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
 
 from redis import Redis
 
 import redis.asyncio as redis
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

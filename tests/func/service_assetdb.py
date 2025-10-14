@@ -26,6 +26,8 @@ import subprocess
 
 from uuid import UUID
 from uuid import uuid4
+from logging import Logger
+
 from datetime import datetime
 from datetime import timedelta
 from datetime import UTC
@@ -39,9 +41,9 @@ from byoda.datamodel.memberdata import EdgeResponse as Edge
 from byoda.datacache.searchable_cache import SearchableCache
 from byoda.datacache.asset_cache import AssetCache
 
-from byoda.util.logger import Logger
-
 from byoda.datacache.asset_list import AssetList
+
+from byoda.util.logger import Logger as ByodaLogger
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.13:6379')
 
@@ -327,5 +329,5 @@ async def populate_cache(cache: SearchableCache, asset_list: str,
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

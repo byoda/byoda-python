@@ -2,13 +2,13 @@
 Schema for asset search API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
@@ -17,7 +17,7 @@ _LOGGER: Logger = getLogger(__name__)
 
 class AssetSearchRequestModel(BaseModel):
     hashtags: list[str] | None = None
-    mentions: list[str] = None
+    mentions: list[str] | None = None
     nickname: str | None = None
     text: str | None = None
     asset_id: UUID | None = None

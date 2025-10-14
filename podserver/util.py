@@ -2,18 +2,17 @@
 Functions shared between the pod server and the pod worker
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 
 from byoda.datatypes import CloudType
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

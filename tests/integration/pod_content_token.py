@@ -16,6 +16,8 @@ import sys
 import unittest
 
 from uuid import UUID
+from logging import Logger
+
 from datetime import datetime
 from datetime import timezone, timedelta
 
@@ -45,10 +47,11 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 from byoda.util.api_client.restapi_client import HttpMethod
 
-from byoda.util.logger import Logger
 from byoda.util.fastapi import setup_api
 
 from byoda.exceptions import ByodaRuntimeError
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -285,7 +288,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
     def get_byopay_data(self) -> dict[str, str | int]:
         with open('tests/collateral/local/dathes-pod.yml', 'r') as file_desc:
-            test_config = yaml_safe_loader(file_desc)
+            test_config: dict[str, any] = yaml_safe_loader(file_desc)
 
             return test_config
 
@@ -307,7 +310,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         resp_data: dict[str, str] = resp.json()
         account_jwt: str = resp_data.get('auth_token')
-        self.assertTrue(isinstance(account_jwt, str))
+        self.assertIsInstance(account_jwt, str)
         auth_header: dict[str, str] = {
             'Authorization': f'bearer {account_jwt}'
         }
@@ -324,7 +327,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         resp_data = resp.json()
         member_jwt: str = resp_data.get('auth_token')
-        self.assertTrue(isinstance(member_jwt, str))
+        self.assertIsInstance(member_jwt, str)
         member_auth: dict[str, str] = {'Authorization': f'bearer {member_jwt}'}
 
         #
@@ -343,7 +346,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(resp.status_code, 200)
         resp_data = resp.json()
         external_app_jwt: str = resp_data.get('auth_token')
-        self.assertTrue(isinstance(external_app_jwt, str))
+        self.assertIsInstance(external_app_jwt, str)
 
         # Now we go get the BYO.Pay JWT
         pay_url: str = 'https://staging.byopay.me/api/v1/pay'
@@ -361,5 +364,5 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

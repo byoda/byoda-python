@@ -2,7 +2,9 @@
 
 import sys
 
-from byoda.util.logger import Logger
+from logging import Logger
+
+from byoda.util.logger import Logger as ByodaLogger
 
 _LOGGER = None
 
@@ -12,6 +14,8 @@ def main() -> None:
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=True)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=True
+    )
 
     main()

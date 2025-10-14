@@ -4,7 +4,7 @@
 Test cases for secrets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -17,6 +17,7 @@ import unittest
 
 from uuid import UUID
 from copy import copy
+from logging import Logger
 from random import randint
 from datetime import UTC
 from datetime import datetime
@@ -29,16 +30,18 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes
-
-from byoda.util.logger import Logger
+from cryptography.x509.verification import VerificationError
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
 from byoda.datamodel.claim import Claim
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.secrets.secret import Secret
+from byoda.secrets.ca_secret import CaSecret
 from byoda.secrets.secret import CertChain
 from byoda.secrets.data_secret import DataSecret
 from byoda.secrets.app_data_secret import AppDataSecret
@@ -53,7 +56,11 @@ from byoda.datatypes import ServerRole
 
 from byoda.datastore.document_store import DocumentStoreType
 
+from byoda.storage.filestorage import FileStorage
+
 from byoda import config
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from tests.lib.util import get_test_uuid
 from tests.lib.setup import mock_environment_vars
@@ -65,8 +72,8 @@ NETWORK = 'test.net'
 DEFAULT_SCHEMA = 'tests/collateral/dummy-unsigned-service-schema.json'
 SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
-SCHEMA_DIR = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
-SCHEMA_FILE = SCHEMA_DIR + '/service_contract.json'
+SCHEMA_DIR: str = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
+SCHEMA_FILE: str = SCHEMA_DIR + '/service-contract.json'
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
@@ -77,15 +84,127 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             pass
 
         mock_environment_vars(TEST_DIR)
-        os.mkdir(TEST_DIR)
         os.makedirs(TEST_DIR + SCHEMA_DIR)
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
         config.test_case = True
 
     async def asyncTearDown(self) -> None:
+        '''
+        Nothing to tear down
+        '''
+
         pass
 
-    async def test_ca_certchaisn(self) -> None:
+    async def test_ca_pathlen(self) -> None:
+        storage = FileStorage(TEST_DIR, CloudType.LOCAL)
+        root_ca: CaSecret = CaSecret(
+            'root-ca.pem', 'root-ca.key', storage
+        )
+        root_ca.private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+        )
+        root_ca.common_name = 'test-root-ca'
+        root_ca.create_selfsigned_cert(ca=True)
+        await root_ca.save()
+
+        services_ca: CaSecret = CaSecret(
+            'services-ca.pem', 'services-ca.key', storage
+        )
+        services_ca_csr: x509.CertificateSigningRequest = \
+            await services_ca.create_csr('test-services-ca')
+        certchain: CertChain = root_ca.sign_csr(services_ca_csr, expire=3)
+        services_ca.from_signed_cert(certchain)
+        await services_ca.save(with_fingerprint=True)
+        services_ca.validate(root_ca, with_openssl=True)
+
+        service_ca: CaSecret = CaSecret(
+            'service-ca.pem', 'service-ca.key', storage
+        )
+        service_ca_csr: x509.CertificateSigningRequest = \
+            await service_ca.create_csr('test-service-ca')
+        certchain: CertChain = services_ca.sign_csr(service_ca_csr, expire=3)
+        service_ca.from_signed_cert(certchain)
+        await service_ca.save(with_fingerprint=True)
+        service_ca.validate(root_ca, with_openssl=True)
+
+        member_secret: Secret = Secret(
+            'member.pem', 'member.key', storage
+        )
+        member_csr: x509.CertificateSigningRequest = \
+            await member_secret.create_csr('test-member')
+        certchain: CertChain = service_ca.sign_csr(member_csr, expire=3)
+        member_secret.from_signed_cert(certchain)
+        await member_secret.save(with_fingerprint=True)
+        member_secret.validate(root_ca, with_openssl=True)
+
+    async def test_ca_pathlen_fail(self) -> None:
+        storage = FileStorage(TEST_DIR, CloudType.LOCAL)
+        root_ca: CaSecret = CaSecret(
+            'root-ca.pem', 'root-ca.key', storage
+        )
+        root_ca.private_key = rsa.generate_private_key(
+            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+        )
+        root_ca.common_name = 'test-root-ca'
+        root_ca.create_selfsigned_cert(ca=True)
+        await root_ca.save()
+
+        services_ca: CaSecret = CaSecret(
+            'services-ca.pem', 'services-ca.key', storage
+        )
+        services_ca_csr: x509.CertificateSigningRequest = \
+            await services_ca.create_csr(
+                'test-services-ca'
+            )
+        certchain: CertChain = root_ca.sign_csr(services_ca_csr, expire=3)
+        services_ca.from_signed_cert(certchain)
+        await services_ca.save()
+        services_ca.validate(root_ca, with_openssl=True)
+
+        service_ca: CaSecret = CaSecret(
+            'service-ca.pem', 'service-ca.key', storage
+        )
+        service_ca_csr: x509.CertificateSigningRequest = \
+            await service_ca.create_csr(
+                'test-service-ca'
+            )
+        service_ca_certchain: CertChain = root_ca.sign_csr(
+            service_ca_csr, expire=3
+        )
+        service_ca.from_signed_cert(service_ca_certchain)
+        await service_ca.save()
+        service_ca.validate(root_ca, with_openssl=True)
+
+        members_ca: CaSecret = CaSecret(
+            'members_ca.pem', 'members-ca.key', storage
+        )
+        members_ca_csr: x509.CertificateSigningRequest = \
+            await members_ca.create_csr(
+                'test-members-ca'
+            )
+        members_ca_certchain: CertChain = service_ca.sign_csr(
+            members_ca_csr, expire=3
+        )
+        members_ca.from_signed_cert(members_ca_certchain)
+        await members_ca.save()
+
+        member_secret: Secret = Secret(
+            'member.pem', 'member.key', storage
+        )
+        member_csr: x509.CertificateSigningRequest = \
+            await member_secret.create_csr(
+                'test-member'
+            )
+        member_certchain: CertChain = members_ca.sign_csr(
+            member_csr, expire=1
+        )
+        member_secret.from_signed_cert(member_certchain)
+        await member_secret.save()
+
+        member_secret.validate(root_ca, with_openssl=True)
+        member_secret.validate(root_ca, with_openssl=False)
+
+    async def test_ca_certchain(self) -> None:
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
 
         config.server = PodServer(
@@ -109,6 +228,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await service.examine_servicecontract(SCHEMA_FILE)
         await service.create_secrets(network.services_ca, local=True)
 
+        services_ca: CaSecret = network.services_ca
+        services_ca.validate(network.root_ca, with_openssl=True)
         service.service_ca.validate(network.root_ca, with_openssl=True)
         service.apps_ca.validate(network.root_ca, with_openssl=True)
         service.tls_secret.validate(network.root_ca, with_openssl=True)
@@ -190,9 +311,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         shutil.copy(DEFAULT_SCHEMA, TEST_DIR + target_schema)
 
         # TODO: re-enable this test
-        # member = await account.join(
-        #    SERVICE_ID, SCHEMA_VERSION, members_ca=service.members_ca,
-        #    local_service_contract=SCHEMA_FILE
+        # member: Member = await account.join(
+        #     SERVICE_ID, SCHEMA_VERSION, members_ca=service.members_ca,
+        #     local_service_contract=SCHEMA_FILE,
+        #     local_storage=config.server.storage_driver
         # )
 
         # self.assertIsNotNone(member.member_id)
@@ -424,9 +546,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             f'tests/collateral/local/{member_data_secret.private_key_file}',
             TEST_DIR
         )
-        with open('tests/collateral/local/azure-pod-private-key-password'
-                  ) as file_desc:
-            private_key_password = file_desc.read().strip()
+        filename: str = 'tests/collateral/local/azure-pod-private-key-password'
+        with open(filename) as file_desc:
+            private_key_password: str = file_desc.read().strip()
 
         await member_data_secret.load(
             with_private_key=True, password=private_key_password
@@ -436,6 +558,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

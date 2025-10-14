@@ -7,20 +7,14 @@ API search APIs for assets and channels on BYO.Tube
 '''
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 
-from byoda.datacache.asset_cache import AssetCache
-
-from byoda.models.data_api_models import EdgeResponse as Edge
-
 from byoda.datastore.memberdb import MemberDb
-
-from byoda.servers.service_server import ServiceServer
 
 from byoda import config
 

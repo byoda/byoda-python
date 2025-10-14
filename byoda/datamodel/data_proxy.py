@@ -3,7 +3,7 @@ Class for modeling REST Data API requests that are proxied by a pod to other
 pods
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,6 +12,7 @@ import base64
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from collections import namedtuple
 from datetime import datetime
@@ -40,8 +41,6 @@ from byoda.models.data_api_models import AppendModel
 
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.member_data_secret import MemberDataSecret
-
-from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -75,11 +74,11 @@ class DataProxy:
 
         self.schema: Schema = member.schema
 
-        self.incoming_depth: int = None
-        self.updated_depth: int = None
-        self.incoming_query: QueryModel | AppendModel = None
-        self.data_request_type: DataRequestType | None = None
-        self.updated_query: QueryModel = None
+        self.incoming_depth: int | None = None
+        self.updated_depth: int | None = None
+        self.incoming_query: QueryModel | AppendModel | None = None
+        self.data_request_type: DataRequestType | None | None = None
+        self.updated_query: QueryModel | None = None
 
         self.class_name: str | None = None
 

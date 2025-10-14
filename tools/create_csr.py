@@ -38,10 +38,13 @@ import asyncio
 import argparse
 
 from uuid import uuid4
+from logging import Logger
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -49,8 +52,6 @@ from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.api_client import HttpResponse
 
-
-from byoda.util.logger import Logger
 from byoda.util.paths import Paths
 
 from tests.lib.setup import setup_network
@@ -59,6 +60,8 @@ from tests.lib.setup import setup_network
 DEFAULT_NETWORK: str = "byoda.net"
 DEFAULT_SERVICE_ID: str = "4294929430"
 DEFAULT_TEST_DIRECTORY: str = '/tmp/byoda'
+
+_LOGGER: Logger | None = None
 
 
 async def prep_network(test_dir: str, network_name: str = DEFAULT_NETWORK
@@ -112,11 +115,11 @@ async def main(argv) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, json_out=False, loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], json_out=False, loglevel=logging.WARNING
         )
 

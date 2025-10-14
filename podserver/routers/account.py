@@ -2,13 +2,14 @@
 /pod/account API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
 import os
 
+from logging import Logger
 from logging import getLogger
 
 from fastapi import APIRouter
@@ -26,8 +27,6 @@ from byoda.models import AccountResponseModel
 from byoda.datastore.document_store import DocumentStore
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 from byoda import config
 

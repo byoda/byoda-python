@@ -6,10 +6,13 @@ import base64
 import shutil
 import unittest
 
+from logging import Logger
+
 from byoda.util.merkletree import ByoMerkleTree
 from byoda.util.merkletree import BLOCKSIZE
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
+
 
 ASSET_DIR: str = 'tests/collateral/local/video_asset'
 TEST_DIR: str = '/tmp/byoda-tests/merkle'
@@ -58,6 +61,6 @@ class TestAccountManager(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

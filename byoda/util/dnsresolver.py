@@ -4,16 +4,16 @@ DnsResolver class
 provides basic functionality to lookup A records
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 from datetime import timezone
 
-from ipaddress import ip_address as IpAddress
+from ipaddress import IPv4Address, IPv6Address, ip_address as IpAddress
 
 import dns.resolver
 
@@ -42,7 +42,7 @@ class DnsResolver:
 
         _LOGGER.debug('Initialized DNS resolver')
 
-    def _update_dirserver_ips(self):
+    def _update_dirserver_ips(self) -> None:
         _LOGGER.debug('Updating directory server IP addresses')
 
         self.resolver.nameservers = ['1.1.1.1', '8.8.8.8']
@@ -72,12 +72,12 @@ class DnsResolver:
         if not force and DNS_DIRSERVER_EXPIRES < datetime.now(tz=timezone.utc):
             self._update_dirserver_ips()
 
-        ips = []
+        ips: list = []
         try:
-            answer = self.resolver.resolve(fqdn)
+            answer: dns.resolver.Answer = self.resolver.resolve(fqdn)
             for rr in answer.rrset.items:
                 try:
-                    ip = IpAddress(rr.address)
+                    ip: IPv4Address | IPv6Address = IpAddress(rr.address)
                     ips.append(ip)
                 except ValueError:
                     pass

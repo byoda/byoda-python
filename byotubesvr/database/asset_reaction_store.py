@@ -12,12 +12,11 @@ class
 from uuid import UUID
 from datetime import UTC
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-
-from byoda.util.logger import Logger
 
 from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 from byotubesvr.models.lite_api_models import AssetReactionResponseModel

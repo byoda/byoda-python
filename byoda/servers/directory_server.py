@@ -3,15 +3,15 @@ Class DirectoryServer derived from Server class for modelling
 a server that hosts a BYODA Network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import os
 
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from byoda.datastore.dnsdb import DnsDb
 

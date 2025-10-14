@@ -2,7 +2,7 @@
 Various utility classes, variables and functions
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -10,6 +10,7 @@ import os
 
 from uuid import UUID
 
+from logging import Logger
 from logging import getLogger
 
 from byoda.datamodel.account import Account
@@ -34,8 +35,6 @@ from byoda.util.paths import Paths
 from byoda.util.api_client.restapi_client import RestApiClient
 from byoda.util.api_client.restapi_client import HttpMethod
 from byoda.util.api_client.restapi_client import HttpResponse
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

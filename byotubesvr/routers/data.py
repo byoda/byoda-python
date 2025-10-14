@@ -2,12 +2,13 @@
 /service/data API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
-from logging import getLogger, Logger
+from logging import Logger
+from logging import getLogger
 
 from fastapi import APIRouter
 from fastapi import Request

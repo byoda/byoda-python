@@ -3,14 +3,15 @@ Cert manipulation for service secrets: Service CA, Service Members CA and
 Service secret
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -19,8 +20,6 @@ from byoda.util.paths import Paths
 from byoda.datatypes import IdType, EntityId
 
 from .secret import Secret
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
@@ -29,6 +28,7 @@ Network = TypeVar('Network', bound='Network')
 class ServiceSecret(Secret):
     __slots__: list[str] = ['network', 'service_id']
 
+    @override
     def __init__(self, service_id: int, network: Network) -> None:
         '''
         Class for the service secret
@@ -54,6 +54,7 @@ class ServiceSecret(Secret):
         self.service_id: int = int(service_id)
         self.id_type: IdType = IdType.SERVICE
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -67,12 +68,13 @@ class ServiceSecret(Secret):
         '''
 
         # TODO: SECURITY: add constraints
-        common_name = ServiceSecret.create_commonname(
+        common_name: str = ServiceSecret.create_commonname(
             self.service_id, self.network
         )
 
-        return await super().create_csr(common_name, ca=self.ca, renew=renew)
+        return await super().create_csr(common_name, renew=renew)
 
+    @override
     def review_commonname(self, commonname: str) -> EntityId:
         '''
         Checks if the structure of common name matches with a common name of
@@ -85,10 +87,11 @@ class ServiceSecret(Secret):
         '''
 
         # Checks on commonname type and the network postfix
-        entity_id = super().review_commonname(commonname)
+        entity_id: str = super().review_commonname(commonname)
 
         return entity_id
 
+    @override
     @staticmethod
     def create_commonname(service_id: int, network: str) -> str:
         '''
@@ -105,6 +108,7 @@ class ServiceSecret(Secret):
 
         return common_name
 
+    @override
     @staticmethod
     def parse_commonname(commonname: str, network: Network) -> EntityId:
         '''
@@ -113,7 +117,7 @@ class ServiceSecret(Secret):
         Extracts the service_id from the common name of a Service secret
         '''
 
-        entity_id = Secret.review_commonname_by_parameters(
+        entity_id: EntityId = Secret.review_commonname_by_parameters(
             commonname, network.name, check_service_id=False,
             uuid_identifier=False
         )
@@ -126,7 +130,8 @@ class ServiceSecret(Secret):
 
         return entity_id
 
-    def save_tmp_private_key(self):
+    @override
+    def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the ServiceSecret so angie and the python
         requests module can use it.
@@ -135,6 +140,7 @@ class ServiceSecret(Secret):
             filepath=self.get_tmp_private_key_filepath()
         )
 
+    @override
     def get_tmp_private_key_filepath(self) -> str:
         '''
         Gets the location where on local storage the unprotected private

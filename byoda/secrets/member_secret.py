@@ -2,14 +2,16 @@
 Cert manipulation for accounts and members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from copy import copy
 from typing import Self
+from typing import override
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 
 from cryptography.x509 import CertificateSigningRequest
@@ -18,8 +20,6 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
-
-from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -32,6 +32,7 @@ Network = TypeVar('Network')
 class MemberSecret(Secret):
     __slots__: list[str] = ['member_id', 'network', 'service_id', 'account_id']
 
+    @override
     def __init__(self, member_id: UUID, service_id: int,
                  account: Account | None = None, paths: Paths = None,
                  network_name: str = None) -> None:
@@ -94,6 +95,7 @@ class MemberSecret(Secret):
         self.service_id: int = service_id
         self.id_type: IdType = IdType.MEMBER
 
+    @override
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -110,8 +112,9 @@ class MemberSecret(Secret):
         common_name: str = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )
-        return await super().create_csr(common_name, ca=self.ca, renew=renew)
+        return await super().create_csr(common_name, renew=renew)
 
+    @override
     @staticmethod
     def create_commonname(member_id: UUID, service_id: int, network: str
                           ) -> str:
@@ -137,6 +140,7 @@ class MemberSecret(Secret):
 
         return common_name
 
+    @override
     async def load(self, with_private_key: bool = True,
                    password: str = 'byoda') -> None:
         await super().load(
@@ -144,6 +148,7 @@ class MemberSecret(Secret):
         )
         self.member_id = UUID(self.common_name.split('.')[0])
 
+    @override
     def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the MemberSecret so angie and the python
@@ -153,6 +158,7 @@ class MemberSecret(Secret):
             filepath=self.get_tmp_private_key_filepath()
         )
 
+    @override
     def get_tmp_private_key_filepath(self) -> str:
         '''
         Gets the location where on local storage the unprotected private
@@ -183,11 +189,11 @@ class MemberSecret(Secret):
         )
 
         try:
-            url = Paths.resolve(
+            url: str = Paths.resolve(
                 Paths.MEMBER_CERT_DOWNLOAD, network=network,
                 service_id=service_id, member_id=member_id
             )
-            cert_data = await Secret.download(
+            cert_data: str | None = await Secret.download(
                 url, root_ca_filepath=root_ca_cert_file
             )
         except RuntimeError:

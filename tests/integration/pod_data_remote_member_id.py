@@ -6,7 +6,7 @@ Test the POD Data APIs with depth=1 and remote_member_id != None
 These tests use the BYO.Tube service and the 'Dathes' POD
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -16,6 +16,8 @@ import sys
 import unittest
 
 from uuid import UUID
+from logging import Logger
+
 from datetime import UTC
 from datetime import datetime
 
@@ -32,7 +34,7 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.fastapi import setup_api
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -239,7 +241,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNotNone(result)
         origins: set[str] = set([edge['origin'] for edge in result['edges']])
-        self.assertFalse(member_id in origins)
+        self.assertNotIn(member_id, origins)
 
         await call_data_api(
             BYOTUBE_SERVICE_ID, 'public_assets', action=DataRequestType.APPEND,
@@ -249,6 +251,6 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

@@ -2,13 +2,15 @@
 Cert manipulation for apps
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from copy import copy
 from typing import TypeVar
+from typing import override
+from logging import Logger
 from logging import getLogger
 
 from cryptography.x509 import CertificateSigningRequest
@@ -17,8 +19,6 @@ from byoda.util.paths import Paths
 
 from byoda.datatypes import IdType
 from byoda.datatypes import TEMP_SSL_DIR
-
-from byoda.util.logger import Logger
 
 from .secret import Secret
 
@@ -30,8 +30,9 @@ Network = TypeVar('Network')
 
 
 class AppSecret(Secret):
-    __slots__ = ['app_id', 'service_id', 'network', 'fqdn']
+    __slots__: list[str] = ['app_id', 'service_id', 'network', 'fqdn']
 
+    @override
     def __init__(self, app_id: UUID, service_id: int, network: Network):
         '''
         Class for the App secret for a service
@@ -46,7 +47,7 @@ class AppSecret(Secret):
         self.fqdn: str | None = None
 
         self.paths: Paths = copy(network.paths)
-        self.paths.service_id: int = service_id
+        self.paths.service_id = service_id
 
         super().__init__(
             cert_file=self.paths.get(Paths.APP_CERT_FILE, app_id=self.app_id),
@@ -58,6 +59,7 @@ class AppSecret(Secret):
         self.network: str = network.name
         self.id_type: IdType = IdType.APP
 
+    @override
     async def create_csr(self, fqdn: str, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
@@ -77,10 +79,10 @@ class AppSecret(Secret):
             self.app_id, self.service_id, self.network
         )
         return await super().create_csr(
-            common_name, sans=[self.fqdn], key_size=4096, ca=self.ca,
-            renew=renew
+            common_name, sans=[self.fqdn], renew=renew
         )
 
+    @override
     @staticmethod
     def create_commonname(app_id: UUID, service_id: int, network: str):
         '''
@@ -97,14 +99,15 @@ class AppSecret(Secret):
                 f'Network parameter must be a string, not a {type(network)}'
             )
 
-        common_name = (
+        common_name: str = (
             f'{app_id}.{IdType.APP.value}{service_id}.{network}'
         )
 
         return common_name
 
+    @override
     async def load(self, with_private_key: bool = True,
-                   password: str = 'byoda'):
+                   password: str = 'byoda') -> None:
         await super().load(
             with_private_key=with_private_key, password=password
         )
@@ -118,7 +121,8 @@ class AppSecret(Secret):
         else:
             self.app_id = UUID(self.common_name.split('.')[0])
 
-    def save_tmp_private_key(self):
+    @override
+    def save_tmp_private_key(self) -> str:
         '''
         Save the private key for the AppSecret so angie and the python
         requests module can use it.
@@ -127,6 +131,7 @@ class AppSecret(Secret):
             filepath=self.get_tmp_private_key_filepath()
         )
 
+    @override
     def get_tmp_private_key_filepath(self) -> str:
         '''
         Gets the location where on local storage the unprotected private

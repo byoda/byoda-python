@@ -7,7 +7,7 @@ As these test cases are directly run against the web APIs, they mock
 the headers that would normally be set by the reverse proxy
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -51,7 +51,7 @@ from byoda.secrets.service_data_secret import ServiceDataSecret
 
 from byoda.storage.filestorage import FileStorage
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -80,7 +80,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     APP_CONFIG = None
 
     async def asyncSetUp(self) -> None:
-        Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+        ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
         with open(CONFIG_FILE) as file_desc:
             TestDirectoryApis.APP_CONFIG: dict[str, any] = yaml.load(
@@ -88,7 +88,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             )
 
         app_config: dict[str, any] = TestDirectoryApis.APP_CONFIG
-        app_config['dirserver']['root_dir']: str = TEST_DIR
+        app_config['dirserver']['root_dir'] = TEST_DIR
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -109,7 +109,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         config.server = DirectoryServer(network)
         await config.server.connect_db(app_config['dirserver']['dnsdb'])
 
-        config.trace_server: str = os.environ.get(
+        config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server)
 
         app: FastAPI = setup_api(
@@ -364,6 +364,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

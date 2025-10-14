@@ -2,7 +2,7 @@
 YouTube functions for pod_worker
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,6 +12,7 @@ from uuid import UUID
 from time import gmtime
 from random import random
 from calendar import timegm
+from logging import Logger
 from logging import getLogger
 
 from anyio import sleep
@@ -35,8 +36,6 @@ from byoda.data_import.youtube import YouTube
 from byoda.data_import.youtube_video import YouTubeVideo
 
 from byoda.servers.pod_server import PodServer
-
-from byoda.util.logger import Logger
 
 
 _LOGGER: Logger = getLogger(__name__)

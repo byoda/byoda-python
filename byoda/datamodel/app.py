@@ -2,22 +2,20 @@
 Class for modeling app on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
-from byoda.datatypes import IdType
 from byoda.datatypes import AppType
-
-from byoda.requestauth.jwt import JWT
 
 from byoda.secrets.app_secret import AppSecret
 from byoda.secrets.app_data_secret import AppDataSecret

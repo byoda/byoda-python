@@ -4,7 +4,7 @@
 Test receiving websocket updates from multiple pods
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -13,6 +13,7 @@ import shutil
 import unittest
 
 from uuid import UUID
+from logging import Logger
 from datetime import datetime
 from datetime import timezone
 
@@ -43,7 +44,7 @@ from byoda.util.updates_listener import UpdateListenerMember
 from byoda.util.api_client.data_api_client import DataApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -309,5 +310,5 @@ async def setup_listener_for_membership(
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

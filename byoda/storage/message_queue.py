@@ -7,14 +7,13 @@ Manage message queue
 '''
 
 from typing import Self
+from logging import Logger
 from logging import getLogger
 
 import orjson
 
 from redis import Redis
 import redis.asyncio as redis
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

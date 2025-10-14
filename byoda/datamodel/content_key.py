@@ -5,7 +5,7 @@ Content keys do not affect the content but are used to
 restrict streaming & download access to the content.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -15,6 +15,7 @@ from uuid import UUID
 from enum import Enum
 from typing import Self
 from base64 import b64encode
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -26,8 +27,6 @@ from byoda.datamodel.table import Table
 from byoda.datamodel.table import QueryResult
 
 from byoda.datatypes import IdType
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

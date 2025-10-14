@@ -2,7 +2,7 @@
 Class for modeling an account on a network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,8 +11,9 @@ import os
 from copy import copy
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from byoda.datatypes import CsrSource
 from byoda.datatypes import IdType
@@ -26,6 +27,7 @@ from byoda.datastore.cache_store import CacheStore
 
 from byoda.datamodel.memberdata import MemberData
 
+from byoda.secrets.secret import CSR
 from byoda.secrets.secret import Secret
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.data_secret import DataSecret
@@ -48,8 +50,6 @@ from .member import Member
 from .service import Service
 
 from byoda import config
-
-
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network')
@@ -78,7 +78,7 @@ class Account:
         self.account: str = account
 
         # This is the password to use for HTTP Basic Auth
-        self.password: str = None
+        self.password: str | None = None
 
         if isinstance(account_id, UUID):
             self.account_id: UUID = account_id
@@ -217,7 +217,7 @@ class Account:
                     f'{type(secret_cls)}'
                 )
             else:
-                csr = await secret.create_csr(self.account_id)
+                csr: CSR = await secret.create_csr(self.account_id)
                 payload: dict[str, str] = {'csr': secret.csr_as_pem(csr)}
                 url: str = self.paths.get(Paths.NETWORKACCOUNT_API)
 

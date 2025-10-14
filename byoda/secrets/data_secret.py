@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,15 +12,20 @@ from copy import copy
 from typing import Self
 from typing import TypeVar
 from typing import override
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography import x509
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 # Imports that enable code to import from this module
 from cryptography.exceptions import InvalidSignature        # noqa: F401
@@ -31,9 +36,8 @@ from byoda.util.paths import Paths
 
 from byoda import config
 
-from byoda.util.logger import Logger
-
 from .secret import Secret
+from .ca_secret import CaSecret
 
 Server = TypeVar('Server')
 
@@ -68,6 +72,34 @@ class DataSecret(Secret):
     RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
+    # Key size for the RSA keys
+    RSA_KEY_SIZE: int = 4096
+
+    _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
+                'digital_signature': True,
+                'content_commitment': True,
+                'key_encipherment': True,
+                'data_encipherment': False,
+                'key_agreement': False,
+                'key_cert_sign': False,
+                'crl_sign': False,
+                'encipher_only': False,
+                'decipher_only': False,
+    }
+
+    _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
+        # x509.ExtendedKeyUsageOID.SERVER_AUTH,
+        # x509.ExtendedKeyUsageOID.CLIENT_AUTH,
+        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        # x509.ExtendedKeyUsageOID.TIME_STAMPING,
+        # x509.ExtendedKeyUsageOID.OCSP_SIGNING,
+        # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,
+        # x509.ExtendedKeyUsageOID.KERBEROS_PKINIT_KDC,
+        # x509.ExtendedKeyUsageOID.IPSEC_IKE,
+        # x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,
+    ]
+
     @override
     def __init__(self, cert_file: str = None, key_file: str = None,
                  storage_driver: FileStorage = None) -> None:
@@ -75,13 +107,23 @@ class DataSecret(Secret):
         super().__init__(cert_file, key_file, storage_driver)
 
         # the key to use for Fernet encryption/decryption
-        self.shared_key: bytes = None
+        self.shared_key: bytes | None = None
 
         # The shared key encrypted with the private key of
         # this secret
-        self.protected_shared_key: bytes = None
+        self.protected_shared_key: bytes | None = None
 
+        self.key_usage_constraints: dict[str, bool] = \
+            DataSecret._KEY_USAGE_CONSTRAINTS
+        self.extended_key_usage: list[x509.ObjectIdentifier] = \
+            DataSecret._EXTENDED_KEY_USAGE
         self.fernet = None
+
+    def generate_private_key(self) -> Ed25519PrivateKey:
+        _LOGGER.debug('Generating RSA private key for a data secret')
+        return rsa.generate_private_key(
+            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE
+        )
 
     def encrypt(self, data: bytes, with_logging: bool = True) -> bytes:
         '''
@@ -186,7 +228,7 @@ class DataSecret(Secret):
 
         self.shared_key = Fernet.generate_key()
 
-        public_key = target_secret.cert.public_key()
+        public_key: RSAPublicKey = target_secret.cert.public_key()
         self.protected_shared_key = public_key.encrypt(
             self.shared_key,
             padding.OAEP(
@@ -248,6 +290,8 @@ class DataSecret(Secret):
             f'Creating signature with cert with fingerprint {fingerprint}'
         )
 
+        if hash_algorithm.lower() not in CaSecret.VALID_SIGNATURE_HASHES:
+            raise ValueError(f'Unsupported hash algorithm: {hash_algorithm}')
         chosen_hash = hashes.SHA256()
 
         digest: bytes = DataSecret._get_digest(message, chosen_hash)

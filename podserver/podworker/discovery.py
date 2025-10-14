@@ -2,7 +2,7 @@
 Various utility classes, variables and functions
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ import os
 from uuid import UUID
 from datetime import UTC
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
 
 from anyio.abc import TaskGroup
@@ -44,8 +45,6 @@ from byoda.util.api_client.api_client import ApiClient
 from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
-from byoda.util.logger import Logger
-
 from byoda import config
 
 from byoda.util.test_tooling import is_test_uuid

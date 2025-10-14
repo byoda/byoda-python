@@ -2,12 +2,13 @@
 Class for certificate request processing
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from ipaddress import ip_address as IpAddress
 
@@ -60,14 +61,14 @@ class CertStore:
         if type(csr) not in (str, bytes):
             raise ValueError('CSR must be a string or a byte array')
 
-        cert_auth = self.ca_secret
+        cert_auth: Secret = self.ca_secret
 
         csr = Secret.csr_from_string(csr)
 
         extension = csr.extensions.get_extension_for_class(
             x509.BasicConstraints
         )
-        if not cert_auth.signs_ca_certs and extension.value.ca:
+        if cert_auth.max_path_length is None and extension.value.ca:
             raise ValueError('Certificates with CA bits set are not permitted')
 
         entity_id = cert_auth.review_csr(csr)
@@ -81,9 +82,9 @@ class CertStore:
         # TODO: add check on whether the UUID is already in use
         certchain = cert_auth.sign_csr(csr, 365*3)
 
-        id_type = entity_id.id_type.value.strip('-')
+        new_id_type: str = entity_id.id_type.value.strip('-')
         _LOGGER.info(
-            f'Signed the CSR for {entity_id.id} for IdType {id_type} '
+            f'Signed the CSR for {entity_id.id} for IdType {new_id_type} '
             f'received from IP {str(remote_addr)}'
         )
         return certchain

@@ -5,7 +5,7 @@ templates
 
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -23,6 +23,7 @@ from typing import TypeVar
 
 from datetime import datetime
 from datetime import timezone
+from logging import Logger
 from logging import getLogger
 
 from urllib.parse import urlparse
@@ -33,8 +34,6 @@ from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
 from byoda.datatypes import MARKER_ACCESS_CONTROL
 from byoda.storage.pubsub import PubSub
-
-from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -162,14 +161,14 @@ class SchemaDataItem:
 
         # Used by SchemaDataArray to point to the class the entries
         # of the array have
-        self.referenced_class: str = None
+        self.referenced_class: str | None = None
 
         # Used by SchemaDataArray so it knows which field to match
         # with in 'join's of two tables
-        self.referenced_class_field: str = None
+        self.referenced_class_field: str | None = None
 
         # Which field of an object to use for 'join's of two tables
-        self.primary_key: str = None
+        self.primary_key: str | None = None
 
         # Is this the field that should be used to match for 'joins'
         # with other tables?
@@ -184,8 +183,8 @@ class SchemaDataItem:
         # The class for storing data for the service sets the values
         # for storage_name and storage_type for child data items
         # under the root data item
-        self.storage_name: str = None
-        self.storage_type: str = None
+        self.storage_name: str | None = None
+        self.storage_type: str | None = None
 
         # The Pub/Sub for communicating changes to data using this class
         # instance. Only used for SchemaDataArray instances
@@ -224,9 +223,9 @@ class SchemaDataItem:
 
         if jsonschema_type not in (DataType.OBJECT, DataType.ARRAY):
             try:
-                format: str | None = schema_data.get('format')
-                if format and format.lower() in ('date-time', 'uuid'):
-                    format_datatype = DataType(format)
+                format_name: str | None = schema_data.get('format')
+                if format_name and format_name.lower() in ('date-time', 'uuid'):
+                    format_datatype = DataType(format_name)
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[format_datatype]
                 else:
                     python_type: str = PYTHON_SCALAR_TYPE_MAP[jsonschema_type]

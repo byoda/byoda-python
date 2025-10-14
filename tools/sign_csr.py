@@ -20,7 +20,7 @@ On the Service Apps CA server, you can run the sign_csr.py tool for both the TLS
 Run sign_csr both for the TLS and the Data CSRs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024
+:copyright  : Copyright 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -31,6 +31,7 @@ import asyncio
 import argparse
 
 from uuid import uuid4
+from logging import Logger
 
 from cryptography import x509
 
@@ -40,12 +41,13 @@ from byoda.secrets.secret import CertChain
 from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 
-from byoda import config
+from byoda.util.logger import Logger as ByodaLogger
 
-from byoda.util.logger import Logger
+from byoda import config
 
 from tests.lib.setup import setup_network
 
+_LOGGER: Logger | None = None
 
 DEFAULT_NETWORK: str = "byoda.net"
 DEFAULT_SERVICE_ID: str = "4294929430"
@@ -101,11 +103,11 @@ async def main(argv) -> None:
 
     global _LOGGER
     if args.debug:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], debug=True, json_out=False, loglevel=logging.DEBUG
         )
     else:
-        _LOGGER = Logger.getLogger(
+        _LOGGER = ByodaLogger.getLogger(
             sys.argv[0], json_out=False, loglevel=logging.WARNING
         )
 

@@ -2,15 +2,16 @@
 Python module for managing signatures of documents
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import base64
 
 from enum import Enum
+from typing import Self
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 from datetime import datetime
 
 from byoda.secrets.data_secret import DataSecret
@@ -45,10 +46,10 @@ class MessageSignature:
                 f'Hash algorithm {hash_algorithm} is not supported'
             )
 
-        self.message: str = None
-        self.signature: bytes = None
-        self.base64_signature: str = None
-        self.timestamp: datetime = None
+        self.message: str | None = None
+        self.signature: bytes | None = None
+        self.base64_signature: str | None = None
+        self.timestamp: datetime | None = None
 
         self.hash_algorithm: str = hash_algorithm
         self.data_secret: DataSecret = data_secret
@@ -59,11 +60,11 @@ class MessageSignature:
 
     def as_dict(self) -> dict:
         if self.data_secret:
-            common_name = self.data_secret.common_name
+            common_name: str | None = self.data_secret.common_name
         else:
             common_name = 'unknown'
 
-        data = {
+        data: dict[str, any] = {
             'signature': self.base64_signature,
             'hash_algorithm': self.hash_algorithm,
             'timestamp': self.timestamp.isoformat(timespec='seconds'),
@@ -72,7 +73,7 @@ class MessageSignature:
         return data
 
     @staticmethod
-    def from_dict(data: dict[str, str], data_secret=None):
+    def from_dict(data: dict[str, str], data_secret=None) -> Self:
         '''
         Factory, parse the data from the JSON Schema
         '''

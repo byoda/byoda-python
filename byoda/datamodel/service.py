@@ -2,7 +2,7 @@
 Class for modeling a service on a social network
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -12,9 +12,9 @@ import socket
 
 from copy import copy
 from enum import Enum
-from typing import TypeVar
+from typing import LiteralString, TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 import orjson
 
@@ -29,6 +29,7 @@ from byoda.datatypes import CsrSource
 from byoda.datatypes import ServerType
 from byoda.datatypes import DnsRecordType
 
+from byoda.secrets.certchain import CertChain
 from byoda.secrets.secret import Secret
 from byoda.secrets.secret import CSR
 
@@ -100,37 +101,37 @@ class Service:
         '''
 
         _LOGGER.debug('Initializing service')
-        self.name: str = None
+        self.name: str | None = None
         self.service_id: int = service_id
 
         self.registration_status: RegistrationStatus = \
             RegistrationStatus.Unknown
 
         # The data contract for the service. TODO: versioned schemas
-        self.schema: Schema = None
+        self.schema: Schema | None = None
 
         # Was the schema for the service signed
-        self.signed: bool = None
+        self.signed: bool | None = None
 
         self.private_key_password: str = network.private_key_password
 
         # The CA signed by the Services CA of the network
-        self.service_ca: ServiceCaSecret = None
+        self.service_ca: ServiceCaSecret | None = None
 
         # CA signs secrets of new members of the service
-        self.members_ca: MembersCaSecret = None
+        self.members_ca: MembersCaSecret | None = None
 
         # CA signs secrets of apps that run with a delegation of
         # the data contract of the service
-        self.apps_ca: AppsCaSecret = None
+        self.apps_ca: AppsCaSecret | None = None
 
         # The secret used as server cert for incoming TLS connections
         # and as client cert in outbound TLS connections
-        self.tls_secret: ServiceSecret = None
+        self.tls_secret: ServiceSecret | None = None
 
         # The secret used to sign documents, ie. the data contract for
         # the service
-        self.data_secret: ServiceDataSecret = None
+        self.data_secret: ServiceDataSecret | None = None
 
         # The network that the service is a part of. As storage is already
         # set up for the Network object, we can copy it here for the Service
@@ -320,7 +321,7 @@ class Service:
                 f'Service-servers, not from a {type(server)}'
             )
 
-        filepath = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
+        filepath: str = self.paths.get(Paths.SERVICE_FILE, service_id=self.service_id)
         return os.path.exists(filepath)
 
     async def create_secrets(self, network_services_ca: NetworkServicesCaSecret,
@@ -366,7 +367,7 @@ class Service:
         :raises: ValueError if the service ca already exists
         '''
 
-        private_key_password = passgen.passgen(length=48)
+        private_key_password: LiteralString = passgen.passgen(length=48)
 
         _LOGGER.debug(f'Creating service CA for service ID {self.service_id}')
         if local:
@@ -431,7 +432,8 @@ class Service:
             private_key_password=self.private_key_password
         )
 
-    async def _create_secret(self, secret_cls: callable, issuing_ca: Secret,
+    async def _create_secret(self, secret_cls: callable,
+                             issuing_ca: Secret | None,
                              private_key_password: str = None,
                              renew: bool = False) -> Secret:
         '''
@@ -453,16 +455,15 @@ class Service:
             f'Initiating secret creation for service ID {self.service_id}'
         )
 
-        secret = secret_cls(
+        secret: Secret = secret_cls(
             self.service_id, network=self.network
         )
 
-        if await secret.cert_file_exists():
-            if not renew:
-                raise ValueError(
-                    f'Cert for {type(secret)} for service_id '
-                    f'{self.service_id} already exists'
-                )
+        if await secret.cert_file_exists() and not renew:
+            raise ValueError(
+                f'Cert for {type(secret)} for service_id '
+                f'{self.service_id} already exists'
+            )
 
         if await secret.private_key_file_exists():
             if not renew:
@@ -473,10 +474,12 @@ class Service:
             secret.load(with_private_key=True)
 
         # TODO: SECURITY: add constraints
-        csr = await secret.create_csr()
+        csr: CSR = await secret.create_csr()
         await self.get_csr_signature(
             secret, csr, issuing_ca, private_key_password=private_key_password
         )
+        if not secret.cert_chain and issuing_ca:
+            secret.cert_chain += [issuing_ca.cert + issuing_ca.cert_chain]
 
         return secret
 
@@ -502,7 +505,7 @@ class Service:
             # We have the private key of the issuing CA so can
             # sign ourselves and be done with it
             issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-            certchain = issuing_ca.sign_csr(csr)
+            certchain: CertChain = issuing_ca.sign_csr(csr)
             secret.from_signed_cert(certchain)
             await secret.save(password=private_key_password, overwrite=False)
             # We do not set self.registration_status as locally signing
@@ -517,7 +520,7 @@ class Service:
                 )
 
         # We have to get our signature from the directory server
-        data = {
+        data: dict[str, str] = {
             'csr': str(
                 csr.public_bytes(serialization.Encoding.PEM), 'utf-8'
             )
@@ -540,7 +543,7 @@ class Service:
         # Every time we receive the network data cert, we
         # save it as it could have changed since the last time we
         # got it
-        network = config.server.network
+        network: Network = config.server.network
         if not network.data_secret:
             network.data_secret = NetworkDataSecret(network.paths)
         network.data_secret.from_string(data['network_data_cert_chain'])
@@ -649,7 +652,7 @@ class Service:
         '''
 
         server: ServiceServer = config.server
-        if server and not server.server_type == ServerType.SERVICE:
+        if server and server.server_type != ServerType.SERVICE:
             raise ValueError('Only Service servers can register a service')
 
         if self.registration_status == RegistrationStatus.Unknown:
@@ -658,7 +661,7 @@ class Service:
                 'by the network'
             )
 
-        key_path: str = self.tls_secret.save_tmp_private_key()
+        self.tls_secret.save_tmp_private_key()
         data_certchain: dict[str, str] = {'certchain': self.data_secret.certchain_as_pem()}
 
         url: str = self.paths.get(Paths.NETWORKSERVICE_API)
@@ -764,7 +767,7 @@ class Service:
             config.request.cert = (self.tls_secret.cert_file, filepath)
 
     async def load_data_secret(self, with_private_key: bool,
-                               password: str = None,
+                               password: str | None = None,
                                download: bool = False) -> None:
         '''
         Loads the certificate of the data secret of the service
@@ -796,16 +799,16 @@ class Service:
                 )
 
     async def download_data_secret(self, save: bool = True,
-                                   failhard: bool = False) -> str:
+                                   failhard: bool = False) -> str | None:
         '''
         Downloads the data secret from the web service for the service
 
-        :returns: the cert in PEM format
+        :returns: the cert in PEM format, or None if the download failed
         '''
 
         try:
             _LOGGER.debug(f'Downloading data cert for service {self.service_id}')
-            resp = await ApiClient.call(
+            resp: HttpResponse = await ApiClient.call(
                 Paths.SERVICE_DATACERT_DOWNLOAD, service_id=self.service_id
             )
         except RuntimeError:

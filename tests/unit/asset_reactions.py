@@ -15,6 +15,7 @@ from time import sleep
 from datetime import UTC
 from datetime import datetime
 from uuid import UUID
+from logging import Logger
 
 from redis import Redis
 import redis.asyncio as redis
@@ -23,9 +24,9 @@ from byotubesvr.models.lite_api_models import AssetReactionRequestModel
 from byotubesvr.models.lite_api_models import AssetReactionResponseModel
 from tests.lib.util import get_test_uuid
 
-from byoda.util.logger import Logger
-
 from byotubesvr.database.asset_reaction_store import AssetReactionStore
+
+from byoda.util.logger import Logger as ByodaLogger
 
 REDIS_URL: str = 'redis://192.168.1.13:6379/0?decode_responses=True&protocol=3'
 
@@ -34,7 +35,8 @@ ASSET_REACTION_STORE: AssetReactionStore | None = None
 
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self) -> None:
+    @classmethod
+    async def asyncSetUp(cls) -> None:
         global REDIS_CLIENT
         REDIS_CLIENT = redis.from_url(REDIS_URL)
         await REDIS_CLIENT.flushall()
@@ -42,7 +44,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         global ASSET_REACTION_STORE
         ASSET_REACTION_STORE = AssetReactionStore(REDIS_URL)
 
-    async def asyncTearDown(self) -> None:
+    @classmethod
+    async def asyncTearDown(cls) -> None:
         await REDIS_CLIENT.aclose()
         await ASSET_REACTION_STORE.close()
 
@@ -283,5 +286,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

@@ -2,15 +2,15 @@
 Schema for requesting claims
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import Optional
 from datetime import datetime
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 

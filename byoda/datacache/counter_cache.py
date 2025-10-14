@@ -3,15 +3,16 @@ Class CounterCache tracks the query IDs from Data API queries to prevent
 the pod from forwarding loops; executing and forwarding the same query twice
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import Self
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.table import Table
 

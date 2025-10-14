@@ -3,13 +3,14 @@ The KV Redis data cache provides ephemeral data storage, such as services
 storing data about their members
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 
 from copy import copy
 from uuid import UUID
+from logging import Logger
 from logging import getLogger
 from typing import Iterable, Self
 from typing import LiteralString
@@ -24,8 +25,6 @@ import aiosqlite
 from byoda.datatypes import CacheType
 
 from byoda.datacache.kv_cache import KVCache
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -216,7 +215,7 @@ class KVSqlite(KVCache):
             return False
 
     async def incr(self, key: str | UUID, value: int = 1,
-                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int:
+                   expiration: int = KVCache.DEFAULT_CACHE_EXPIRATION) -> int | None:
         '''
         increments the value for the key in the cache
 

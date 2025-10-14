@@ -9,9 +9,8 @@ Class for modeling the configuration of a server
 import os
 import yaml
 
+from logging import Logger
 from logging import getLogger
-
-from byoda.util.logger import Logger
 
 _LOGGER: Logger = getLogger(__name__)
 

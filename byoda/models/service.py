@@ -2,12 +2,12 @@
 API models for IP Addresses
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
+from logging import Logger
 from logging import getLogger
-from byoda.util.logger import Logger
 
 from pydantic import BaseModel
 
@@ -22,10 +22,10 @@ class ServiceSummaryResponseModel(BaseModel):
     description: str | None = None
     supportemail: str | None = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ('<ServiceSummaryResponseModel)={ServiceId: str}>')
 
-    def as_dict(self):
+    def as_dict(self) -> dict[str, str | int]:
         return {
             'service_id': self.service_id,
             'version': self.version,
@@ -39,11 +39,11 @@ class ServiceSummaryResponseModel(BaseModel):
 class ServiceSummariesModel(BaseModel):
     service_summaries: list[ServiceSummaryResponseModel]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (
             '<ServiceSummariesModel='
             '{list[ServiceSummaryResponseModel]}>'
         )
 
-    def as_dict(self):
+    def as_dict(self) -> list[ServiceSummaryResponseModel]:
         return self.service_summaries

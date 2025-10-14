@@ -4,7 +4,7 @@
 Test the classes derived from KVCache
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license
 '''
 
@@ -14,7 +14,7 @@ import yaml
 import shutil
 import unittest
 
-from byoda.util.logger import Logger
+
 
 from byoda.datamodel.network import Network
 
@@ -33,7 +33,7 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
     PROCESS = None
     APP_CONFIG = None
 
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         with open(CONFIG_FILE) as file_desc:
             TestKVCache.APP_CONFIG = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
@@ -64,10 +64,10 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         await config.server.member_db.kvcache.delete(TEST_KEY)
 
     @classmethod
-    def tearDownClass(cls):
+    def tearDownClass(cls) -> None:
         pass
 
-    async def test_cache_ops(self):
+    async def test_cache_ops(self) -> None:
         driver = config.server.member_db.kvcache
 
         key = TEST_KEY
@@ -124,6 +124,6 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
 
     unittest.main()

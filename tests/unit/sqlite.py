@@ -2,7 +2,7 @@
 Test cases for Sqlite storage
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -14,6 +14,7 @@ import unittest
 from uuid import UUID
 from typing import Self
 from copy import deepcopy
+from logging import Logger
 from dataclasses import dataclass
 from datetime import UTC
 from datetime import datetime
@@ -35,9 +36,9 @@ from byoda.storage.sqlite import SqliteStorage
 
 from byoda.servers.pod_server import PodServer
 
-from byoda import config
+from byoda.util.logger import Logger as ByodaLogger
 
-from byoda.util.logger import Logger
+from byoda import config
 
 from tests.lib.setup import mock_environment_vars
 from tests.lib.setup import setup_network
@@ -520,5 +521,7 @@ def compare_network_invite(data: list[QueryResult],
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

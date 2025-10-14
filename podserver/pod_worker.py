@@ -5,7 +5,7 @@ Manages recurring activities such as checking for new service contracts and
 data secrets
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -13,6 +13,7 @@ import os
 import sys
 
 from uuid import UUID
+from logging import Logger
 
 from anyio import run
 from anyio import sleep
@@ -39,7 +40,7 @@ from byoda.util.updates_listener import UpdateListenerMember
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.logger import Logger
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -206,7 +207,7 @@ async def setup_worker(argv: list[str]) -> PodServer:
         os.umask(0x0077)
 
     global _LOGGER
-    _LOGGER = Logger.getLogger(
+    _LOGGER: Logger = ByodaLogger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'), logfile=LOGFILE
     )

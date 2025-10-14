@@ -2,7 +2,7 @@
 Class for creation and verification of JWTs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -10,6 +10,7 @@ from uuid import UUID
 from typing import Self
 from typing import TypeVar
 
+from logging import Logger
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -24,8 +25,6 @@ from byoda.secrets.secret import Secret
 
 from byoda.datatypes import IdType
 from byoda.datatypes import ServerType
-
-from byoda.util.logger import Logger
 
 from byoda import config
 
@@ -74,7 +73,7 @@ class JWT:
     @staticmethod
     @TRACER.start_as_current_span('JWT.create')
     def create(identifier: UUID, id_type: IdType, secret: Secret,
-               network_name: str, service_id: int,
+               network_name: str, service_id: int | None,
                scope_type: IdType, scope_id: UUID | int,
                expiration_seconds: int = JWT_EXPIRATION_DAYS * 24 * 60 * 60
                ) -> Self:
@@ -263,8 +262,9 @@ class JWT:
 
     @staticmethod
     @TRACER.start_as_current_span(name='JWT.decode')
-    async def decode(authorization: str, secret: Secret, network_name: str,
-                     download_remote_cert: bool = True) -> Self:
+    async def decode(authorization: str, secret: Secret | None,
+                     network_name: str, download_remote_cert: bool = True
+                     ) -> Self:
         '''
         Decode an encoded JWT with or without verification.
 

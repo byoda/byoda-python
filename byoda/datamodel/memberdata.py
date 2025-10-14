@@ -14,12 +14,13 @@ validation and gathers all the data needed to process the request
 work
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 from uuid import UUID
 from typing import TypeVar
+from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
@@ -76,7 +77,7 @@ from byoda.storage import FileMode
 
 from byoda.storage.pubsub import PubSub
 
-from byoda.util.logger import Logger
+
 
 from byoda.util.paths import Paths
 

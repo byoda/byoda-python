@@ -2,7 +2,7 @@
 Test cases for the channel cache API on the byotube server
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2024
+:copyright  : Copyright 2023, 2024, 2025, 2024
 :license    : GPLv3
 '''
 
@@ -11,6 +11,7 @@ import sys
 import unittest
 
 from uuid import UUID
+from logging import Logger
 from datetime import UTC
 from datetime import datetime
 
@@ -18,9 +19,7 @@ from byoda.datacache.channel_cache import ChannelCache
 
 from byoda.models.data_api_models import Channel
 from byoda.models.data_api_models import EdgeResponse as Edge
-
-from byoda.util.logger import Logger
-
+from byoda.util.logger import Logger as ByodaLogger
 from tests.lib.util import get_test_uuid
 
 REDIS_URL: str = os.getenv('REDIS_URL', 'redis://192.168.1.13:6379')
@@ -99,5 +98,5 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    Logger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
     unittest.main()

@@ -10,6 +10,7 @@ import os
 import sys
 import logging
 
+from typing import Self
 from datetime import datetime
 from datetime import timezone
 
@@ -27,7 +28,7 @@ class Logger(logging.Logger):
     @staticmethod
     def getLogger(appname, loglevel: int = None, json_out: bool = True,
                   extra: bool = None, logfile: str = None,
-                  debug: bool = False, verbose: bool = False):
+                  debug: bool = False, verbose: bool = False) -> Self:
         '''
         Factory for Logger class. Returns logger with specified
         name. The default log level is logging.WARNING. The debug flag
@@ -93,7 +94,7 @@ class Logger(logging.Logger):
 
         # We set up the root logger so that modules inherit
         # its settings
-        root_logger = logging.getLogger()
+        root_logger: logging.Logger = logging.getLogger()
         root_logger.setLevel(loglevel)
 
         if not logfile:
@@ -170,7 +171,7 @@ class Logger(logging.Logger):
         # )
         # Now create a child logger for the caller, which inherits
         # from the root logger
-        logger = logging.getLogger(appname)
+        logger: logging.Logger = logging.getLogger(appname)
         return logger
 
 

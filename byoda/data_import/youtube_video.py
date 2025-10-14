@@ -2,7 +2,7 @@
 Model a Youtube video
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
@@ -17,7 +17,8 @@ from uuid import uuid4
 from typing import Self
 from shutil import copytree
 from random import randrange
-from logging import getLogger, Logger
+from logging import Logger
+from logging import getLogger
 from datetime import datetime
 from datetime import timezone
 from dateutil import parser as dateutil_parser
@@ -607,7 +608,7 @@ class YouTubeVideo:
         # FastAPI APP instead of making an actual HTTP call against a
         # pod server
         app: FastAPI | None = None
-        auth_header: dict[str, str] = None
+        auth_header: dict[str, str] | None = None
         auth_secret: Secret | None = member.tls_secret
         if config.test_case:
             app = config.app
@@ -1003,7 +1004,7 @@ class YouTubeVideo:
         # We create manifests for each of the encoding profiles
         pkg_dirs: list[str] = []
         for category in sorted(EncodingCategory):
-            pkg_dir: str = self._package_category_streams(
+            pkg_dir: str | None = self._package_category_streams(
                 category, work_dir, bento4_dir, log_extra
             )
             if pkg_dir:
@@ -1076,7 +1077,7 @@ class YouTubeVideo:
     def _package_category_streams(
         self, category: EncodingCategory, work_dir: str, bento4_dir: str,
         log_extra: dict[str, any]
-    ) -> str:
+    ) -> str | None:
         '''
         Creates MPEG-DASH and HLS manifests for the video and audio streams
         for the given encoding category
