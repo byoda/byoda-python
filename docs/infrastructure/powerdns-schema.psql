@@ -9,11 +9,11 @@ CREATE TABLE domains (
   options               TEXT DEFAULT NULL,
   catalog               TEXT DEFAULT NULL,
   CONSTRAINT c_lowercase_name CHECK (((name)::TEXT = LOWER((name)::TEXT)))
+  CONSTRAINT domains_unique UNIQUE (name)
 );
 
 CREATE UNIQUE INDEX name_index ON domains(name);
 CREATE INDEX catalog_idx ON domains(catalog);
-
 
 CREATE TABLE records (
   id                    BIGSERIAL PRIMARY KEY,
@@ -31,6 +31,7 @@ CREATE TABLE records (
   FOREIGN KEY(domain_id) REFERENCES domains(id)
   ON DELETE CASCADE,
   CONSTRAINT c_lowercase_name CHECK (((name)::TEXT = LOWER((name)::TEXT)))
+  CONSTRAINT records_unique UNIQUE(name, domain_id, type, content)
 );
 
 CREATE INDEX rec_name_index ON records(name);

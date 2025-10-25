@@ -43,7 +43,7 @@ router = APIRouter(
     '/member', response_model=IpAddressResponseModel, status_code=200
 )
 async def put_member(request: Request, auth: MemberRequestAuthFast = Depends(
-                     MemberRequestAuthFast)):
+                     MemberRequestAuthFast)) -> dict[str, str]:
     '''
     Request DNS record to be hosted for the Common Name of the MemberCert
     '''

@@ -9,9 +9,10 @@ provides helper functions to authenticate the client making the request
 '''
 
 
-from typing import Annotated
 from logging import Logger
 from logging import getLogger
+from typing import override
+from typing import Annotated
 
 from fastapi import Request
 from fastapi import HTTPException
@@ -36,7 +37,7 @@ class AccountRequestAuthFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None)) -> None:
         '''
         Get the authentication info for the client that made the API call.
         The reverse proxy has already validated that the client calling the
@@ -58,8 +59,9 @@ class AccountRequestAuthFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization: str | None = None
 
-    async def authenticate(self):
-        server = config.server
+    @override
+    async def authenticate(self) -> None:
+        server: config.Server = config.server
 
         try:
             await super().authenticate(
@@ -97,7 +99,7 @@ class AccountRequestOptionalAuthFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None)) -> None:
         '''
         Get the authentication info for the client that made the API call.
         In this class, authentication is optional, so if no TLS client cert
@@ -123,8 +125,9 @@ class AccountRequestOptionalAuthFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization = None
 
-    async def authenticate(self):
-        server = config.server
+    @override
+    async def authenticate(self) -> None:
+        server: config.Server = config.server
 
         try:
             await super().authenticate(

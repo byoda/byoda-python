@@ -3,17 +3,12 @@ Access for database used for the DNS server. The PowerDNS
 DNS software is supported. This class writes to a SQL database
 and PowerDNS reads from the database to answer DNS queries.
 
-The DnsDb class does not use any abstraction for different
-storage technologies as PowerDNS only supports SQL databases, for
-which we have coverage through SQLAlchemy
-
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023, 2024, 2025
 :license    : GPLv3
 '''
 
 import time
-import logging
 
 from enum import Enum
 from uuid import UUID
@@ -23,14 +18,14 @@ from logging import getLogger
 from ipaddress import ip_address
 from ipaddress import IPv4Address
 
-from sqlalchemy import MetaData, Table, delete, event, and_
-from sqlalchemy import Insert, Select, Delete
-from sqlalchemy import Column, String, Boolean, Integer, BigInteger, ForeignKey
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.future import select
-from sqlalchemy import create_engine
+import orjson
 
-from sqlalchemy.engine import Engine
+from psycopg_pool import AsyncConnectionPool
+from psycopg.rows import dict_row
+from psycopg import AsyncCursor
+from psycopg.types.json import set_json_dumps
+from psycopg.types.json import set_json_loads
+
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.account_secret import AccountSecret
 from byoda.secrets.service_secret import ServiceSecret
@@ -39,13 +34,14 @@ from byoda.datatypes import IdType
 
 _LOGGER: Logger = getLogger(__name__)
 
-DEFAULT_TTL = 1800
+DEFAULT_FQDN_TTL = 1800
+DEFAULT_DOMAIN_TTL = 86400
 DEFAULT_TTL_TXT = 60
 
 
-# TODO: we should be creating NS records for services using
-# a list of configurable DNS servers
-NAMESERVER_FQDNS: list[str] = ['dir.byoda.net']
+NAMESERVER_FQDNS: list[str] = [
+    'ns-va-01.byoda.net', 'ns-va-02.byoda.net'
+]
 
 DEFAULT_DB_EXPIRE = 7 * 24 * 60 * 60
 
@@ -53,6 +49,49 @@ DEFAULT_DB_EXPIRE = 7 * 24 * 60 * 60
 class DnsRecordType(Enum):
     A = 'A'
     TXT = 'TXT'
+
+
+class DnsSql:
+    STMTS: dict[str, str] = {
+        'get_domain': '''
+            SELECT id
+            FROM domains
+            WHERE name=%(name)s
+        ''',
+        'get_record': '''
+            SELECT id, domain_id, type, content
+            FROM records
+            WHERE name=%(name)s AND type=%(type)s
+        ''',
+        'upsert_domain': '''
+            INSERT INTO domains (name, type)
+            VALUES (%(name)s, 'NATIVE')
+            ON CONFLICT DO NOTHING
+            RETURNING id
+        ''',
+        'upsert_record': '''
+            INSERT INTO records (
+                    name, content, domain_id, type, ttl,
+                    prio, auth, db_expire
+                )
+            VALUES(
+                %(name)s, %(content)s, %(domain_id)s,
+                %(record_type)s, %(ttl)s, 0, True, %(db_expire)s
+            )
+            ON CONFLICT ON CONSTRAINT records_unique
+            DO UPDATE SET (
+                name, content, domain_id, type, ttl, prio, auth
+            ) = (
+                %(name)s, %(content)s, %(domain_id)s, %(record_type)s,
+                %(ttl)s, 0, True
+            )
+            RETURNING id
+        ''',
+        'delete_record': '''
+            DELETE FROM records
+            WHERE name=%(name)s AND type=%(type)s
+        '''
+    }
 
 
 class DnsDb:
@@ -78,42 +117,13 @@ class DnsDb:
         self.domain: str = network
         self.nameservers: list[str] = nameservers
 
-        self._metadata = MetaData()
-        self._engine = None
-
+        # A cache so we don't have to look up the domain_id every
+        # time we want to upsert a new record
         self._domain_ids: dict[str, int] = {}
 
-        # https://docs.sqlalchemy.org/en/14/core/engines.html#dbengine-logging
+        self.connection_string: str = ''
 
-        logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
-        logging.getLogger('sqlalchemy.dialormects').setLevel(logging.WARNING)
-
-        self._domains_table = Table(
-            'domains', self._metadata,
-            Column('id', Integer),
-            Column('name', String(255)),
-            Column('master', String(128)),
-            Column('last_check', Integer),
-            Column('type', String(6)),
-            Column('notified_serial', BigInteger),
-            Column('account', String(40))
-        )
-        self._records_table = Table(
-            'records', self._metadata,
-            Column('id', BigInteger, primary_key=True),
-            Column('domain_id', Integer, ForeignKey('domains.id')),
-            Column('name', String(255)),
-            Column('type', String(10)),
-            Column('content', String(65535)),
-            Column('ttl', Integer),
-            Column('prio', Integer),
-            Column('disabled', Boolean),
-            Column('ordername', String(255)),
-            Column('auth', Boolean),
-            Column('db_expire', Integer)
-        )
+        self.pool: AsyncConnectionPool | None = None
 
     @staticmethod
     async def setup(connectionstring: str, network_name: str) -> Self:
@@ -127,19 +137,309 @@ class DnsDb:
 
         '''
 
-        dnsdb = DnsDb(network_name)
+        self = DnsDb(network_name)
+        set_json_dumps(orjson.dumps)
+        set_json_loads(orjson.loads)
 
-        dnsdb._engine = create_engine(
-                connectionstring, echo=False, isolation_level='AUTOCOMMIT'
-            )
+        self.connection_string = connectionstring
+        self.pool = AsyncConnectionPool(
+            conninfo=self.connection_string, open=False,
+            kwargs={'row_factory': dict_row, 'autocommit': True}
+        )
+        await self.pool.open()
 
         # Ensure the 'accounts' subdomain for the network exists
         subdomain: str = f'accounts.{network_name}'
-        with dnsdb._engine.connect() as conn:
-            domain_id: int = await dnsdb._get_domain_id(conn, subdomain)
-            dnsdb._domain_ids[subdomain] = domain_id
+        domain_id: int = await self._get_domain_id(subdomain, True)
+        self._domain_ids[subdomain] = domain_id
+        return self
 
-        return dnsdb
+    async def close(self) -> None:
+        '''
+        Close the connection pool
+
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        if self.pool:
+            await self.pool.close()
+            self.pool = None
+
+    async def _upsert_domain(self, subdomain: str) -> int:
+        '''
+        Ensure the specified subdomain exists in the DnsDB
+
+        :param subdomain: string with the subdomain to upsert
+        :returns: domain_id for the subdomain
+        :raises:
+        '''
+
+        if not self.pool:
+            raise RuntimeError('Connection pool is not initialized')
+
+        if subdomain in self._domain_ids:
+            raise ValueError(
+                f'Subdomain {subdomain} already has domain id '
+                f'{self._domain_ids[subdomain]}'
+            )
+
+        _LOGGER.debug(f'Upserting domain {subdomain}')
+        async with self.pool.connection() as conn:
+            result: AsyncCursor[dict] = await conn.execute(
+                DnsSql.STMTS['upsert_domain'], {'name': subdomain}
+            )
+            if not result.rowcount:
+                domain_id: int = await self._get_domain_id(subdomain, False)
+                self._domain_ids[subdomain] = domain_id
+                _LOGGER.debug(
+                    f'Domain {subdomain} already exists in DnsDB '
+                    f'in row {domain_id}'
+                )
+                return domain_id
+
+            domain_id: int = (await result.fetchone())['id']
+            self._domain_ids[subdomain] = domain_id
+
+            soa_data: str = \
+                f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
+
+            result: AsyncCursor[dict] = await conn.execute(
+                DnsSql.STMTS['upsert_record'],
+                {
+                    'name': subdomain,
+                    'content': soa_data,
+                    'domain_id': domain_id,
+                    'record_type': 'SOA',
+                    'ttl': DEFAULT_DOMAIN_TTL,
+                    'db_expire': int(time.time()) + DEFAULT_DB_EXPIRE
+                }
+            )
+
+            if not result.rowcount:
+                raise RuntimeError(
+                    f'Failed to upsert SOA record for domain {subdomain}'
+                )
+
+            result = await conn.execute(
+                DnsSql.STMTS['upsert_record'],
+                {
+                    'name': subdomain,
+                    'content': self.nameservers[0],
+                    'domain_id': domain_id,
+                    'record_type': 'NS',
+                    'ttl': DEFAULT_DOMAIN_TTL,
+                    'db_expire': 0
+                }
+            )
+
+            if not result.rowcount:
+                raise RuntimeError(
+                    f'Failed to upsert NS record for domain {subdomain}'
+                )
+
+            result = await conn.execute(
+                DnsSql.STMTS['upsert_record'],
+                {
+                    'name': subdomain,
+                    'content': self.nameservers[1],
+                    'domain_id': domain_id,
+                    'record_type': 'NS',
+                    'ttl': DEFAULT_DOMAIN_TTL,
+                    'db_expire': 0
+                }
+            )
+
+            await conn.commit()
+
+            if not result.rowcount:
+                raise RuntimeError(
+                    f'Failed to upsert NS record for domain {subdomain}'
+                )
+
+        _LOGGER.debug(
+            f'Created subdomain {subdomain} with SOA {soa_data} and NS for '
+            f'{",".join(self.nameservers)}'
+        )
+
+        return domain_id
+
+    async def create_update(self, uuid: UUID, id_type: IdType,
+                            ip_addr: ip_address,
+                            service_id: int = None) -> None:
+        '''
+        Create or update a DNS A record, replacing any existing DNS data
+        for that record
+
+        :param uuid: account or member. Must be None for IdType.SERVICE
+        :param id_type:
+        :param ip_addr: client ip
+        :param service_id: service identifier
+        :returns: whether new DNS records were added, with other words
+        True: new record added, False: existing record updated
+        :raises:
+        '''
+
+        self._validate_parameters(
+            uuid, id_type, ip_addr=ip_addr, service_id=service_id
+        )
+
+        db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id=service_id)
+
+        subdomain: str = fqdn.split('.', 1)[1]
+        if subdomain not in self._domain_ids:
+            domain_id: bool = await self._upsert_domain(subdomain)
+        else:
+            domain_id = self._domain_ids[subdomain]
+
+        async with self.pool.connection() as conn:
+            await conn.execute(
+                DnsSql.STMTS['upsert_record'],
+                {
+                    'name': fqdn,
+                    'content': str(ip_addr),
+                    'domain_id': domain_id,
+                    'record_type': DnsRecordType.A.value,
+                    'ttl': DEFAULT_FQDN_TTL,
+                    'db_expire': db_expire
+                }
+            )
+            await conn.commit()
+
+    async def lookup(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType, service_id: int = None
+                     ) -> ip_address:
+        '''
+        Look up in DnsDB the DNS record for the UUID, which is either an
+        account_id, a member_id or a service_id
+
+        :param uuid: instance of uuid.UUID
+        :param id_type: instance of byoda.datatypes.IdType
+        :param dns_record_type: type of DNS record to look up
+        :param service_id: the identifier for the service
+        :returns: IP address found for the lookup in DnsDB
+        :raises: KeyError if DNS record for the uuid could not be found
+        '''
+
+        self._validate_parameters(uuid, id_type, service_id=service_id)
+
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
+
+        return await self.lookup_fqdn(fqdn, dns_record_type)
+
+    async def lookup_fqdn(self, fqdn: str, dns_record_type: DnsRecordType,
+                          ) -> ip_address:
+        '''
+        Looks up FQDN in the DnsDB
+
+        :param fqdn: FQDN to look up
+        :param dns_record_type: what type of DNS record to look up
+        :returns: IP address found for the lookup in DnsDB
+        :raises: KeyError if DNS record for the uuid could not be found
+        '''
+
+        value = None
+        _LOGGER.debug(f'Performing lookup for {dns_record_type.value} {fqdn}')
+        async with self.pool.connection() as conn:
+            try:
+                result: AsyncCursor = await conn.execute(
+                    DnsSql.STMTS['get_record'],
+                    {'name': fqdn, 'type': dns_record_type.value}
+                )
+            except Exception as e:
+                _LOGGER.error(
+                    f'Error DNS DB lookup for {fqdn} of '
+                    f'type {dns_record_type.value}: {e}'
+                )
+                raise
+
+            rows: list[dict] = await result.fetchall()
+            _LOGGER.debug(f'Found {len(rows)} records for {fqdn}')
+            if not rows:
+                raise KeyError(
+                    f'No {dns_record_type.value} records found for {fqdn}'
+                )
+
+            if len(rows) > 1:
+                _LOGGER.warning(
+                    f'FQDN {fqdn} has more than one {dns_record_type} '
+                    f'record: {len(rows)} records found'
+                )
+
+        if dns_record_type == DnsRecordType.A:
+            value = IPv4Address(rows[0]['content'])
+
+        _LOGGER.debug(f'Found DNS record for {fqdn}: {value}')
+
+        return value
+
+    async def remove(self, uuid: UUID, id_type: IdType,
+                     dns_record_type: DnsRecordType, service_id=None) -> bool:
+        '''
+        Removes the DNS records for the uuid
+
+        :param uuid: client
+        :param id_type: account / member / service
+        :param service_id: service identifier, required for IdType.service
+        :returns: bool on whether one or more records were removed
+        '''
+
+        self._validate_parameters(uuid, id_type, service_id=service_id)
+
+        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
+
+        async with self.pool.connection() as conn:
+            result: AsyncCursor = await conn.execute(
+                DnsSql.STMTS['delete_record'],
+                {'name': fqdn, 'type': dns_record_type.value}
+            )
+
+            _LOGGER.debug(
+                f'Removed {result.rowcount} DNS record(s) for FQDN {fqdn} '
+            )
+
+            return result.rowcount > 0
+
+    async def _get_domain_id(self, subdomain: str,
+                             create_missing: bool = True) -> int:
+        '''
+        Get the Powerdns domain_id for the subdomain from Postgres
+
+        :param subdomain: string with the domain
+        :returns: domain_id
+        '''
+
+        if not self.pool:
+            raise RuntimeError('Connection pool is not initialized')
+
+        if subdomain in self._domain_ids:
+            return self._domain_ids[subdomain]
+
+        async with self.pool.connection() as conn:
+            result: AsyncCursor[dict] = await conn.execute(
+                DnsSql.STMTS['get_domain'], {'name': subdomain}
+            )
+
+        if not result.rowcount:
+            if not create_missing:
+                raise ValueError(f'Domain {subdomain} not found in DnsDB')
+            _LOGGER.info(f'Creating domain {subdomain} in DnsDB')
+            domain_id: int = await self._upsert_domain(subdomain)
+            return domain_id
+
+        if result.rowcount > 1:
+            _LOGGER.error(f'More than one domain found for {subdomain}')
+
+        row: dict | None = await result.fetchone()
+
+        if not row:
+            raise RuntimeError(f'Failed to fetch data for {subdomain}')
+
+        domain_id: int = row['id']
+        self._domain_ids[subdomain] = domain_id
+
+        return domain_id
 
     def compose_fqdn(self, uuid: UUID, id_type: IdType,
                      service_id: int | None = None) -> str:
@@ -179,8 +479,8 @@ class DnsDb:
         subdomains: list[str] = fqdn.split('.')
         if '_' in subdomains[0]:
             # IdType.MEMBER
-            uuid, service_id = subdomains[0].split('_')
-            uuid = UUID(uuid)
+            service_id: int = int(subdomains[0].split('_')[1])
+            uuid = UUID(subdomains[0].split('_')[0])
         else:
             if subdomains[0].isdigit():
                 # IdType.SERVICE
@@ -192,322 +492,6 @@ class DnsDb:
         id_type = IdType(subdomains[1])
 
         return uuid, id_type, service_id
-
-    async def create_update(self, uuid: UUID, id_type: IdType,
-                            ip_addr: ip_address,
-                            service_id: int = None) -> bool:
-        '''
-        Create DNS A and optionally a TXT record, replacing any existing DNS
-        record.
-
-        :param uuid: account or member. Must be None for IdType.SERVICE
-        :param id_type:
-        :param ip_addr: client ip
-        :param service_id: service identifier
-        :returns: whether existing DNS records were updated
-        :raises:
-        '''
-
-        self._validate_parameters(
-            uuid, id_type, ip_addr=ip_addr, service_id=service_id
-        )
-
-        db_expire = int(time.time() + DEFAULT_DB_EXPIRE)
-        fqdn: str = self.compose_fqdn(uuid, id_type, service_id=service_id)
-
-        record_replaced = False
-
-        for dns_record_type, value in [
-                (DnsRecordType.A, str(ip_addr)), (DnsRecordType.TXT, None)]:
-            # TODO: refactor now that we have ruled out Let's Encrypt certs
-            # and TXT records
-            if not value:
-                # No value provided for the DNS record type, ie. no value for
-                # secret specified because the IP address is always provided
-                continue
-
-            # SQLAlachemy doesn't have 'UPSERT' so we do a lookup, remove if
-            # the entry already exists and then create the new record
-            try:
-                existing_value = await self.lookup(
-                    uuid, id_type, dns_record_type, service_id=service_id
-                )
-                if existing_value and value == str(existing_value):
-                    # Nothing to change
-                    _LOGGER.debug(
-                        f'No DNS changed needes for FQDN {fqdn} with IP '
-                        f'{value}'
-                    )
-                    continue
-
-                record_replaced: bool = record_replaced or await self.remove(
-                    uuid, id_type, dns_record_type, service_id=service_id
-                )
-            except KeyError:
-                pass
-
-            with self._engine.connect() as conn:
-                # TODO: when we have multiple directory servers, the local
-                # 'cache' of domains_id might be out of date
-                subdomain: str = fqdn.split('.', 1)[1]
-                if subdomain not in self._domain_ids:
-                    domain_id: bool = await self._upsert_subdomain(
-                        conn, subdomain
-                        )
-                else:
-                    domain_id = self._domain_ids[subdomain]
-
-                stmt: Insert = insert(
-                    self._records_table
-                ).values(
-                    name=fqdn, content=str(value), domain_id=domain_id,
-                    db_expire=db_expire, type=dns_record_type.value,
-                    ttl=DEFAULT_TTL, prio=0, auth=True
-                )
-
-                conn.execute(stmt)
-
-        return record_replaced
-
-    async def lookup(self, uuid: UUID, id_type: IdType,
-                     dns_record_type: DnsRecordType, service_id: int = None
-                     ) -> ip_address:
-        '''
-        Look up in DnsDB the DNS record for the UUID, which is either an
-        account_id, a member_id or a service_id
-
-        :param uuid: instance of uuid.UUID
-        :param id_type: instance of byoda.datatypes.IdType
-        :param dns_record_type: type of DNS record to look up
-        :param service_id: the identifier for the service
-        :returns: IP address found for the lookup in DnsDB
-        :raises: KeyError if DNS record for the uuid could not be found
-        '''
-
-        self._validate_parameters(uuid, id_type, service_id=service_id)
-
-        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
-
-        return await self.lookup_fqdn(fqdn, dns_record_type)
-
-    async def lookup_fqdn(self, fqdn: str, dns_record_type: DnsRecordType,
-                          ) -> ip_address:
-        '''
-        Looks up FQDN in the DnsDB
-
-        :param fqdn: FQDN to look up
-        :param dns_record_type: what type of DNS record to look up
-        :returns: IP address found for the lookup in DnsDB
-        :raises: KeyError if DNS record for the uuid could not be found
-        '''
-
-        value = None
-        _LOGGER.debug(f'Performing lookup for {fqdn}')
-        with self._engine.connect() as conn:
-            _LOGGER.debug(f'Performing lookup for {fqdn}')
-            stmt: Select[tuple[any, any]] = select(
-                self._records_table.c.id, self._records_table.c.content
-            ).where(
-                and_(
-                    self._records_table.c.name == fqdn,
-                    self._records_table.c.type == dns_record_type.value
-                )
-            )
-
-            try:
-                _LOGGER.debug(f'Executing SQL command: {stmt}')
-                domains = conn.execute(stmt)
-            except Exception as exc:
-                _LOGGER.error(f'Failed to execute SQL statement: {exc}')
-                return
-
-            values: list[str] = [domain.content for domain in domains]
-
-            if not len(values):
-                raise KeyError(
-                    f'No {dns_record_type} records found for {fqdn}'
-                )
-
-            if len(values) > 1:
-                _LOGGER.warning(
-                    f'FQDN {fqdn} has more than one {dns_record_type} '
-                    f'record: {", ".join(values)}'
-                )
-
-        value: str = values[0]
-        if dns_record_type == DnsRecordType.A:
-            value = IPv4Address(value)
-
-        return value
-
-    async def remove(self, uuid: UUID, id_type: IdType,
-                     dns_record_type: DnsRecordType, service_id=None) -> bool:
-        '''
-        Removes the DNS records for the uuid
-
-        :param uuid: client
-        :param id_type: account / member / service
-        :param service_id: service identifier, required for IdType.service
-        :returns: bool on whether one or more records were removed
-        '''
-
-        self._validate_parameters(uuid, id_type, service_id=service_id)
-
-        fqdn: str = self.compose_fqdn(uuid, id_type, service_id)
-
-        with self._engine.connect() as conn:
-            if dns_record_type == DnsRecordType.TXT:
-                stmt: Delete = delete(
-                    self._records_table
-                ).where(
-                    and_(
-                        self._records_table.c.name == fqdn,
-                        self._records_table.c.type == dns_record_type.value
-                    )
-                )
-                conn.execute(stmt)
-                return True
-            else:
-                stmt = select(
-                    self._records_table.c.id
-                ).where(
-                    self._records_table.c.name == fqdn
-                )
-                result = conn.execute(stmt)
-                domains = result.fetchall()
-
-                for domain in domains:
-                    stmt: Delete = delete(
-                        self._records_table
-                    ).where(
-                        and_(
-                            self._records_table.c.id == domain.id,
-                            self._records_table.c.type == dns_record_type.value
-                        )
-                    )
-                    conn.execute(stmt)
-
-                _LOGGER.debug(
-                    f'Removed {len(domains)} DNS record(s) for UUID {uuid} '
-                    f'and service_id {service_id}'
-                )
-
-            return len(domains) > 0
-
-    async def _get_domain_id(self, conn: Engine, subdomain: str,
-                             create_missing: bool = True) -> int:
-        '''
-        Get the Powerdns domain_id for the subdomain from Postgres
-
-        :param conn: SqlAlchemy Engine
-        :param subdomain: string with the domain
-        :returns: domain_id
-        '''
-
-        if subdomain in self._domain_ids:
-            return self._domain_ids[subdomain]
-
-        stmt: Select[tuple[any]] = select(
-            self._domains_table.c.id
-        ).where(
-            self._domains_table.c.name == subdomain
-        )
-
-        domains = conn.execute(stmt)
-
-        first = domains.first()
-
-        if not first:
-            if create_missing:
-                _LOGGER.info('Creating domain {subdomain} in DnsDB')
-                await self._upsert_subdomain(conn, subdomain)
-                return await self._get_domain_id(
-                    conn, subdomain, create_missing=False
-                )
-            else:
-                raise ValueError(
-                    f'Could not find or create ID for domain {subdomain}'
-                )
-        else:
-            domain_id: int = first.id
-
-        return domain_id
-
-    async def _upsert_subdomain(self, conn: Engine, subdomain: str,
-                                ) -> bool:
-        '''
-        Adds subdomain to list of domains, with SOA and NS records. NS
-        records both in the new subdomain and in the network (ie. 'byoda.net')
-        domain
-
-        :param conn: instance of connection to Postgresql
-        :param subdomain: string with the domain to add
-        :returns: bool on success
-        :raises:
-        '''
-
-        if subdomain in self._domain_ids:
-            raise ValueError(
-                f'Subdomain {subdomain} already has domain id '
-                f'{self._domain_ids[subdomain]}'
-            )
-
-        stmt = insert(
-            self._domains_table
-        ).values(
-            name=subdomain,
-            type='NATIVE'
-        ).on_conflict_do_nothing(
-            index_elements=['name']
-        )
-        _LOGGER.debug(f'Upserting domain {subdomain}')
-        conn.execute(stmt)
-
-        domain_id: int = await self._get_domain_id(conn, subdomain)
-        self._domain_ids[subdomain] = domain_id
-
-        soa: str = \
-            f'{subdomain} hostmaster.{subdomain} 0 10800 3600 604800 3600'
-        stmt = insert(
-            self._records_table
-        ).values(
-            name=subdomain, content=soa,
-            domain_id=domain_id,
-            type='SOA', ttl=DEFAULT_TTL, prio=0,
-            auth=True
-        )
-        conn.execute(stmt)
-
-        network_domain_id: int = await self._get_domain_id(conn, self.domain)
-
-        nameserver: str
-        for nameserver in self.nameservers:
-            stmt: Insert = insert(
-                self._records_table
-            ).values(
-                name=f'{subdomain}', content=nameserver,
-                domain_id=domain_id,
-                type='NS', ttl=DEFAULT_TTL, prio=0,
-                auth=True
-            )
-
-            stmt: Insert = insert(
-                self._records_table
-            ).values(
-                name=f'{subdomain}', content=nameserver,
-                domain_id=network_domain_id,
-                type='NS', ttl=DEFAULT_TTL, prio=0,
-                auth=True
-            )
-
-        conn.execute(stmt)
-
-        _LOGGER.debug(
-            f'Created subdomain {subdomain} with SOA {soa} and NS for '
-            f'{",".join(self.nameservers)}'
-        )
-
-        return domain_id
 
     def _validate_parameters(self, uuid: UUID, id_type: IdType,
                              ip_addr: ip_address = None,
@@ -523,26 +507,34 @@ class DnsDb:
         :raises: ValueError
         '''
 
-        if uuid and isinstance(uuid, UUID):
-            pass
-        elif uuid and isinstance(uuid, str):
-            uuid = UUID(uuid)
-        elif uuid is not None:
-            raise ValueError(f'uuid must be of type UUID, not {type(uuid)}')
+        uuid = self._validate_parameters_uuid(uuid)
 
-        if ip_addr is not None and isinstance(ip_addr, IPv4Address):
-            pass
-        elif ip_addr is not None and isinstance(ip_addr, str):
-            ip_addr = ip_address(ip_addr)
-        elif ip_addr is not None:
-            raise ValueError('IP address must be of type ip_address or str')
+        ip_addr = self._validate_parameters_ipaddr(ip_addr)
+
+        id_type = self._validate_parameters_id_type(id_type, uuid, service_id)
+
+    def _validate_parameters_id_type(self, id_type: IdType, uuid: UUID,
+                                     service_id: int | None = None) -> IdType:
 
         if not isinstance(id_type, IdType):
             if isinstance(id_type, str):
-                id_type = IdType(id_type)
+                try:
+                    id_type = IdType(id_type)
+                except ValueError as exc:
+                    raise ValueError(f'Invalid IdType string: {id_type}') from exc
             else:
                 raise ValueError(f'Invalid type for id_type: {type(id_type)}')
 
+        return self._validate_parameters_id_type_logic(
+            id_type, uuid, service_id
+        )
+
+    def _validate_parameters_id_type_logic(self, id_type: IdType, uuid: UUID,
+                                           service_id: int | None = None
+                                           ) -> IdType:
+        '''
+        Validate the logic of the id_type, uuid and service_id parameters
+        '''
         if id_type == IdType.SERVICE and uuid is not None:
             raise ValueError('uuid must be None for IdType.SERVICE')
 
@@ -564,17 +556,43 @@ class DnsDb:
                 'uuid and service_id must both be specified for IdType.MEMBER'
             )
 
-        return
+        return id_type
 
+    def _validate_parameters_uuid(self, uuid: UUID) -> UUID:
+        '''
+        Validate and normalize the uuid parameter
 
-@event.listens_for(Engine, "before_cursor_execute")
-def before_cursor_execute(conn, cursor, statement, parameters, context,
-                          executemany):
-    conn.info.setdefault('query_start_time', []).append(time.time())
+        :param uuid: uuid to validate
+        :returns: normalized uuid
+        :raises: ValueError
+        '''
 
+        if uuid is None or isinstance(uuid, UUID):
+            return uuid
+        elif isinstance(uuid, str):
+            try:
+                return UUID(uuid)
+            except ValueError as e:
+                raise ValueError(f'Invalid UUID string: {uuid}') from e
+        else:
+            raise ValueError(f'Invalid type for uuid: {type(uuid)}')
 
-@event.listens_for(Engine, "after_cursor_execute")
-def after_cursor_execute(conn, cursor, statement, parameters, context,
-                         executemany):
-    total = time.time() - conn.info['query_start_time'].pop(-1)
-    _LOGGER.debug(f'Total time for query {statement}: {total}')
+    def _validate_parameters_ipaddr(self, ip_addr: ip_address
+                                    ) -> ip_address:
+        '''
+        Validate and normalize the ip_addr parameter
+
+        :param ip_addr: ip address to validate
+        :returns: normalized ip address
+        :raises: ValueError
+        '''
+
+        if ip_addr is None or isinstance(ip_addr, (IPv4Address)):
+            return ip_addr
+        elif isinstance(ip_addr, str):
+            try:
+                return ip_address(ip_addr)
+            except ValueError as e:
+                raise ValueError(f'Invalid IP address string: {ip_addr}') from e
+        else:
+            raise ValueError(f'Invalid type for ip_addr: {type(ip_addr)}')

@@ -11,6 +11,7 @@ provides helper functions to authenticate the client making the request
 from logging import Logger
 from logging import getLogger
 
+from typing import override
 from typing import Annotated
 
 from fastapi import Request
@@ -56,9 +57,10 @@ class MemberRequestAuthOptionalFast(RequestAuth):
         self.x_client_ssl_subject: str = x_client_ssl_subject
         self.x_client_ssl_issuing_ca: str = x_client_ssl_issuing_ca
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
-        self.authorization: str = None
+        self.authorization: str | None = None
 
-    async def authenticate(self):
+    @override
+    async def authenticate(self) -> None:
         server: Server = config.server
         try:
             await super().authenticate(
@@ -95,7 +97,7 @@ class MemberRequestAuthFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None)) -> None:
         '''
         Get the optional authentication info for the client that made the API
         call.
@@ -122,9 +124,10 @@ class MemberRequestAuthFast(RequestAuth):
         else:
             self.service_id = None
 
-        self.authorization: str = None
+        self.authorization: str | None = None
 
-    async def authenticate(self):
+    @override
+    async def authenticate(self) -> None:
         server: Server = config.server
         try:
             await super().authenticate(
