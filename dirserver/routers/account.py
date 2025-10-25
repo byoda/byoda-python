@@ -15,13 +15,17 @@ from fastapi import Depends
 from fastapi import Request
 from fastapi import HTTPException
 
+from ipaddress import ip_address as IpAddress
+
 from cryptography import x509
 
 from byoda.datamodel.network import Network
 
 from byoda.datatypes import IdType
 from byoda.datatypes import AuthSource
+from byoda.datatypes import EntityId
 
+from byoda.secrets.certchain import CertChain
 from byoda.secrets.secret import Secret
 from byoda.secrets.networkaccountsca_secret import NetworkAccountsCaSecret
 from byoda.datastore.certstore import CertStore
@@ -49,7 +53,8 @@ router = APIRouter(prefix='/api/v1/network', dependencies=[])
 )
 async def post_account(request: Request, csr: CertSigningRequestModel,
                        auth: AccountRequestOptionalAuthFast =
-                       Depends(AccountRequestOptionalAuthFast)):
+                       Depends(AccountRequestOptionalAuthFast)
+                       ) -> dict[str, str | bytes]:
     '''
     Submit a Certificate Signing Request and get the signed
     certificate
@@ -67,12 +72,13 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     # Authorization
     csr_x509: x509 = Secret.csr_from_string(csr.csr)
-    common_name = Secret.extract_commonname(csr_x509)
+    common_name: str = Secret.extract_commonname(csr_x509)
 
     try:
-        entity_id = NetworkAccountsCaSecret.review_commonname_by_parameters(
-            common_name, network.name
-        )
+        entity_id: EntityId = \
+            NetworkAccountsCaSecret.review_commonname_by_parameters(
+                common_name, network.name
+            )
     except PermissionError:
         _LOGGER.debug(f'Invalid common name {common_name} in CSR')
         raise HTTPException(
@@ -144,14 +150,14 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     certstore = CertStore(network.accounts_ca)
 
-    certchain = certstore.sign(
+    certchain: CertChain = certstore.sign(
         csr.csr, IdType.ACCOUNT, request.client.host
     )
 
-    signed_cert = certchain.cert_as_string()
-    cert_chain = certchain.cert_chain_as_string()
+    signed_cert: str = certchain.cert_as_string()
+    cert_chain: str = certchain.cert_chain_as_string()
 
-    network_data_cert_chain = network.data_secret.cert_as_pem()
+    network_data_cert_chain: bytes = network.data_secret.cert_as_pem()
 
     if not dns_exists:
         await dnsdb.create_update(
@@ -167,7 +173,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
 @router.put('/account', response_model=IpAddressResponseModel)
 async def put_account(request: Request, auth: AccountRequestAuthFast = Depends(
-                AccountRequestAuthFast)):
+                AccountRequestAuthFast)) -> dict[str, IpAddress]:
     '''
     Creates/updates the DNS entry for the commonname in the TLS Client cert.
     '''

@@ -32,6 +32,9 @@ from cryptography.hazmat.primitives import serialization
 
 from multiprocessing import Process
 
+from psycopg_pool import AsyncConnectionPool
+from psycopg.rows import dict_row
+
 from fastapi import FastAPI
 
 from byoda.datamodel.network import Network
@@ -87,8 +90,11 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
                 file_desc, Loader=yaml.SafeLoader
             )
 
+        await delete_test_data()
+
         app_config: dict[str, any] = TestDirectoryApis.APP_CONFIG
         app_config['dirserver']['root_dir'] = TEST_DIR
+
         try:
             shutil.rmtree(TEST_DIR)
         except FileNotFoundError:
@@ -135,11 +141,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         TestDirectoryApis.PROCESS.terminate()
 
     def test_network_account_put(self) -> None:
-        API = BASE_URL + '/v1/network/account'
+        api: str = BASE_URL + '/v1/network/account'
 
         uuid: UUID = uuid4()
 
-        network_name: str = TestDirectoryApis.APP_CONFIG['application']['network']
+        network_name: str = \
+            TestDirectoryApis.APP_CONFIG['application']['network']
 
         # PUT, with auth
         headers: dict[str, str] = {
@@ -147,17 +154,16 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'X-Client-SSL-Subject': f'CN={uuid}.accounts.{network_name}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network_name}'
         }
-        response: httpx.Response = httpx.put(API, headers=headers)
+        response: httpx.Response = httpx.put(api, headers=headers)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data: any = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
-        self.assertEqual(data['ipv6_address'], None)
+        self.assertIsNone(data['ipv6_address'])
 
-    async def test_network_account_post(self):
-        # TODO: re-enable these tests once 'byodafunctest.net' is hosted
-        # on dir.byoda.net
+    async def test_network_account_post(self) -> None:
+        # These tests require a running directory server
         return
-        API = BASE_URL + '/v1/network/account'
+        api: str = BASE_URL + '/v1/network/account'
 
         network = Network(
             TestDirectoryApis.APP_CONFIG['dirserver'],
@@ -168,34 +174,34 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         )
         await network.load_network_secrets(storage_driver=storage)
 
-        uuid = uuid4()
+        uuid: UUID = uuid4()
         secret = AccountSecret(account_id=uuid, network=network)
         csr = await secret.create_csr()
-        csr = csr.public_bytes(serialization.Encoding.PEM)
-        fqdn = AccountSecret.create_commonname(uuid, network.name)
-        headers = {
+        csr: bytes = csr.public_bytes(serialization.Encoding.PEM)
+        fqdn: str = AccountSecret.create_commonname(uuid, network.name)
+        headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject': f'CN={fqdn}',
             'X-Client-SSL-Issuing-CA': f'CN=accounts-ca.{network.name}'
         }
         response: httpx.Response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=headers
+            api, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
         self.assertEqual(response.status_code, 201)
         data = response.json()
-        issuing_ca_cert = x509.load_pem_x509_certificate(       # noqa:F841
+        issuing_ca_cert: Certificate = x509.load_pem_x509_certificate(       # noqa:F841
             data['cert_chain'].encode()
         )
-        account_cert = x509.load_pem_x509_certificate(          # noqa:F841
+        account_cert: Certificate = x509.load_pem_x509_certificate(          # noqa:F841
             data['signed_cert'].encode()
         )
-        network_data_cert = x509.load_pem_x509_certificate(     # noqa:F841
+        network_data_cert: Certificate = x509.load_pem_x509_certificate(     # noqa:F841
             data['network_data_cert_chain'].encode()
         )
 
         # Retry same CSR, with same TLS client cert:
         response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=headers
+            api, json={'csr': str(csr, 'utf-8')}, headers=headers
         )
         self.assertEqual(response.status_code, 201)
         data = response.json()
@@ -211,12 +217,12 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
 
         # Retry same CSR, without client cert:
         response: httpx.Response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}, headers=None
+            api, json={'csr': str(csr, 'utf-8')}, headers=None
         )
         self.assertEqual(response.status_code, 401)
 
     async def test_network_service_creation(self) -> None:
-        API = BASE_URL + '/v1/network/service'
+        api: str = BASE_URL + '/v1/network/service'
 
         # We can not use deepcopy here so do two copies
         network: Network = copy(config.server.network)
@@ -233,20 +239,20 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         csr: bytes = csr.public_bytes(serialization.Encoding.PEM)
 
         response: httpx.Response = httpx.post(
-            API, json={'csr': str(csr, 'utf-8')}
+            api, json={'csr': str(csr, 'utf-8')}
         )
         self.assertEqual(response.status_code, 201)
         data = response.json()
-        issuing_ca_cert: Certificate = x509.load_pem_x509_certificate(       # noqa:F841
+        issuing_ca_cert: Certificate = x509.load_pem_x509_certificate(
             data['cert_chain'].encode()
         )
-        serviceca_cert: Certificate = x509.load_pem_x509_certificate(        # noqa:F841
+        serviceca_cert: Certificate = x509.load_pem_x509_certificate(
             data['signed_cert'].encode()
         )
         # TODO: populate a secret from a CertChain
         serviceca_secret.cert = serviceca_cert
         serviceca_secret.cert_chain = [issuing_ca_cert]
-        network_data_cert: Certificate = x509.load_pem_x509_certificate(     # noqa:F841
+        network_data_cert: Certificate = x509.load_pem_x509_certificate(
             data['network_data_cert_chain'].encode()
         )
 
@@ -288,7 +294,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         data_certchain = service_data_secret.certchain_as_pem()
 
         response: httpx.Response = httpx.put(
-            API + '/service_id/' + str(service_id), headers=headers,
+            api + '/service_id/' + str(service_id), headers=headers,
             json={'certchain': data_certchain}
         )
         self.assertEqual(response.status_code, 200)
@@ -313,7 +319,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         }
 
         response = httpx.patch(
-            API + f'/service_id/{service_id}', headers=headers,
+            api + f'/service_id/{service_id}', headers=headers,
             json=schema.json_schema
         )
 
@@ -323,9 +329,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(data['errors']), 0)
 
         # Get the fully-signed data contract for the service
-        API = BASE_URL + '/v1/network/service'
+        api = BASE_URL + '/v1/network/service'
 
-        response: httpx.Response = httpx.get(API + f'/service_id/{service_id}')
+        response: httpx.Response = httpx.get(api + f'/service_id/{service_id}')
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 12)
@@ -336,8 +342,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         schema = Schema(data)
 
         # Get the list of service summaries
-        API = BASE_URL + '/v1/network/services'
-        response = httpx.get(API)
+        api = BASE_URL + '/v1/network/services'
+        response = httpx.get(api)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 1)
@@ -347,7 +353,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(service_summary['name'], 'dummyservice')
 
         # Now test membership registration against the directory server
-        API = BASE_URL + '/v1/network/member'
+        api: str = BASE_URL + '/v1/network/member'
 
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
@@ -357,10 +363,36 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             f'CN=members-ca.members-ca-{service_id}.{network.name}'
         }
 
-        response: httpx.Response = httpx.put(API, headers=headers)
+        response: httpx.Response = httpx.put(api, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['ipv4_address'], '127.0.0.1')
+
+
+async def delete_test_data() -> None:
+    with open(CONFIG_FILE) as file_desc:
+        config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+
+    global TEST_NETWORK
+    TEST_NETWORK = config['application']['network']
+
+    connection_string: str = config['dirserver']['dnsdb']
+    pool: AsyncConnectionPool = AsyncConnectionPool(
+        conninfo=connection_string, open=False,
+        kwargs={'row_factory': dict_row}
+    )
+    await pool.open()
+
+    async with pool.connection() as conn:
+        await conn.execute(
+            'DELETE FROM domains WHERE name != %s', [f'{TEST_NETWORK}']
+        )
+
+        await conn.execute(
+            'DELETE FROM records WHERE name != %s', [f'{TEST_NETWORK}']
+        )
+
+    await pool.close()
 
 
 if __name__ == '__main__':

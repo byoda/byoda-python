@@ -11,9 +11,8 @@ provides helper functions to authenticate the client making the request
 from logging import Logger
 from logging import getLogger
 
-from byoda import config
-
 from typing import Annotated
+from typing import override
 
 from fastapi import Request, HTTPException
 from fastapi import Header, Depends
@@ -22,6 +21,8 @@ from byoda.datatypes import IdType
 
 from byoda.requestauth.requestauth import RequestAuth, TlsStatus
 from byoda.exceptions import ByodaMissingAuthInfo
+
+from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -32,7 +33,7 @@ class ServiceRequestAuthFast(RequestAuth):
                  x_client_ssl_verify: TlsStatus | None = Header(None),
                  x_client_ssl_subject: str | None = Header(None),
                  x_client_ssl_issuing_ca: str | None = Header(None),
-                 x_client_ssl_cert: str | None = Header(None)):
+                 x_client_ssl_cert: str | None = Header(None)) -> None:
         '''
         Get the authentication info for the client that made the API call.
 
@@ -59,7 +60,8 @@ class ServiceRequestAuthFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization = None
 
-    async def authenticate(self):
+    @override
+    async def authenticate(self) -> None:
         try:
             await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
@@ -133,7 +135,8 @@ class ServiceRequestOptionalAuthFast(RequestAuth):
         self.x_client_ssl_cert: str | None = x_client_ssl_cert
         self.authorization = None
 
-    async def authenticate(self):
+    @override
+    async def authenticate(self) -> None:
         try:
             await super().authenticate(
                 self.x_client_ssl_verify or TlsStatus.NONE,
