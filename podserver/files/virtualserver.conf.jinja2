@@ -12,6 +12,8 @@
         server_name {{ custom_domain }};
 
         acme {{ custom_domain|replace('.', '_')|replace('-', '_') }};
+        ssl_certificate $acme_cert_{{ custom_domain|replace('.', '_')|replace('-', '_') }};
+        ssl_certificate_key $acme_cert_key_{{ custom_domain|replace('.', '_')|replace('-', '_') }};
 
         location /robots.txt {
             allow 127.0.0.1/32;
