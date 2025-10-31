@@ -34,8 +34,8 @@ from redis.commands.core import Script
 import redis.asyncio as redis
 
 from redis.exceptions import ResponseError
-from redis.commands.search.indexDefinition import IndexType
-from redis.commands.search.indexDefinition import IndexDefinition
+from redis.commands.search.index_definition import IndexType
+from redis.commands.search.index_definition import IndexDefinition
 
 from redis.commands.search.query import Query
 from redis.commands.search.field import Field
@@ -240,6 +240,7 @@ class SearchableCache:
 
         :param key_prefix: The key prefix to use for the index
         '''
+
         schema: tuple[Field] = (
             TagField('$.cursor', as_name='cursor'),
             TextField('$.node.title', as_name='title', weight=4.0),
