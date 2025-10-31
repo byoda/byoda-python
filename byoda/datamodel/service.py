@@ -12,7 +12,9 @@ import socket
 
 from copy import copy
 from enum import Enum
-from typing import LiteralString, TypeVar
+from typing import Self
+from typing import TypeVar
+from typing import LiteralString
 from logging import Logger
 from logging import getLogger
 
@@ -175,7 +177,7 @@ class Service:
     async def get_service(cls, network: Network, filepath: str = None,
                     verify_signatures: bool = True,
                     with_private_key: bool = False, password: str = None,
-                    load_schema: bool = True):
+                    load_schema: bool = True) -> Self:
         '''
         Factory for Service class, loads the service metadata from a local
         file and verifies its signatures

@@ -123,7 +123,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
         # TODO: security: consider tracking member UUIDs to avoid
         # race condition between CSR signature and member registration
         # with the Directory server
-        ips = server.dns_resolver.resolve(common_name)
+        ips: list = server.dns_resolver.resolve(common_name)
         if ips:
             _LOGGER.debug(
                 'Attempt to submit CSR for existing member without '
