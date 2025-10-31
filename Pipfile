@@ -57,7 +57,6 @@ jinja2 = "*"
 cryptography = "*"
 azure-communication-email = "*"
 azure-mgmt-communication = "*"
-#http3 = "*"
 
 [dev-packages]
 flake8 = "*"

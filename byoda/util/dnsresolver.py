@@ -26,11 +26,7 @@ DNS_DIRSERVER_EXPIRES: datetime = datetime.now(tz=timezone.utc)
 class DnsResolver:
     def __init__(self, network: str) -> None:
         _LOGGER.debug('Initializing DNS resolver')
-        # HACK: avoid test cases from needing their own DNS server
-        if network in ('byodafunctest.net'):
-            self.network = 'byoda.net'
-        else:
-            self.network: str = network
+        self.network: str = network
 
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = 1
@@ -45,18 +41,23 @@ class DnsResolver:
     def _update_dirserver_ips(self) -> None:
         _LOGGER.debug('Updating directory server IP addresses')
 
-        self.resolver.nameservers = ['1.1.1.1', '8.8.8.8']
-        ips: list[str] = self.resolve(
-            f'dir.{self.network}', force=True
-        )
-        ips_as_str: list[str] = [str(ip) for ip in ips]
+        if self.network == 'test.net':
+            # Hack needed for test cases in 'service_apis.py'
+            self.resolver.nameservers = ['192.168.1.13']
+        else:
+            self.resolver.nameservers = ['1.1.1.1', '8.8.8.8']
 
-        global DNS_DIRSERVER_ADDRESSES
-        DNS_DIRSERVER_ADDRESSES = ips_as_str
+            ips: list[str] = self.resolve(
+                f'dir.{self.network}', force=True
+            )
 
-        self.resolver.nameservers = DNS_DIRSERVER_ADDRESSES
+            global DNS_DIRSERVER_ADDRESSES
+            DNS_DIRSERVER_ADDRESSES = [str(ip) for ip in ips]
+
+            self.resolver.nameservers = DNS_DIRSERVER_ADDRESSES
+
         _LOGGER.debug(
-            f'Setting nameserver(s) to use to: {DNS_DIRSERVER_ADDRESSES}'
+            f'Setting nameserver(s) to use to: {self.resolver.nameservers}'
         )
         global DNS_DIRSERVER_EXPIRES
         DNS_DIRSERVER_EXPIRES = datetime.now(tz=timezone.utc)

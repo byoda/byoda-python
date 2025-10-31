@@ -18,6 +18,7 @@ from byoda.datatypes import IdType
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.secret import CertChain
+from byoda.secrets.ca_secret import CaSecret
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -27,7 +28,7 @@ class CertStore:
     Processing of CSRs and storing signed certs
     '''
 
-    def __init__(self, ca_secret: Secret, connectionstring: str = None):
+    def __init__(self, ca_secret: CaSecret, connectionstring: str = None):
         '''
         Constructor
 
@@ -42,8 +43,8 @@ class CertStore:
         if connectionstring:
             raise NotImplementedError('Storing of CSRs not supported yet')
 
-        self.connectionstring = connectionstring
-        self.ca_secret = ca_secret
+        self.connectionstring: str = connectionstring
+        self.ca_secret: CaSecret = ca_secret
 
     def sign(self, csr: str, id_type: IdType, remote_addr: IpAddress
              ) -> CertChain:
@@ -65,13 +66,18 @@ class CertStore:
 
         csr = Secret.csr_from_string(csr)
 
-        extension = csr.extensions.get_extension_for_class(
-            x509.BasicConstraints
-        )
-        if cert_auth.max_path_length is None and extension.value.ca:
+        is_ca: bool = False
+        try:
+            ca_extension: x509.Extension[x509.BasicConstraints] = \
+                csr.extensions.get_extension_for_class(x509.BasicConstraints)
+            is_ca = ca_extension.value.ca
+        except x509.ExtensionNotFound:
+            pass
+
+        if cert_auth.max_path_length is None and is_ca:
             raise ValueError('Certificates with CA bits set are not permitted')
 
-        entity_id = cert_auth.review_csr(csr)
+        entity_id: str = cert_auth.review_csr(csr)
 
         if entity_id.id_type == IdType.SERVICE:
             raise NotImplementedError(
@@ -80,7 +86,7 @@ class CertStore:
             )
 
         # TODO: add check on whether the UUID is already in use
-        certchain = cert_auth.sign_csr(csr, 365*3)
+        certchain: CertChain = cert_auth.sign_csr(csr, 365*3)
 
         new_id_type: str = entity_id.id_type.value.strip('-')
         _LOGGER.info(
