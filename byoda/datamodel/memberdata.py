@@ -77,8 +77,6 @@ from byoda.storage import FileMode
 
 from byoda.storage.pubsub import PubSub
 
-
-
 from byoda.util.paths import Paths
 
 from byoda import config
@@ -117,7 +115,7 @@ class MemberData(dict):
 
     def __init__(self, member: Member) -> None:
         self.member: Member = member
-        self.unvalidated_data: dict = None
+        self.unvalidated_data: dict | None = None
 
         self.paths: Paths = member.paths
 
@@ -307,7 +305,6 @@ class MemberData(dict):
                             query_timestamp: datetime | None = None,
                             origin_signature: str | None = None,
                             signature_format_version: int | None = None,
-
                             message: str = None) -> None:
         '''
         Adds an entry to data log
