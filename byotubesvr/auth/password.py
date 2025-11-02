@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 
 
 # Used to hash passwords
-PASSWORD_HASH_CONTEXT = CryptContext(schemes=["bcrypt"], deprecated="auto")
+PASSWORD_HASH_CONTEXT = CryptContext(schemes=["argon2"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:

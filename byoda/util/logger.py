@@ -138,8 +138,6 @@ class Logger(logging.Logger):
 
         logging.getLogger('aiosqlite').setLevel(logging.WARNING)
 
-        logging.getLogger('passlib').setLevel(logging.ERROR)
-
         logging.getLogger('opentelemetry.exporter').setLevel(logging.ERROR)
 
         logging.getLogger('azure').setLevel(logging.WARNING)
@@ -163,9 +161,9 @@ class Logger(logging.Logger):
         # logging.getLogger('byoda.data_import.youtube_video').setLevel(
         #     logging.INFO
         # )
-        #logging.getLogger('byoda.data_import.youtube_thumbnail').setLevel(
+        # logging.getLogger('byoda.data_import.youtube_thumbnail').setLevel(
         #     logging.INFO
-        #)
+        # )
         # logging.getLogger('byoda.data_import.youtube_channel').setLevel(
         #     logging.INFO
         # )

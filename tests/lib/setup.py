@@ -44,6 +44,8 @@ from tests.lib.defines import CDN_ORIGIN_SITE_ID
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_VERSION
 
+PASSWORD: str = 'byoda-secret-password'
+
 
 def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     '''
@@ -65,12 +67,14 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(get_test_uuid())
 
-    os.environ['ACCOUNT_SECRET'] = 'test'
+    os.environ['ACCOUNT_SECRET'] = PASSWORD
     if hash_password:
         password_hash_context = CryptContext(
-            schemes=["bcrypt"], deprecated="auto"
+            schemes=["argon2"], deprecated="auto"
         )
-        os.environ['ACCOUNT_SECRET'] = password_hash_context.hash('test')
+        os.environ['ACCOUNT_SECRET'] = password_hash_context.hash(
+            PASSWORD.encode('utf-8')
+        )
 
     os.environ['LOGLEVEL'] = 'DEBUG'
     os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
@@ -175,7 +179,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
         account.password = data['account_secret']
     else:
         password_hash_context = CryptContext(
-            schemes=["bcrypt"], deprecated="auto"
+            schemes=["argon2"], deprecated="auto"
         )
         account.password = password_hash_context.hash(data['account_secret'])
 
