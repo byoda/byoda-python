@@ -57,6 +57,7 @@ cryptography = "*"
 azure-communication-email = "*"
 azure-mgmt-communication = "*"
 passlib = {extras = ["argon2"], version = "*"}
+h11 = "*"
 
 [dev-packages]
 flake8 = "*"
