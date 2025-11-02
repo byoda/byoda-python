@@ -84,7 +84,7 @@ async def post_authtoken(request: Request, auth_request: AuthRequestModel):
             'ACCOUNT_USERNAME', str(account.account_id)[:8]
         )
 
-    context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    context = CryptContext(schemes=["argon2"], deprecated="auto")
     if auth_request.password == account.password:
         password_verified: bool = True
     else:

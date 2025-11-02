@@ -4,7 +4,7 @@
 Test the DnsDB class against Postgres server for byoda.net
 
 TODO: test case stopped passing since migration of postgres server to the
-cloud, likely because the 'byodafunctest.net' domain was not created.
+cloud, likely because the 'test.net' domain was not created.
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023, 2024, 2025
@@ -271,7 +271,8 @@ async def do_dns_lookup_success(fqdn: str, resolver: dns.resolver.Resolver,
     while not answer and wait_time < timeout:
         try:
             answer: dns.resolver.Answer = resolver.resolve(fqdn)
-        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers,
+                dns.resolver.NoAnswer):
             wait_time += 10
             _LOGGER.debug(
                 f'Waiting {wait_interval} seconds for DNS change to propagate.'
