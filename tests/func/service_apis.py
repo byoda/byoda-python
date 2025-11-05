@@ -169,7 +169,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         # TestDirectoryApis.PROCESS.start()
         # await sleep(1)
 
-    @classmethod
     async def asyncTearDown(self) -> None:
         # TestDirectoryApis.PROCESS.terminate()
         pass
@@ -211,9 +210,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 201)
         data = response.json()
 
-        self.assertTrue('signed_cert' in data)
-        self.assertTrue('cert_chain' in data)
-        self.assertTrue('service_data_cert_chain' in data)
+        self.assertIn('signed_cert', data)
+        self.assertIn('cert_chain', data)
+        self.assertIn('service_data_cert_chain', data)
 
         signed_secret = MemberSecret(
             member_id, SERVICE_ID, paths=service.paths,

@@ -5,7 +5,7 @@ LABEL org.opencontainers.image.authors="steven@byoda.org"
 # TODO
 # 1: run uvicorn/fastapi/app as non-root user
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 
 ENV PYTHONPATH=/podserver/byoda-python
@@ -50,12 +50,13 @@ RUN apt-get update && apt-get install -y \
 
 COPY . byoda-python/
 
-CMD cd byoda-python \
-    && pipenv run python3 -m gunicorn \
-       -k uvicorn.workers.UvicornWorker \
-       --bind 0.0.0.0:8010  \
-       --proxy-allow-from '*' \
-       --forwarded-allow-ips '*' \
-       -p /var/run/svcserver.pid \
-       -c gunicorn.conf.py \
-       svcserver.main:app
+COPY --chmod=755 <<EOT /entrypoint.sh
+#!/usr/bin/env bash
+set -e
+
+cd /podserver/byoda-python
+
+pipenv run python3 -m gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --proxy-allow-from '*' --forwarded-allow-ips '*' -p /var/run/svcserver.pid -c gunicorn.conf.py svcserver.main:app
+EOT
+
+ENTRYPOINT [ "/entrypoint.sh" ]

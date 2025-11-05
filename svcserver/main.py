@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI):
     verbose: bool = not debug
 
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=server_config['svcserver'].get('logfile')
     )
@@ -111,10 +111,10 @@ async def lifespan(app: FastAPI):
     _LOGGER.debug('Generating data models')
     schema.generate_data_models('svcserver/codegen', datamodels_only=True)
 
-    await server.setup_asset_cache(
-        server_config['svcserver']['asset_cache'],
-        server_config['svcserver']['asset_cache_readwrite']
-    )
+    # await server.setup_asset_cache(
+    #     server_config['svcserver']['asset_cache'],
+    #     server_config['svcserver']['asset_cache_readwrite']
+    # )
     _LOGGER.debug('Registering service')
     await server.service.register_service()
 

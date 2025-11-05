@@ -111,7 +111,8 @@ class MessageSignature:
         return self.signature
 
     def verify_message(self, message: str, data_secret: DataSecret = None,
-                       signature: bytes = None, hash_algo: str = 'SHA256'):
+                       signature: bytes = None, hash_algo: str = 'SHA256'
+                       ) -> None:
         '''
         Verify the digest for the message
         '''
@@ -123,7 +124,7 @@ class MessageSignature:
         if not self.data_secret:
             raise ValueError('secret is not defined')
 
-        if not self.certificate_cn == self.data_secret.common_name:
+        if self.certificate_cn != self.data_secret.common_name:
             raise ValueError(
                 'The signing cert {} does not match the cert {}'
                 'used for verfication'.format(
@@ -145,7 +146,7 @@ class MessageSignature:
 
 
 class ServiceSignature(MessageSignature):
-    def __init__(self, secret: ServiceDataSecret, hash_algo: str = 'SHA256'):
+    def __init__(self, secret: ServiceDataSecret, hash_algo: str = 'SHA256') -> None:
         '''
         Constructor
 
@@ -159,7 +160,7 @@ class ServiceSignature(MessageSignature):
 
 
 class NetworkSignature(MessageSignature):
-    def __init__(self, secret: NetworkDataSecret, hash_algo: str = 'SHA256'):
+    def __init__(self, secret: NetworkDataSecret, hash_algo: str = 'SHA256') -> None:
         '''
         Constructor
 

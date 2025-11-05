@@ -103,12 +103,12 @@ class ServiceServer(Server):
         else:
             server_config = app_config['svcserver']
 
-        connection_string: str = server_config['member_cache']
-        _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
+        # connection_string: str = server_config['member_cache']
+        # _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
 
-        self.member_db = await MemberDb.setup(
-            connection_string, service.service_id, network.name
-        )
+        # self.member_db = await MemberDb.setup(
+        #     connection_string, service.service_id, network.name
+        # )
 
         return self
 
