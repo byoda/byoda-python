@@ -60,11 +60,11 @@ class CaSecret(Secret):
     IGNORED_X509_NAMES: set[str] = {'C', 'ST', 'L', 'O'}
 
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
-                'digital_signature': False,
-                'content_commitment': False,
-                'key_encipherment': False,
-                'data_encipherment': False,
-                'key_agreement': False,
+                'digital_signature': True,
+                'content_commitment': True,
+                'key_encipherment': True,
+                'data_encipherment': True,
+                'key_agreement': True,
                 'key_cert_sign': True,
                 'crl_sign': True,
                 'encipher_only': False,
@@ -74,11 +74,11 @@ class CaSecret(Secret):
     _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
         x509.ExtendedKeyUsageOID.OCSP_SIGNING,
         x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,
-        # x509.ExtendedKeyUsageOID.SERVER_AUTH,
-        # x509.ExtendedKeyUsageOID.CLIENT_AUTH,
-        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
-        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
-        # x509.ExtendedKeyUsageOID.TIME_STAMPING,
+        x509.ExtendedKeyUsageOID.SERVER_AUTH,
+        x509.ExtendedKeyUsageOID.CLIENT_AUTH,
+        x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        x509.ExtendedKeyUsageOID.TIME_STAMPING,
         # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,
         # x509.ExtendedKeyUsageOID.KERBEROS_PKINIT_KDC,
         # x509.ExtendedKeyUsageOID.IPSEC_IKE,

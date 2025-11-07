@@ -8,12 +8,17 @@ Test cases for secrets
 :license    : GPLv3
 '''
 
-import sys
 import os
+import sys
+import ssl
 import shutil
+import asyncio
+import socket
 import secrets
 import filecmp
 import unittest
+
+from functools import partial
 
 from uuid import UUID
 from copy import copy
@@ -38,6 +43,7 @@ from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 from byoda.datamodel.claim import Claim
 
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 from byoda.servers.pod_server import PodServer
 
 from byoda.secrets.secret import Secret
@@ -254,14 +260,147 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         account.tls_secret.validate(network.root_ca, with_openssl=True)
         account.data_secret.validate(network.root_ca, with_openssl=True)
 
-    async def test_secrets(self) -> None:
+    async def test_tls_negotiation(self) -> None:
         '''
-        Create a network CA hierarchy
+        Test TLS negotiation between network, service, and account
         '''
 
-        #
-        # Test creation of the CA hierarchy
-        #
+        network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+        config.server = PodServer(
+            network, db_connection_string=os.environ['DB_CONNECTION']
+        )
+        server: PodServer = config.server
+        server.network = network
+        server.network.account = 'pod'
+
+        await server.set_document_store(
+            DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
+            private_bucket='byoda', restricted_bucket='byoda',
+            public_bucket='byoda', root_dir=TEST_DIR
+        )
+
+        # Need to set role to allow loading of unsigned services
+        network.roles = [ServerRole.Pod]
+
+        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
+        service = Service(network=network)
+        await service.examine_servicecontract(SCHEMA_FILE)
+        await service.create_secrets(network.services_ca, local=True)
+
+        account_id: UUID = get_test_uuid()
+        account = Account(account_id, network)
+        await account.paths.create_account_directory()
+        await account.create_secrets(network.accounts_ca)
+
+        server.account = account
+        server.bootstrapping = True
+
+        server.paths = network.paths
+        await server.set_data_store(
+            DataStoreType.POSTGRES, account.data_secret
+        )
+        await config.server.set_cache_store(CacheStoreType.POSTGRES)
+
+        server_task: asyncio.Task[None] = asyncio.create_task(
+            self.tls_server()
+        )
+        client_task: asyncio.Task[None] = asyncio.create_task(
+            self.tls_client()
+        )
+        await server_task
+        await client_task
+
+    @staticmethod
+    async def get_context(client: bool = False) -> ssl.SSLContext:
+        server: PodServer = config.server
+        network: Network = server.network
+        root_ca: NetworkRootCaSecret = network.root_ca
+        key_password: str = 'test'
+        await root_ca.save(
+            password=key_password, overwrite=True,
+            storage_driver=server.local_storage,
+        )
+
+        base_dir: str = server.storage_driver.local_path
+        if client:
+            context: ssl.SSLContext = ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cafile=base_dir + root_ca.cert_file
+            )
+            context.load_cert_chain(
+                base_dir + root_ca.cert_file,
+                base_dir + root_ca.private_key_file, key_password
+            )
+        else:
+            context: ssl.SSLContext = ssl.create_default_context(
+                purpose=ssl.Purpose.CLIENT_AUTH,
+                cafile=base_dir + root_ca.cert_file
+            )
+            context.load_cert_chain(
+                base_dir + root_ca.cert_file,
+                base_dir + root_ca.private_key_file, key_password
+            )
+
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = False
+        return context
+
+    @staticmethod
+    async def tls_server() -> None:
+        async def handle_client(r: asyncio.StreamReader,
+                                w: asyncio.StreamWriter) -> None:
+
+            addr = w.get_extra_info('peername')
+            print(f"Connection from {addr}")
+
+            request: str = (await r.readline()).decode('utf8').rstrip()
+            print(f'Read: {request}')
+            data: bytes = await r.read(100)
+            w.write(data)
+            try:
+                await w.drain()
+            except ConnectionResetError:
+                pass
+
+            w.close()
+            raise RuntimeError('TLS connection test completed, server no longer needed')
+
+        server_context: ssl.SSLContext = await TestAccountManager.get_context(
+            client=False
+        )
+
+        tls_server: asyncio.Server = await asyncio.start_server(
+            handle_client, '127.0.0.1', 8888, ssl=server_context
+        )
+        try:
+            async with tls_server:
+                await tls_server.serve_forever()
+        except RuntimeError:
+            pass
+
+    @staticmethod
+    async def tls_client() -> None:
+        await asyncio.sleep(1)  # Wait for server to start
+        reader: asyncio.StreamReader
+        writer: asyncio.StreamWriter
+        reader, writer = await asyncio.open_connection('127.0.0.1', 8888)
+        client_context: ssl.SSLContext = await TestAccountManager.get_context(
+            client=True
+        )
+
+        await writer.start_tls(client_context, server_hostname='dir.byoda.net')
+        print(f"The server certificate is {writer.get_extra_info('peercert')}")
+
+        writer.write(b'PING')
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+
+    async def test_secrets(self) -> None:
+        '''
+        Test validation of cert chains and data encryption/decryption
+        '''
+
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
         config.server = PodServer(
             network, db_connection_string=os.environ['DB_CONNECTION']

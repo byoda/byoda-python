@@ -222,7 +222,7 @@ class Secret:
                 self.generate_private_key()
 
         if issuing_ca:
-                csr: CSR = await self.create_csr(ca)
+            csr: CSR = await self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
@@ -480,16 +480,15 @@ class Secret:
     def validate_python_cryptography(self, root_ca: CaSecret) -> None:
         store = Store(load_pem_x509_certificates(root_ca.cert_as_pem()))
         builder: PolicyBuilder = PolicyBuilder().store(store)
-        # builder = builder.time(datetime(tz=UTC))
         verifier: ServerVerifier = builder.build_server_verifier(
             DNSName(self.common_name)
         )
 
         try:
-            chain: list[Certificate] = verifier.verify(self.cert, self.cert_chain)
+            verifier.verify(self.cert, self.cert_chain)
         except x509.verification.VerificationError:
-            # it throws an error on missing ExtendedKeyUsage even when it is present
-            # still, it is good to check this manually once in a while
+            # it throws an error on missing ExtendedKeyUsage even when it is
+            # present still, it is good to check this manually once in a while
             pass
 
     def validate_with_openssl(self, root_ca: CaSecret) -> None:
@@ -731,7 +730,7 @@ class Secret:
         return x509.load_pem_x509_csr(csr)
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
-                   storage_driver: FileStorage = None,
+                   storage_driver: FileStorage | None = None,
                    with_fingerprint: bool = True) -> None:
         '''
         Save a cert and private key (if we have it) to their respective files
