@@ -222,8 +222,7 @@ class Secret:
                 self.generate_private_key()
 
         if issuing_ca:
-            # TODO: SECURITY: add constraints
-            csr: CSR = await self.create_csr(ca)
+                csr: CSR = await self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr)
         else:
             self.create_selfsigned_cert(expire, ca)
@@ -300,6 +299,9 @@ class Secret:
         )
 
         if self.extended_key_usage:
+            _LOGGER.debug(
+                f'Adding extended key usage: {self.extended_key_usage}'
+            )
             cert_builder = cert_builder.add_extension(
                 x509.ExtendedKeyUsage(self.extended_key_usage), critical=False
             )
@@ -324,7 +326,6 @@ class Secret:
         if (self.private_key or self.cert) and not renew:
             raise ValueError('Secret already has a cert or private key')
 
-        # TODO: SECURITY: add constraints
         self.common_name = common_name
         self.sans = [common_name]
         if sans:

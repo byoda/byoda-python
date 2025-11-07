@@ -88,7 +88,6 @@ class AccountDataSecret(DataSecret):
         if not self.network:
             raise ValueError('Network not defined')
 
-        # TODO: SECURITY: add constraints
         common_name: str = (
             f'{self.account_id}.{self.id_type.value}.{self.network.name}'
         )

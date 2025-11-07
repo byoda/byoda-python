@@ -74,7 +74,6 @@ class AppSecret(Secret):
 
         self.fqdn: str = fqdn
 
-        # TODO: SECURITY: add constraints
         common_name: str = AppSecret.create_commonname(
             self.app_id, self.service_id, self.network
         )

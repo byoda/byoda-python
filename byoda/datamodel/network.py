@@ -262,7 +262,6 @@ class Network:
             await secret.load(password=password)
             return secret
 
-        # TODO: SECURITY: add constraints
         csr: CSR = await secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
         certchain = issuing_ca.sign_csr(csr, expire=365)

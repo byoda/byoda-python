@@ -109,7 +109,6 @@ class ServiceCaSecret(CaSecret):
         or cert
         '''
 
-        # TODO: SECURITY: add constraints
         commonname: str = (
             f'service-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'

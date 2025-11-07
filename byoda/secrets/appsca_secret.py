@@ -96,7 +96,6 @@ class AppsCaSecret(CaSecret):
                                 a private key or cert
         '''
 
-        # TODO: SECURITY: add constraints
         common_name: str = (
             f'apps-ca.{self.id_type.value}{self.service_id}.'
             f'{self.network}'
