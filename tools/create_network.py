@@ -29,7 +29,7 @@ _ROOT_DIR: str = os.environ['HOME'] + '/.byoda'
 
 async def main(argv) -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--debug', '-d', action='store_true', default=False)
+    parser.add_argument('--debug', '-d', action='store_true', default=True)
     parser.add_argument('--verbose', '-v', action='store_true', default=False)
     parser.add_argument('--network', '-n', type=str, default='testdomain.com')
     parser.add_argument('--root-directory', '-r', type=str, default=_ROOT_DIR)
