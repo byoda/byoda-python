@@ -71,6 +71,9 @@ class CaSecret(Secret):
                 'decipher_only': False,
     }
 
+    # Per CABforum Baseline Reqquirements (v1.3.4) 7.2.2g, CAs must include
+    # all EKUs that CSRs it would want to sign include.
+    # See https://serverfault.com/questions/785108/why-does-openvpn-give-the-error-unsupported-certificate-purpose-for-an-interm        # noqa: E501
     _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
         x509.ExtendedKeyUsageOID.OCSP_SIGNING,
         x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,

@@ -90,8 +90,8 @@ class DataSecret(Secret):
     _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
         # x509.ExtendedKeyUsageOID.SERVER_AUTH,
         # x509.ExtendedKeyUsageOID.CLIENT_AUTH,
-        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
-        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
         # x509.ExtendedKeyUsageOID.TIME_STAMPING,
         # x509.ExtendedKeyUsageOID.OCSP_SIGNING,
         # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,

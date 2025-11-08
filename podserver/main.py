@@ -35,6 +35,7 @@ from byoda.storage.pubsub_nng import PubSubNng
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.util.logger import Logger as ByodaLogger
 from byoda.util.fastapi import setup_api, update_cors_origins
 
 from podserver.util import get_environment_vars
