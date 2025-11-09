@@ -13,12 +13,9 @@ import sys
 import ssl
 import shutil
 import asyncio
-import socket
 import secrets
 import filecmp
 import unittest
-
-from functools import partial
 
 from uuid import UUID
 from copy import copy
@@ -36,12 +33,10 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes
-from cryptography.x509.verification import VerificationError
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
-from byoda.datamodel.member import Member
 from byoda.datamodel.claim import Claim
 
 from byoda.secrets.networkrootca_secret import NetworkRootCaSecret

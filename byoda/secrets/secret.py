@@ -45,7 +45,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import \
 
 # For certchain validation
 from cryptography.x509.verification import ServerVerifier
-from cryptography.x509 import Certificate, DNSName, load_pem_x509_certificates
+from cryptography.x509 import DNSName, load_pem_x509_certificates
 from cryptography.x509.verification import PolicyBuilder, Store
 
 from byoda.storage.filestorage import FileStorage, FileMode
@@ -462,8 +462,8 @@ class Secret:
                  ) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
-        This function does not check certificate recovation or OCSP. It requires
-        the openssl utilities to be installed on the system it is run
+        This function does not check certificate recovation or OCSP. It
+        requires the openssl utilities to be installed on the system it is run
 
         :param Secret root_ca: the self-signed root CA to validate against
         :param with_openssl: [deprecated] also use the openssl binary to

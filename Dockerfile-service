@@ -11,7 +11,7 @@ ENV LANG=C.UTF-8
 ENV PYTHONPATH=/podserver/byoda-python
 WORKDIR /podserver
 
-HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8010/api/v1/status || exit 1
+HEALTHCHECK --interval=10s --timeout=3s --retries=3 CMD curl --fail http://localhost:8000/api/v1/status || exit 1
 
 ###
 ### Byoda, angie bits

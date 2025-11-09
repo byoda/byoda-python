@@ -350,12 +350,12 @@ class CaSecret(Secret):
                 'CSR does not have Key Usage Constraints extension'
             )
 
-        extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage]
+        ext_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage]
         try:
-            extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage] = \
+            ext_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage] = \
                 csr.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
         except x509.ExtensionNotFound:
-            extended_keyusage_extension = None
+            ext_keyusage_extension = None
 
         dnsname: str = self.review_subjectalternative_name(csr)
 
@@ -391,9 +391,9 @@ class CaSecret(Secret):
             keyusage_extension.value, critical=True
         )
 
-        if extended_keyusage_extension:
+        if ext_keyusage_extension:
             cert_builder = cert_builder.add_extension(
-                extended_keyusage_extension.value, critical=False
+                ext_keyusage_extension.value, critical=False
             )
 
         if not self.is_root_cert:
