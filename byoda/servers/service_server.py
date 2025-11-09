@@ -83,6 +83,7 @@ class ServiceServer(Server):
 
         _LOGGER.debug('Initialized service server')
 
+    @staticmethod
     async def setup(network: Network, app_config: dict | ServerConfig
                     ) -> Self:
         '''
@@ -103,12 +104,12 @@ class ServiceServer(Server):
         else:
             server_config = app_config['svcserver']
 
-        # connection_string: str = server_config['member_cache']
-        # _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
+        connection_string: str = server_config['member_cache']
+        _LOGGER.debug(f'Setting up Redis connections to {connection_string}')
 
-        # self.member_db = await MemberDb.setup(
-        #     connection_string, service.service_id, network.name
-        # )
+        self.member_db = await MemberDb.setup(
+            connection_string, service.service_id, network.name
+        )
 
         return self
 

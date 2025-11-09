@@ -30,7 +30,7 @@ sudo docker run -d --restart unless-stopped \
 To also set up the Prometheus exporter for redis, you can use the following command:
 
 ```bash
-export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+export PRIVATE_IP=$(hostname -I | awk '{print $1}') && echo $PRIVATE_IP
 export REDIS_ADDR='redis://${PRIVATE_IP}:6379'
 export REDIS_EXPORTER_CHECK_SINGLE_KEYS=lists:all_assets
 docker run -d --restart unless-stopped --name redis_exporter --network host quay.io/oliver006/redis_exporter
@@ -74,8 +74,7 @@ The JSON file at the top-level must have the following keys:
 | jsonschema   | jsonschema | the JSON Schema for the data for the service                          |
 |--------------|------------|-----------------------------------------------------------------------|
 
-We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
-of the following support:
+We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know of the following support:
 
 - At the root level of the schema, we support the following keys:
   - $id: must be a string with value: "https://<service-UUID>.services.byoda.net/service/<name of your service>. The name of your service must match the "name" field at the top level of the schema. The service-UUID must match the UUID assigned to your service.
