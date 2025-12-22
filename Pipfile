@@ -26,14 +26,13 @@ python-dateutil = "*"
 typing-extensions = "*"
 certbot = "*"
 aiosqlite = "*"
-aioschedule = {git = "https://github.com/ibrb/python-aioschedule"}
+aioschedule = {git = "git+https://github.com/ibrb/python-aioschedule"}
 pynng = "*"
 google-api-python-client = "*"
 yt-dlp = "*"
 pymerkle = "*"
 pyyaml = "*"
-pydantic = "==2.5.3"
-httpx = {version = "*"}
+httpx = ">=0.23.3,<0.24.0"
 opentelemetry-api = "*"
 opentelemetry-sdk = "*"
 opentelemetry-exporter-prometheus = "*"
@@ -57,7 +56,10 @@ cryptography = "*"
 azure-communication-email = "*"
 azure-mgmt-communication = "*"
 passlib = {extras = ["argon2"], version = "*"}
-h11 = "*"
+aiohttp = "*"
+urllib3 = ">=2.6.0"
+pydantic = "<3.0,>=2.12"
+httpcore = "<1.0"
 
 [dev-packages]
 flake8 = "*"

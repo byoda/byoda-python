@@ -20,15 +20,15 @@ TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 
 
 class Field:
-    def __init__(self, name: str, is_counter: bool):
-        self.name = name
+    def __init__(self, name: str, is_counter: bool) -> None:
+        self.name: str = name
         self.is_counter: bool = is_counter
 
 
 class DataClass:
-    def __init__(self, name: str, fields: dict, referenced_class):
+    def __init__(self, name: str, fields: dict, referenced_class) -> None:
         self.name: str = name
-        self.fields = fields
+        self.fields: dict = fields
         self.referenced_class: any = referenced_class
 
 
@@ -90,6 +90,8 @@ class TestAccountManager(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

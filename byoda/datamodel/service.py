@@ -475,7 +475,6 @@ class Service:
                 )
             secret.load(with_private_key=True)
 
-        # TODO: SECURITY: add constraints
         csr: CSR = await secret.create_csr()
         await self.get_csr_signature(
             secret, csr, issuing_ca, private_key_password=private_key_password
@@ -765,7 +764,7 @@ class Service:
         # requests. We only do this if we read the private key
         # for the TLS/service secret
         if with_private_key:
-            filepath = self.tls_secret.save_tmp_private_key()
+            filepath: str = self.tls_secret.save_tmp_private_key()
             config.request.cert = (self.tls_secret.cert_file, filepath)
 
     async def load_data_secret(self, with_private_key: bool,

@@ -55,8 +55,6 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.util.paths import Paths
 
-from byoda.util.fastapi import update_cors_origins
-
 from byoda.util.angieconfig import AngieConfig
 from byoda.util.angieconfig import ANGIE_SITE_CONFIG_DIR
 
@@ -175,6 +173,11 @@ class Member:
 
         if local_service_contract:
             verify_signatures = False
+            if not config.test_case:
+                raise ValueError(
+                    'Sideloading service contract only supported for '
+                    'test cases'
+                )
         else:
             verify_signatures = True
 
@@ -195,11 +198,6 @@ class Member:
                 'Setting up membership for service', extra=self.log_extra
             )
             if local_service_contract:
-                if not config.test_case:
-                    raise ValueError(
-                        'Sideloading service contract only supported for '
-                        'test cases'
-                    )
                 filepath: str = local_service_contract
             else:
                 if new_membership:
@@ -484,6 +482,7 @@ class Member:
             private_bucket=self.paths.storage_driver.get_bucket(
                 StorageType.PRIVATE
             ),
+            cors_origins=self.schema.cors_origins
         )
 
         angie_config.create()
@@ -874,8 +873,6 @@ class Member:
         '''
 
         _LOGGER.debug('Enabling data APIs', extra=self.log_extra)
-
-        update_cors_origins(self.schema.cors_origins)
 
         schema: Schema = self.schema
 

@@ -358,7 +358,7 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         headers = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={uuid4()}.members-{service_id}.{network.name}',
+                f'CN={uuid4()}.mem-{service_id}.{network.name}',
             'X-Client-SSL-Issuing-CA':
             f'CN=members-ca.members-ca-{service_id}.{network.name}'
         }

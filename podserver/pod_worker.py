@@ -170,9 +170,15 @@ async def setup_recurring_tasks(server: PodServer,
     every(1).hour.do(expire_cached_data, server, cache_store)
 
     if server.cloud != CloudType.LOCAL:
-        _LOGGER.debug('Scheduling backups of the datastore')
-        interval: int = int(os.environ.get("BACKUP_INTERVAL", 240) or 240)
-        # every(interval).minutes.do(backup_datastore, server)
+        interval: int = int(os.environ.get("BACKUP_INTERVAL", 0) or 0)
+        if interval:
+            _LOGGER.debug(
+                f'Scheduling datastore backup task to run every {interval} '
+                'minutes'
+            )
+            every(interval).minutes.do(backup_datastore, server)
+        else:
+            _LOGGER.debug('Datastore backup task not scheduled')
 
     if YouTube.youtube_integration_enabled():
         interval: int = int(

@@ -46,7 +46,7 @@ class FileStorage:
     keeping a local copy for fast reads.
     '''
 
-    def __init__(self, local_path: str,
+    def __init__(self, local_path: str | None,
                  cloud_type: CloudType = CloudType.LOCAL) -> None:
 
         # These properties are only applicable if this instance
@@ -85,7 +85,10 @@ class FileStorage:
 
     @staticmethod
     async def get_storage(cloud: CloudType, private_bucket, restricted_bucket,
-                          public_bucket, root_dir: str) -> Self:
+                          public_bucket, root_dir: str,
+                          aws_access_key_id: str | None = None,
+                          aws_secret_access_key: str | None = None,
+                          s3_endpoint: str | None = None) -> Self:
         '''
         Factory for FileStorage and classes derived from it
 
@@ -105,7 +108,8 @@ class FileStorage:
         if cloud == CloudType.AWS:
             from .aws import AwsFileStorage
             storage = await AwsFileStorage.setup(
-                private_bucket, restricted_bucket, public_bucket, root_dir)
+                private_bucket, restricted_bucket, public_bucket, root_dir,
+                aws_access_key_id, aws_secret_access_key)
         elif cloud == CloudType.AZURE:
             from .azure import AzureFileStorage
             storage = await AzureFileStorage.setup(
@@ -115,6 +119,13 @@ class FileStorage:
             from .gcp import GcpFileStorage
             storage = await GcpFileStorage.setup(
                 private_bucket, restricted_bucket, public_bucket, root_dir
+            )
+        elif cloud == CloudType.CEPH:
+            _LOGGER.debug('Using CEPH storage')
+            from .ceph_storage import CephFileStorage
+            storage = await CephFileStorage.setup(
+                private_bucket, restricted_bucket, public_bucket, root_dir,
+                aws_access_key_id, aws_secret_access_key, s3_endpoint
             )
         elif cloud == CloudType.LOCAL:
             _LOGGER.debug('Using LOCAL storage')

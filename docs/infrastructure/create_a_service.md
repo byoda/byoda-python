@@ -30,7 +30,7 @@ sudo docker run -d --restart unless-stopped \
 To also set up the Prometheus exporter for redis, you can use the following command:
 
 ```bash
-export PRIVATE_IP=$(hostname -I | awk '{print $1}')
+export PRIVATE_IP=$(hostname -I | awk '{print $1}') && echo $PRIVATE_IP
 export REDIS_ADDR='redis://${PRIVATE_IP}:6379'
 export REDIS_EXPORTER_CHECK_SINGLE_KEYS=lists:all_assets
 docker run -d --restart unless-stopped --name redis_exporter --network host quay.io/oliver006/redis_exporter
@@ -74,8 +74,7 @@ The JSON file at the top-level must have the following keys:
 | jsonschema   | jsonschema | the JSON Schema for the data for the service                          |
 |--------------|------------|-----------------------------------------------------------------------|
 
-We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know
-of the following support:
+We do not support the full specification of JSON Schema for the translation to the Data API. The JSON file for the addressbook schema can be used as a starting point for creating a new schema. Specifically, we know of the following support:
 
 - At the root level of the schema, we support the following keys:
   - $id: must be a string with value: "https://<service-UUID>.services.byoda.net/service/<name of your service>. The name of your service must match the "name" field at the top level of the schema. The service-UUID must match the UUID assigned to your service.
@@ -179,7 +178,7 @@ The following actions are supported:
 The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
 
 ### Listen relations
-The service schema may have an array 'listen_relations' at the root level of the schema. The pod uses listen relations to subscribe to updates from other pods using websockets. The pod caches received content in a 'cache-only' data class so that the owner of the pod only needs to connect to their own pod to get content, instead of connecting to many pods. It also ensures that data is immediately available to the owner of the subscribing pod.
+The service schema may have an array 'listen_relations' at the root level of the schema. The pod uses listen relations to subscribe to updates from other pods using websockets. The pod caches content it receives in a 'cache-only' data class so that the owner of the pod only needs to connect to their own pod to get content, instead of connecting to many pods. It also ensures that data is immediately available to the owner of the subscribing pod.
 
 Each object in this list must have the following keys:
 - class_name (string): the class to subscribe for updates
@@ -232,7 +231,7 @@ Make sure you retrieved the generated secret to protect the private key of the S
 Services use the 'Service CA' as root certificate, eventhough that cert has been signed by the Network Services CA, which is signed by the Network Root cert. To use the Service CA cert as root, openssl needs the CA file to fully resolve so we need to combine the Service CA cert with the Network Services CA cert and the Network Root CA cert in a single file
 
 ```bash
-cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/{services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem,network-${BYODA_DOMAIN}-root-ca-cert.pem} > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
+cat ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-cert.pem ${SERVICE_DIR}/network-${BYODA_DOMAIN}/network-${BYODA_DOMAIN}-services-ca-cert.pem ${SERVICE_DIR}/network-${BYODA_DOMAIN}/network-${BYODA_DOMAIN}-root-ca-cert.pem > ${SERVICE_DIR}/network-${BYODA_DOMAIN}/services/service-${SERVICE_ID}/network-${BYODA_DOMAIN}-service-${SERVICE_ID}-ca-certchain.pem
 ```
 
 Make sure you securely store the passwords for the ServiceCA and the password for the other secrets, for example in a password manager.

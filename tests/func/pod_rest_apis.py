@@ -62,7 +62,7 @@ from tests.lib.defines import ADDRESSBOOK_VERSION
 from tests.lib.util import get_test_uuid
 
 # Settings must match config.yml used by directory server
-NETWORK = config.DEFAULT_NETWORK
+NETWORK: str = config.DEFAULT_NETWORK
 
 # This must match the test directory in tests/lib/testserver.p
 TEST_DIR = '/tmp/byoda-tests/pod-rest-apis'

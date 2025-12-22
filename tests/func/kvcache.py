@@ -14,13 +14,15 @@ import yaml
 import shutil
 import unittest
 
-
-
 from byoda.datamodel.network import Network
+
+from byoda.storage.postgres import PostgresStorage
 
 from byoda.servers.service_server import ServiceServer
 
 from byoda.util.paths import Paths
+
+from byoda.util.logger import Logger as ByodaLogger
 
 from byoda import config
 
@@ -35,13 +37,13 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
 
     async def asyncSetUp(self) -> None:
         with open(CONFIG_FILE) as file_desc:
-            TestKVCache.APP_CONFIG = yaml.load(
+            TestKVCache.APP_CONFIG: dict = yaml.load(
                 file_desc, Loader=yaml.SafeLoader
             )
 
-        app_config = TestKVCache.APP_CONFIG
+        app_config: dict[str, any] = TestKVCache.APP_CONFIG
 
-        test_dir = app_config['svcserver']['root_dir']
+        test_dir: str = app_config['svcserver']['root_dir']
         try:
             shutil.rmtree(test_dir)
         except FileNotFoundError:
@@ -68,9 +70,9 @@ class TestKVCache(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_cache_ops(self) -> None:
-        driver = config.server.member_db.kvcache
+        driver: PostgresStorage = config.server.member_db.kvcache
 
-        key = TEST_KEY
+        key: str = TEST_KEY
         self.assertFalse(await driver.exists(key))
 
         self.assertIsNone(await driver.get(key))

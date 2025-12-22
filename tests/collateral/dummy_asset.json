@@ -44,7 +44,7 @@
         {
             "claim_id": "509aa2fe-f957-4786-8b05-05d783304123",
             "issuer_id": "609aa2fe-f957-4786-8b05-05d783304123",
-            "issuer_type": "members-",
+            "issuer_type": "mem-",
             "object_type": "public_asset",
             "keyfield": "asset_id",
             "keyfield_id": "19a5e665-7637-4dc1-b734-cbe2e960b912",
@@ -66,7 +66,7 @@
                 "annotations"
             ],
             "requester_id": "709aa2fe-f957-4786-8b05-05d783304123",
-            "requester_type": "members-",
+            "requester_type": "mem-",
             "signature": "this is a signature",
             "signature_timestamp": 1605448755.613762,
             "signature_format_version": 1,

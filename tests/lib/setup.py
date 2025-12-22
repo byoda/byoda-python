@@ -47,7 +47,8 @@ from tests.lib.defines import ADDRESSBOOK_VERSION
 PASSWORD: str = 'byoda-secret-password'
 
 
-def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
+def mock_environment_vars(test_dir: str, hash_password: bool = True,
+                          password: str = PASSWORD) -> None:
     '''
     Sets environment variables needed by setup_network() and setup_account.
     It sets the hashed value for the ACCOUNT_SECRET if hash_password is True
@@ -67,7 +68,7 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
     os.environ['NETWORK'] = 'byoda.net'
     os.environ['ACCOUNT_ID'] = str(get_test_uuid())
 
-    os.environ['ACCOUNT_SECRET'] = PASSWORD
+    os.environ['ACCOUNT_SECRET'] = password
     if hash_password:
         password_hash_context = CryptContext(
             schemes=["argon2"], deprecated="auto"
@@ -77,7 +78,7 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True) -> None:
         )
 
     os.environ['LOGLEVEL'] = 'DEBUG'
-    os.environ['PRIVATE_KEY_SECRET'] = 'byoda'
+    os.environ['PRIVATE_KEY_SECRET'] = password
     os.environ['BOOTSTRAP'] = 'BOOTSTRAP'
     os.environ['MODERATION_FQDN'] = MODTEST_FQDN
     os.environ['MODERATION_APP_ID'] = str(MODTEST_APP_ID)
@@ -102,6 +103,8 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     if delete_tmp_dir:
         try:
             shutil.rmtree(data['root_dir'])
+        except NotADirectoryError:
+            os.remove(data['root_dir'])
         except FileNotFoundError:
             pass
 
@@ -150,7 +153,8 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
                         service_id: int = ADDRESSBOOK_SERVICE_ID,
                         version: int = ADDRESSBOOK_VERSION,
                         member_id: UUID | None = None,
-                        store_type: DataStoreType = DataStoreType.POSTGRES
+                        store_type: DataStoreType = DataStoreType.POSTGRES,
+                        destroy_db: bool = True
                         ) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
@@ -167,7 +171,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
     server: PodServer = config.server
     local_storage: FileStorage = server.local_storage
 
-    if store_type == DataStoreType.POSTGRES:
+    if store_type == DataStoreType.POSTGRES and destroy_db:
         PostgresStorage._destroy_database(data['db_connection'])
 
     account = Account(data['account_id'], server.network)
@@ -241,7 +245,7 @@ def get_account_id(data: dict[str, str]) -> str:
     return account_id
 
 
-def write_account_id(data: dict[str, str]):
+def write_account_id(data: dict[str, str]) -> None:
     '''
     Writes the account ID to a local file so that test clients
     can use the same account ID as the test podserver

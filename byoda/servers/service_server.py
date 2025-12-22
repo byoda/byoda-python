@@ -83,6 +83,7 @@ class ServiceServer(Server):
 
         _LOGGER.debug('Initialized service server')
 
+    @staticmethod
     async def setup(network: Network, app_config: dict | ServerConfig
                     ) -> Self:
         '''

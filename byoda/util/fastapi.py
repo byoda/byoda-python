@@ -148,7 +148,8 @@ def review_cors_hosts(hosts: str | list[str]) -> list[str]:
 def update_cors_origins(hosts: str | list[str]) -> None:
     '''
     Updates the starlette CORS middleware to add the provided hosts
-
+    This code is now obsolete with newer versions of starlette/fasapi
+    
     :param hosts: list of hosts to add
     '''
 

@@ -153,7 +153,7 @@ curl -s --cacert $ROOT_CA --cert $ACCOUNT_CERT --key $ACCOUNT_KEY --pass $PRIVAT
     https://$ACCOUNT_FQDN:444/api/v1/pod/member/service_id/$SERVICE_ADDR_ID | jq .
 ```
 
-We quickly now update our environment variables to pick up the info about the new membership:
+We now quickly update our environment variables to pick up the info about the new membership:
 
 ```bash
 source tools/set_env.sh
@@ -186,7 +186,7 @@ pipenv run tools/call_data_api.py --object person --action query
 
 and you'll see a bit more info than what you put in person.json as we only supplied the fields required by the data model of the 'address book' service:
 
-```bash
+```json
 {
   "total_count": 1,
   "edges": [

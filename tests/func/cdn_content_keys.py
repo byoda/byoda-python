@@ -171,7 +171,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         ssl_headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
+                f'CN={member_id}.mem-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
             'X-Client-SSL-Issuing-CA':
                 (
                     'CN=members-ca.members-ca-'
@@ -239,6 +239,8 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

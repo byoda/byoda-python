@@ -61,6 +61,7 @@ def get_environment_vars() -> dict:
         'private_bucket': os.environ.get('PRIVATE_BUCKET'),
         'restricted_bucket': os.environ.get('RESTRICTED_BUCKET'),
         'public_bucket': os.environ.get('PUBLIC_BUCKET'),
+        's3_endpoint': os.environ.get('S3_ENDPOINT'),
         'network': os.environ.get('NETWORK', config.DEFAULT_NETWORK),
         'account_id': os.environ.get('ACCOUNT_ID'),
         'account_secret': os.environ.get('ACCOUNT_SECRET'),
@@ -72,6 +73,8 @@ def get_environment_vars() -> dict:
         'root_dir': os.environ.get('ROOT_DIR', '/byoda'),
         'host_root_dir': os.environ.get('HOST_ROOT_DIR', '/byoda'),
         'daemonize': os.environ.get('DAEMONIZE', ''),
+        'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID'),
+        'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY'),
         'custom_domain': os.environ.get('CUSTOM_DOMAIN'),
         'shared_webserver': bool(os.environ.get('SHARED_WEBSERVER')),
         'manage_custom_domain_cert':

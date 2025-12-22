@@ -29,13 +29,13 @@ from byoda import config
 
 from tests.lib.setup import setup_network
 from tests.lib.util import get_test_uuid
+
 _LOGGER: Logger = getLogger(__name__)
 
 NETWORK: str = config.DEFAULT_NETWORK
 
-SCHEMA_PATH: str = os.environ.get(
-    os.environ.get('LOCAL_SERVICE_CONTRACT')
-)
+SCHEMA_PATH: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
+
 if not SCHEMA_PATH:
     SCHEMA_PATH = 'tests/collateral/addressbook.json'
 

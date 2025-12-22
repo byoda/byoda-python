@@ -142,7 +142,7 @@ class TestDnsDb(unittest.IsolatedAsyncioTestCase):
             uuid, IdType.MEMBER, service_id=service_id
         )
         self.assertEqual(
-            member, f'{str(uuid)}.members-{service_id}.{TEST_NETWORK}'
+            member, f'{str(uuid)}.mem-{service_id}.{TEST_NETWORK}'
         )
 
         with self.assertRaises(KeyError):

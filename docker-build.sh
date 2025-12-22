@@ -90,10 +90,7 @@ if [ -z "${TAG}" ]; then
         export TAG=latest
     else
         if [[ "${TARGET}" == "pod" || "${TARGET}" == "p" ]]; then
-            # For now we always build latest if TAG is not specified
-            # because k8s only supports always_pull for tag 'latest'
-            # export TAG=dev
-            export TAG=latest
+            export TAG=dev
         else
             export TAG=latest
         fi
@@ -110,7 +107,15 @@ else
     exit 1
 fi
 
-${DOCKER} build . --file Dockerfile-${TARGET} --tag byoda/byoda-${TARGET}:${TAG} --build-arg TAG=${TAG}
+PLATFORMS='linux/amd64'
+
+# Multi-arch builds for pod fail because of aiohttp dependency in
+# Azure SDK
+# if [ "${TARGET}" == "pod" ]; then
+#     PLATFORMS='linux/amd64,linux/arm64'
+# fi
+
+${DOCKER} buildx build . --platform ${PLATFORMS} --file Dockerfile-${TARGET} --tag byoda/byoda-${TARGET}:${TAG} --build-arg TAG=${TAG}
 
 if [ "$?" -eq "0" ]; then
     export IMAGE_ID=$(${DOCKER} images --format='{{.ID}}'  | head -1)

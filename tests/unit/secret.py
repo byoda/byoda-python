@@ -8,9 +8,11 @@ Test cases for secrets
 :license    : GPLv3
 '''
 
-import sys
 import os
+import sys
+import ssl
 import shutil
+import asyncio
 import secrets
 import filecmp
 import unittest
@@ -19,6 +21,7 @@ from uuid import UUID
 from copy import copy
 from logging import Logger
 from random import randint
+from typing import Literal
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
@@ -26,18 +29,18 @@ from datetime import timezone
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.hashes import Hash
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes
-from cryptography.x509.verification import VerificationError
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 from byoda.datamodel.account import Account
-from byoda.datamodel.member import Member
 from byoda.datamodel.claim import Claim
 
+from byoda.secrets.networkrootca_secret import NetworkRootCaSecret
 from byoda.servers.pod_server import PodServer
 
 from byoda.secrets.secret import Secret
@@ -93,7 +96,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         Nothing to tear down
         '''
 
-        pass
+        server: PodServer = config.server
+        await server.shutdown()
 
     async def test_ca_pathlen(self) -> None:
         storage = FileStorage(TEST_DIR, CloudType.LOCAL)
@@ -256,12 +260,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_secrets(self) -> None:
         '''
-        Create a network CA hierarchy
+        Test validation of cert chains and data encryption/decryption
         '''
 
-        #
-        # Test creation of the CA hierarchy
-        #
         network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
         config.server = PodServer(
             network, db_connection_string=os.environ['DB_CONNECTION']
@@ -500,7 +501,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         _RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
         message: bytes = 'ik ben toch niet gek!'.encode('utf-8')
         chosen_hash = hashes.SHA256()
-        hasher = hashes.Hash(chosen_hash)
+        hasher: Hash = hashes.Hash(chosen_hash)
         message = copy(message)
         while message:
             if len(message) > _RSA_SIGN_MAX_MESSAGE_LENGTH:
@@ -555,6 +556,181 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         signature = member_data_secret.sign_message(message)
         member_data_secret.verify_message_signature(message, signature)
+
+    async def test_tls_negotiation(self) -> None:
+        '''
+        Test TLS negotiation between network, service, and account
+        '''
+
+        network: Network = await Network.create(NETWORK, TEST_DIR, 'byoda')
+        config.server = PodServer(
+            network, db_connection_string=os.environ['DB_CONNECTION']
+        )
+        server: PodServer = config.server
+        server.network = network
+        server.network.account = 'pod'
+
+        await server.set_document_store(
+            DocumentStoreType.OBJECT_STORE, cloud_type=CloudType('LOCAL'),
+            private_bucket='byoda', restricted_bucket='byoda',
+            public_bucket='byoda', root_dir=TEST_DIR
+        )
+
+        # Need to set role to allow loading of unsigned services
+        network.roles = [ServerRole.Pod]
+
+        shutil.copy(DEFAULT_SCHEMA, TEST_DIR + SCHEMA_FILE)
+        service = Service(network=network)
+        await service.examine_servicecontract(SCHEMA_FILE)
+        await service.create_secrets(network.services_ca, local=True)
+
+        account_id: UUID = get_test_uuid()
+        account = Account(account_id, network)
+        await account.paths.create_account_directory()
+        await account.create_secrets(network.accounts_ca)
+
+        server.account = account
+        server.bootstrapping = True
+
+        server.paths = network.paths
+        await server.set_data_store(
+            DataStoreType.POSTGRES, account.data_secret
+        )
+        await config.server.set_cache_store(CacheStoreType.POSTGRES)
+
+        conn = TlsConnection()
+        server_task: asyncio.Task[None] = asyncio.create_task(
+            conn.tls_server()
+        )
+        client_task: asyncio.Task[None] = asyncio.create_task(
+            conn.tls_client(account.tls_secret)
+        )
+        await server_task
+        await client_task
+
+        # Test with data secret - should fail because 'unsuitable cert purpose'
+        # Re-enable this test once we have figured out how to catch the
+        # 'unsuitable cert purpose' exception raised by the TLS server in this
+        # test case.
+        # conn = TlsConnection()
+        # server_task: asyncio.Task[None] = asyncio.create_task(
+        #     conn.tls_server()
+        # )
+        # client_task: asyncio.Task[None] = asyncio.create_task(
+        #     conn.tls_client(account.data_secret)
+        # )
+        # await server_task
+        # with self.assertRaises(ssl.SSLCertVerificationError):
+        #     await client_task
+
+
+class TlsConnection:
+    def __init__(self) -> None:
+        self._shutdown_event: asyncio.Event = asyncio.Event()
+        self._server: asyncio.Server | None = None
+
+    @staticmethod
+    async def get_context(tls_secret: Secret | None = None) -> ssl.SSLContext:
+        server: PodServer = config.server
+        network: Network = server.network
+        root_ca: NetworkRootCaSecret = network.root_ca
+        key_password: str = 'test'
+        await root_ca.save(
+            password=key_password, overwrite=True,
+            storage_driver=server.local_storage,
+        )
+
+        base_dir: str = server.storage_driver.local_path
+        if tls_secret:
+            context: ssl.SSLContext = ssl.create_default_context(
+                purpose=ssl.Purpose.SERVER_AUTH,
+                cafile=base_dir + root_ca.cert_file
+            )
+            await tls_secret.save(
+                password=key_password, overwrite=True,
+                storage_driver=server.local_storage,
+            )
+            context.load_cert_chain(
+                base_dir + tls_secret.cert_file,
+                base_dir + tls_secret.private_key_file, key_password
+            )
+        else:
+            context: ssl.SSLContext = ssl.create_default_context(
+                purpose=ssl.Purpose.CLIENT_AUTH,
+                cafile=base_dir + root_ca.cert_file
+            )
+            context.load_cert_chain(
+                base_dir + root_ca.cert_file,
+                base_dir + root_ca.private_key_file, key_password
+            )
+
+        context.verify_mode = ssl.CERT_REQUIRED
+        context.check_hostname = False
+        return context
+
+    async def tls_server(self) -> None:
+        async def handle_client(r: asyncio.StreamReader,
+                                w: asyncio.StreamWriter) -> None:
+
+            addr = w.get_extra_info('peername')
+            print(f"Connection from {addr}")
+
+            request: str = (await r.readline()).decode('utf8').rstrip()
+            print(f'Read: {request}')
+            data: bytes = await r.read(100)
+            w.write(data)
+            try:
+                await w.drain()
+            except ConnectionResetError:
+                pass
+
+            w.close()
+            await w.wait_closed()
+            self._shutdown_event.set()
+
+        server_context: ssl.SSLContext = await TlsConnection.get_context()
+
+        tls_server: asyncio.Server = await asyncio.start_server(
+            handle_client, '127.0.0.1', 8888, ssl=server_context
+        )
+
+        serve_task: asyncio.Task[None] = asyncio.create_task(
+            tls_server.serve_forever()
+        )
+        shutdown_task: asyncio.Task[Literal[True]] = asyncio.create_task(
+            self._shutdown_event.wait()
+        )
+
+        await asyncio.wait(
+            [serve_task, shutdown_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        tls_server.close()
+        await tls_server.wait_closed()
+
+    async def tls_client(self, secret: Secret) -> None:
+        await asyncio.sleep(1)  # Wait for server to start
+        writer: asyncio.StreamWriter
+        _, writer = await asyncio.open_connection('127.0.0.1', 8888)
+        client_context: ssl.SSLContext = await TlsConnection.get_context(
+            secret
+        )
+
+        try:
+            await writer.start_tls(
+                client_context, server_hostname='dir.byoda.net'
+            )
+        except ssl.SSLCertVerificationError as exc:
+            print(f'TLS negotiation failed: {exc}')
+            raise
+
+        print(f"The server certificate is {writer.get_extra_info('peercert')}")
+
+        writer.write(b'PING')
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
 
 
 if __name__ == '__main__':

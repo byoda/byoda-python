@@ -1327,29 +1327,6 @@
                         "items": {
                             "$ref": "/schemas/claim"
                         }
-                    },
-                    "name": {
-                        "description": "DEPRECATED: use 'creator'",
-                        "type": "string",
-                        "#obsolete": true
-                    },
-                    "creator_thumbnail": {
-                        "description": "DEPRECATED: use 'creator_thumbnails'",
-                        "type": "string",
-                        "format": "iri",
-                        "#obsolete": true
-                    },
-                    "channel_thumbnail_url": {
-                        "description": "DEPRECATED: use 'channel_thumbnails'",
-                        "type": "string",
-                        "format": "uri",
-                        "#obsolete": true
-                    },
-                    "channel_banner_url": {
-                        "description": "DEPRECATED: use 'channel_banners'",
-                        "type": "string",
-                        "format": "uri",
-                        "#obsolete": true
                     }
                 }
             },

@@ -101,7 +101,7 @@ api-key=${API_KEY}
 EOF
 
 # Here we bring up the containers for postgres, powerdns, and pdns-admin
-docker compose -f byoda-python/docs/infrastructuredirectory-compose.yml up -d
+docker compose -f byoda-python/docs/infrastructure/directory-compose.yml up -d
 
 sudo apt-get -y install postgresql-client-common
 sudo apt-get -y install postgresql-client

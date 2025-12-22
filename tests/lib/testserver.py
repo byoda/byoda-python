@@ -17,7 +17,6 @@ import sys
 ###
 import shutil
 from uuid import UUID
-from logging import Logger
 from tests.lib.util import get_test_uuid
 ###
 ###
@@ -28,10 +27,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from byoda.util.logger import Logger as ByodaLogger
-
-from byoda import config
-
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
 from byoda.datamodel.app import CdnApp
@@ -40,14 +35,16 @@ from byoda.servers.pod_server import PodServer
 
 from byoda.datastore.document_store import DocumentStoreType
 from byoda.datastore.data_store import DataStoreType
-
 from byoda.datastore.cache_store import CacheStoreType
 
 from byoda.storage.pubsub_nng import PubSubNng
 
+from byoda.util.logger import Logger as ByodaLogger
+from byoda.util.fastapi import setup_api
+
 from podserver.util import get_environment_vars
 
-from byoda.util.fastapi import setup_api, update_cors_origins
+from byoda import config
 
 ###
 ### Test change     # noqa: E266
@@ -99,39 +96,42 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ###
 
-    data: dict[str, any] = get_environment_vars()
+    network_data: dict[str, any] = get_environment_vars()
 
     ###
     ### Test change     # noqa: E266
     ###
     config.test_case = "TEST_CLIENT"
-    if data['root_dir']:
+    if network_data['root_dir']:
         try:
-            shutil.rmtree(data['root_dir'])
+            shutil.rmtree(network_data['root_dir'])
         except FileNotFoundError:
             pass
 
-        os.makedirs(data['root_dir'])
+        os.makedirs(network_data['root_dir'])
     else:
-        data['root_dir'] = TEST_DIR
+        network_data['root_dir'] = TEST_DIR
     ###
     ###
     ###
 
     server: PodServer = PodServer(
-        bootstrapping=bool(data.get('bootstrap')),
-        db_connection_string=data.get('db_connection')
+        bootstrapping=bool(network_data.get('bootstrap')),
+        db_connection_string=network_data.get('db_connection'),
+        http_port=network_data.get('http_port'),
+        host_root_dir=network_data.get('host_root_dir'),
     )
 
     config.server = server
 
     # Remaining environment variables used:
-    server.custom_domain = data['custom_domain']
-    server.shared_webserver = data['shared_webserver']
-    server.cdn_fqdn = data.get('cdn_fqdn')
-    server.cdn_origin_site_id = data.get('cdn_origin_site_id')
+    server.custom_domain = network_data['custom_domain']
+    server.shared_webserver = network_data['shared_webserver']
+    server.cdn_fqdn = network_data.get('cdn_fqdn')
+    server.cdn_origin_site_id = network_data.get('cdn_origin_site_id')
 
-    if str(data['debug']).lower() in ('true', 'debug', '1'):
+    debug: bool = network_data.get('debug', False)
+    if debug and str(debug).lower() in ('true', 'debug', '1'):
         config.debug = True
         # Make our files readable by everyone, so we can
         # use tools like call_data_api.py to debug the server
@@ -142,27 +142,35 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ### Test change     # noqa: E266
     ###
-    global LOG_FILE
-    LOG_FILE = os.environ.get('LOGDIR', data['root_dir']) + '/pod.log'
+    logfile: str = os.environ.get('LOGDIR', network_data['root_dir']) + '/pod.log'
     ###
     ###
     ###
 
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], json_out=False, debug=config.debug,
-        loglevel=data['loglevel'], logfile=LOG_FILE
+        loglevel=network_data['loglevel'], logfile=logfile
     )
+
+    _LOGGER.debug(
+        f'Setting up logging: debug {config.debug}, '
+        f'loglevel {network_data["loglevel"]}, logfile {logfile}'
+    )
+
+    config.log_requests = network_data.get('log_requests', True)
+    if not config.log_requests:
+        _LOGGER.info('Logging of data requests is disabled')
 
     await server.set_document_store(
         DocumentStoreType.OBJECT_STORE, server.cloud,
-        private_bucket=data['private_bucket'],
-        restricted_bucket=data['restricted_bucket'],
-        public_bucket=data['public_bucket'],
-        root_dir=data['root_dir']
+        private_bucket=network_data['private_bucket'],
+        restricted_bucket=network_data['restricted_bucket'],
+        public_bucket=network_data['public_bucket'],
+        root_dir=network_data['root_dir']
     )
 
-    network = Network(data, data)
+    network = Network(network_data, network_data)
     await network.load_network_secrets()
 
     server.network = network
@@ -171,14 +179,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ### Test change     # noqa: E266
     ###
-    data['account_id'] = get_test_uuid()
-    write_account_id(data)
+    network_data['account_id'] = get_test_uuid()
+    write_account_id(network_data)
     ###
     ###
     ###
 
-    account = Account(data['account_id'], network)
-    account.password = data.get('account_secret')
+    account = Account(network_data['account_id'], network)
+    account.password = network_data.get('account_secret')
 
     ###
     ### Test change     # noqa: E266
@@ -212,11 +220,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ### Test change     # noqa: E266
     ###
-    services = list(server.network.service_summaries.values())
-    service = [
+    services: list = list(server.network.service_summaries.values())
+    service: list = [
         service
         for service in services
-        if service['name'] == 'BYO.Tube'
+        if service['name'] == 'addressbook'
     ][0]
 
     local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
@@ -237,7 +245,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     ###
     ###
 
-    cors_origins = set(
+    cors_origins: set[str] = set(
         [
             f'https://proxy.{network.name}',
             f'https://{account.tls_secret.common_name}'
@@ -249,7 +257,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
     await account.load_memberships()
 
-    auto_joins: list[int] = data['join_service_ids']
+    auto_joins: list[int] = network_data['join_service_ids']
 
     for member in account.memberships.values():
         await member.enable_data_apis(
@@ -267,11 +275,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
             overwrite=True
         )
 
-        if data.get('cdn_fqdn') and data.get('cdn_origin_site_id'):
+        if (network_data.get('cdn_fqdn')
+                and network_data.get('cdn_origin_site_id')):
             cdn_app: CdnApp = CdnApp(
-                data['cdn_app_id'], member.service,
-                data.get('cdn_fqdn'),
-                data.get('cdn_origin_site_id')
+                network_data['cdn_app_id'], member.service,
+                network_data.get('cdn_fqdn'),
+                network_data.get('cdn_origin_site_id')
             )
             server.apps[cdn_app.app_id] = cdn_app
 
@@ -288,13 +297,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
         cors_origins.add(f'https://{member.tls_secret.common_name}')
 
     _LOGGER.debug('Lifespan startup complete')
-    update_cors_origins(cors_origins)
+    # Starlette/FastAPI no longer supports updating CORS origins
+    # update_cors_origins(cors_origins)
 
     yield
 
 config.trace_server = os.environ.get('TRACE_SERVER', config.trace_server)
 
-app = setup_api(
+app: FastAPI = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', [
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,

@@ -77,8 +77,6 @@ from byoda.storage import FileMode
 
 from byoda.storage.pubsub import PubSub
 
-
-
 from byoda.util.paths import Paths
 
 from byoda import config
@@ -117,7 +115,7 @@ class MemberData(dict):
 
     def __init__(self, member: Member) -> None:
         self.member: Member = member
-        self.unvalidated_data: dict = None
+        self.unvalidated_data: dict | None = None
 
         self.paths: Paths = member.paths
 
@@ -187,7 +185,7 @@ class MemberData(dict):
             normalized = data_classes[field].normalize(value)
             self[field] = normalized
 
-    def validate(self):
+    def validate(self) -> None:
         '''
         Validates the unvalidated data against the schema
         '''
@@ -213,7 +211,7 @@ class MemberData(dict):
         for changing symmetric keys is currently not supported.
         '''
 
-        filepath = self.paths.get(
+        filepath: Base64Str = self.paths.get(
             self.paths.MEMBER_DATA_SHARED_SECRET_FILE
         )
 
@@ -307,7 +305,6 @@ class MemberData(dict):
                             query_timestamp: datetime | None = None,
                             origin_signature: str | None = None,
                             signature_format_version: int | None = None,
-
                             message: str = None) -> None:
         '''
         Adds an entry to data log
@@ -563,7 +560,7 @@ class MemberData(dict):
                 )
                 return all_data
 
-        # We ask for 'query.first + 1) as we want to know if there are
+        # We ask for 'query.first + 1' as we want to know if there are
         # more items available for pagination
         with TRACER.start_as_current_span('MemberData.get from cache store'):
             if data_class.cache_only:

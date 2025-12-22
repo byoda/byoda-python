@@ -130,24 +130,12 @@ fi
 
 export WWWROOT_VOLUME_MOUNT=
 if [[ -n "${LOCAL_WWWROOT_DIRECTORY}" ]]; then
-    echo "Volume mounting log directory: ${LOCAL_WWWROOT_DIRECTORY}"
+    echo "Volume mounting directory: ${LOCAL_WWWROOT_DIRECTORY}"
     export WWWROOT_VOLUME_MOUNT="-v ${LOCAL_WWWROOT_DIRECTORY}:/var/www/wwwroot"
 fi
 
 
 export POSTFIX=${ACCOUNT_ID:24:8}
-if [[ ${HOSTNAME:0:4} == "byo-" ]]; then
-    export POSTFIX=$HOSTNAME
-fi
-if [[ ${HOSTNAME} == 'dathes' || ${HOSTNAME} == 'notest' || ${HOSTNAME} == 'demotest' || ${HOSTNAME} == 'dmz' ]]; then
-    export POSTFIX=$HOSTNAME
-fi
-
-for NAME in azure gcp aws; do
-    if [[ ${HOSTNAME} == ${NAME}-pod ]]; then
-        export POSTFIX=${NAME}
-    fi
-done
 
 echo "Using directory postfix: ${POSTFIX}"
 sudo mkdir -p \

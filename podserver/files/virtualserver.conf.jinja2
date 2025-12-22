@@ -20,7 +20,6 @@
             allow 10.0.0.0/8;
             allow 172.16.0.0/12;
             allow 192.168.0.0/16;
-            allow 47.143.206.108;         # Steven - Frontier DSL
         }
         location / {
             return 444;
@@ -96,7 +95,6 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
 
         alias /usr/share/angie-console-light/html;
@@ -112,7 +110,6 @@ server {
         allow 10.0.0.0/8;
         allow 172.16.0.0/12;
         allow 192.168.0.0/16;
-        allow 47.143.206.108;         # Steven - Frontier DSL
         deny all;
         api /status/;
     }

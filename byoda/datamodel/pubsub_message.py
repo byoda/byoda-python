@@ -9,6 +9,7 @@ derive
 
 
 from uuid import UUID
+from typing import Self
 from typing import TypeVar
 from logging import Logger
 from logging import getLogger
@@ -59,7 +60,7 @@ class PubSubMessage():
 
         raise NotImplementedError
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, any]:
         '''
         Classes derived from PubSubMessage should override this method
         '''
@@ -88,7 +89,7 @@ class PubSubMessage():
         return data
 
     @staticmethod
-    def parse(message: bytes, schema: Schema = None):
+    def parse(message: bytes, schema: Schema = None) -> Self:
         '''
         Factory parser for messages of all classes derived from PubSubMessage
 
@@ -180,7 +181,7 @@ class PubSubDataMessage(PubSubMessage):
         self.cursor: str = data.get('cursor')
 
     @staticmethod
-    def parse(data: bytes, schema: Schema):
+    def parse(data: bytes, schema: Schema) -> Self:
         '''
         Parse a message received over pub/sub
         '''
@@ -216,7 +217,7 @@ class PubSubDataMessage(PubSubMessage):
 
         return msg
 
-    def to_bytes(self):
+    def to_bytes(self) -> bytes:
         '''
         Serializes the message to a list of bytes
         '''
@@ -433,7 +434,8 @@ class PubSubDataDeleteMessage(PubSubDataMessage):
         super().__init__(PubSubMessageAction.DELETE, data, data_class)
 
     @staticmethod
-    def create(data_class: SchemaDataItem, data_filter_set: DataFilterSet):
+    def create(data_class: SchemaDataItem, data_filter_set: DataFilterSet
+               ) -> Self:
         '''
         Factory for creating a PubSubDataDeleteMessage
 

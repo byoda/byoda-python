@@ -81,7 +81,6 @@ class NetworkServicesCaSecret(CaSecret):
                             private key or cert
         '''
 
-        # TODO: SECURITY: add constraints
         common_name: str = (
             f'{self.id_type.value}.{self.id_type.value}.{self.network}'
         )

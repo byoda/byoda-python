@@ -49,7 +49,6 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
             'Access-Control-Request-Headers': 'content-type, blah'
         }
         with TestClient(APP, headers=headers) as client:
-        # with httpx.Client(app=APP) as client:
             API: str = 'http://localhost/'
             resp: httpx.Response = client.get(API, headers=headers)
             self.assertEqual(resp.status_code, 200)

@@ -18,6 +18,10 @@ from datetime import timedelta
 
 import jwt as py_jwt
 
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from cryptography.hazmat.primitives.asymmetric.ec import \
+    EllipticCurvePrivateKey
+
 from opentelemetry.trace import get_tracer
 from opentelemetry.sdk.trace import Tracer
 
@@ -38,7 +42,8 @@ Service = TypeVar('Service')
 
 JWT_EXPIRATION_DAYS = 365
 JWT_ALGO_PREFFERED = 'RS256'
-JWT_ALGO_ACCEPTED: list[str] = ['RS256']
+# We accept RS256 for RSA keys and ES256 for ECC keys
+JWT_ALGO_ACCEPTED: list[str] = ['RS256', 'ES256']
 
 
 class JWT:
@@ -230,8 +235,18 @@ class JWT:
         if self.service_id is not None:
             data['service_id'] = self.service_id
 
+        if isinstance(self.secret.private_key, RSAPrivateKey):
+            algo: str = 'RS256'
+        elif isinstance(self.secret.private_key, EllipticCurvePrivateKey):
+            algo: str = 'ES256'
+        else:
+            raise ValueError(
+                f'Unsupported key type {type(self.secret.private_key)} '
+                'for JWT encoding'
+            )
+
         jwt: str = py_jwt.encode(
-            data, self.secret.private_key, algorithm=JWT_ALGO_PREFFERED
+            data, self.secret.private_key, algorithm=algo
         )
         self.verified = True
 

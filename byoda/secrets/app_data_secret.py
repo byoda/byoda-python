@@ -104,7 +104,6 @@ class AppDataSecret(DataSecret):
 
         self.fqdn: str = fqdn
 
-        # TODO: SECURITY: add constraints
 
         common_name: str = AppDataSecret.create_commonname(
             self.app_id, self.service_id, self.network

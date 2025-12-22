@@ -12,6 +12,7 @@ and GCP.
 '''
 
 from enum import Enum
+from typing import Self
 from typing import TypeVar
 from logging import Logger
 from logging import getLogger
@@ -43,11 +44,15 @@ class DocumentStore:
 
     @staticmethod
     async def get_document_store(storage_type: DocumentStoreType,
-                                 cloud_type: CloudType = None,
-                                 private_bucket: str = None,
-                                 restricted_bucket: str = None,
-                                 public_bucket: str = None,
-                                 root_dir: str = None):
+                                 cloud_type: CloudType | None = None,
+                                 private_bucket: str | None = None,
+                                 restricted_bucket: str | None = None,
+                                 public_bucket: str | None = None,
+                                 root_dir: str | None = None,
+                                 aws_access_key_id: str | None = None,
+                                 aws_secret_access_key: str | None = None,
+                                 s3_endpoint: str | None = None
+                                 ) -> Self:
         '''
         Factory for initiating a document store
         '''
@@ -62,7 +67,9 @@ class DocumentStore:
                 )
             storage.backend = await FileStorage.get_storage(
                 cloud_type, private_bucket, restricted_bucket, public_bucket,
-                root_dir
+                root_dir, aws_access_key_id=aws_access_key_id,
+                aws_secret_access_key=aws_secret_access_key,
+                s3_endpoint=s3_endpoint
             )
         else:
             raise ValueError(f'Unsupported storage type: {storage_type}')

@@ -119,7 +119,6 @@ class MemberDataSecret(DataSecret):
             self.member_id, self.service_id, self.network
         )
 
-        # TODO: SECURITY: add constraints
         return await super().create_csr(common_name, renew=renew)
 
     @override

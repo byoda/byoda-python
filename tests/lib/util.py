@@ -45,7 +45,7 @@ def get_member_tls_headers(member_id: UUID, network: str | Network,
     member_headers: dict[str, str] = {
         'X-Client-SSL-Verify': 'SUCCESS',
         'X-Client-SSL-Subject':
-            f'CN={member_id}.members-{service_id}.{network}',
+            f'CN={member_id}.mem-{service_id}.{network}',
         'X-Client-SSL-Issuing-CA': f'CN=members-ca.{network}'
     }
     return member_headers

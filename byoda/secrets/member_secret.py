@@ -108,7 +108,6 @@ class MemberSecret(Secret):
         a private key or cert
         '''
 
-        # TODO: SECURITY: add constraints
         common_name: str = MemberSecret.create_commonname(
             self.member_id, self.service_id, self.network
         )
@@ -166,8 +165,7 @@ class MemberSecret(Secret):
         '''
 
         return (
-            f'{TEMP_SSL_DIR}/{self.account_id}/'
-            f'private-member-{self.member_id}.key'
+            f'{TEMP_SSL_DIR}/unprotected-private-member-{self.member_id}.key'
         )
 
     @staticmethod

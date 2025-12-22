@@ -88,6 +88,7 @@ class PostgresStorage(Sql):
         set_json_dumps(orjson.dumps)
         set_json_loads(orjson.loads)
 
+    @staticmethod
     async def setup(connection_string: str, server: PodServer,
                     ) -> Self:
         '''
@@ -101,7 +102,7 @@ class PostgresStorage(Sql):
         log_data: dict[str, any] = {
             'connection_string': connection_string,
         }
-        _LOGGER.info(f'Connecting to Postgres', extra=log_data)
+        _LOGGER.info('Connecting to Postgres', extra=log_data)
 
         conn: Connection[Tuple] | None = None
         restore_backup_needed: bool = False
@@ -163,7 +164,7 @@ class PostgresStorage(Sql):
         Connects to the Postgres SQL server
         '''
 
-        pool = AsyncConnectionPool(
+        pool: AsyncConnectionPool = AsyncConnectionPool(
             conninfo=f'{self.connection_string}', open=False,
             kwargs={'row_factory': dict_row}
         )
@@ -234,9 +235,14 @@ class PostgresStorage(Sql):
 
     @staticmethod
     def _create_database(connection_string: str) -> None:
-        stmt: str = f'CREATE DATABASE byoda;'
 
-        conn: Connection[Tuple] = connect(connection_string, autocommit=True)
+        psql_connection_string: str = '/'.join(connection_string.rsplit('/')[0:-1])
+        db_name: str = connection_string.rsplit('/')[-1]
+        stmt: str = f'CREATE DATABASE {db_name};'
+        _LOGGER.debug(
+            f'Creating DB connection to {psql_connection_string} to create the DB'
+        )
+        conn: Connection[Tuple] = connect(psql_connection_string, autocommit=True)
 
         try:
             conn.execute(stmt)
@@ -269,10 +275,14 @@ class PostgresStorage(Sql):
                 'We do not delete databases unless we are running a test case'
             )
 
-        conn: Connection[Tuple] = connect(connection_string, autocommit=True)
-
+        db_name: str = connection_string.rsplit('/')[-1]
+        psql_connection_string: str = '/'.join(connection_string.rsplit('/')[0:-1])
         try:
-            conn.execute('DROP DATABASE byoda')
+            conn: Connection[Tuple] = connect(psql_connection_string, autocommit=True)
+            conn.execute(f'DROP DATABASE {db_name} WITH (FORCE);')
+        except OperationalError as exc:
+            _LOGGER.debug(f'Could not connect to Postgres to delete DB: {exc}')
+            raise
         except InvalidCatalogName:
             pass
         except ObjectInUse as exc:

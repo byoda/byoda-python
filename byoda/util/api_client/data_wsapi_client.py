@@ -139,7 +139,7 @@ class DataWsApiClient(DataApiClient):
         _LOGGER.debug('Creating websocket', extra=extra)
         async with websockets.connect(
                 data_url, ping_timeout=timeout, ping_interval=timeout,
-                extra_headers=headers, ssl=ssl_context) as webs:
+                additional_headers=headers, ssl=ssl_context) as webs:
             body: bytes = orjson.dumps(model)
             await webs.send(body)
             _LOGGER.debug('Sent model to WS-API', extra=extra)
