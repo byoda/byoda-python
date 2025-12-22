@@ -10,7 +10,6 @@ import os
 import sys
 import shutil
 
-from uuid import uuid4
 from logging import Logger
 
 import unittest
@@ -20,6 +19,8 @@ from byoda.datatypes import CacheTech
 
 from byoda.datacache.kv_cache import KVCache
 from byoda.util.logger import Logger as ByodaLogger
+
+from byoda.config import DEFAULT_NETWORK
 
 TEST_DIR = '/tmp/byoda-tests/kv_sqlite'
 
@@ -37,10 +38,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self) -> None:
         pass
 
-    async def test_cache(self):
-        member_id = uuid4()
+    async def test_cache(self) -> None:
         cache: KVCache = await KVCache.create(
-            f'{TEST_DIR}/test.db',  identifier=str(member_id),
+            f'{TEST_DIR}/test.db',  DEFAULT_NETWORK,
             cache_tech=CacheTech.SQLITE,
             cache_type=CacheType.DATA
         )

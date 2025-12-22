@@ -12,7 +12,9 @@ import shutil
 import unittest
 
 from logging import Logger
+from uuid import UUID
 
+from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member
 
 from byoda.datacache.querycache import QueryCache
@@ -41,18 +43,18 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         os.makedirs(TEST_DIR)
 
     @classmethod
-    async def asyncTearDown(self):
+    async def asyncTearDown(self) -> None:
         pass
 
-    async def test_query_cache(self):
-        network_data = await setup_network(TEST_DIR)
-        pod_account = await setup_account(network_data)
+    async def test_query_cache(self) -> None:
+        network_data: dict[str, str] = await setup_network(TEST_DIR)
+        pod_account: Account = await setup_account(network_data)
         member: Member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
 
         cache: QueryCache = await QueryCache.create(member)
 
-        query_id = get_test_uuid()
-        remote_member_id = get_test_uuid()
+        query_id: UUID = get_test_uuid()
+        remote_member_id: UUID = get_test_uuid()
         self.assertFalse(await cache.exists(query_id))
         self.assertFalse(await cache.delete(query_id))
 

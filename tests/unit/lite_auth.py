@@ -34,7 +34,9 @@ class TestAccountManager(unittest.TestCase):
         config.jwt_secrets = ['boink']
 
         secrets: tuple[str, str, str] = ('test1', 'test2', 'test3')
-        encoded: str = LiteJWT.create_auth_token(uuid4(), secrets=secrets)
+        encoded: str = LiteJWT.create_auth_token(
+            uuid4(), secrets=secrets, is_funded=True
+        )
 
         self.assertIsNotNone(LiteJWT.verify_auth_token(encoded, secrets))
 

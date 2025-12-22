@@ -75,11 +75,15 @@ class Server:
         raise NotImplementedError
 
     async def set_document_store(self, store_type: DocumentStoreType,
-                                 cloud_type: CloudType = None,
-                                 private_bucket: str = None,
-                                 restricted_bucket: str = None,
-                                 public_bucket: str = None,
-                                 root_dir: str = None) -> None:
+                                 cloud_type: CloudType | None = None,
+                                 private_bucket: str | None = None,
+                                 restricted_bucket: str | None = None,
+                                 public_bucket: str | None = None,
+                                 root_dir: str | None = None,
+                                 aws_access_key_id: str | None = None,
+                                 aws_secret_access_key: str | None = None,
+                                 s3_endpoint: str | None = None
+                                 ) -> None:
 
         self.cloud = cloud_type
 
@@ -89,12 +93,14 @@ class Server:
         self.document_store = await DocumentStore.get_document_store(
             store_type, cloud_type=cloud_type, private_bucket=private_bucket,
             restricted_bucket=restricted_bucket, public_bucket=public_bucket,
-            root_dir=root_dir
+            root_dir=root_dir, aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            s3_endpoint=s3_endpoint
         )
 
         self.storage_driver: FileStorage = self.document_store.backend
 
-        self.local_storage: FileStorage = None
+        self.local_storage: FileStorage | None = None
 
     async def review_jwt(self, jwt: JWT) -> None:
         raise NotImplementedError

@@ -19,11 +19,11 @@ TEST_DIR: str = '/tmp/byoda-tests/merkle'
 
 
 class TestAccountManager(unittest.TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         shutil.rmtree(TEST_DIR) if os.path.exists(TEST_DIR) else None
         os.makedirs(TEST_DIR, exist_ok=True)
 
-    def test_pymerkle(self):
+    def test_pymerkle(self) -> None:
         original_tree: ByoMerkleTree = ByoMerkleTree.calculate(
             f'{ASSET_DIR}'
         )
@@ -61,6 +61,8 @@ class TestAccountManager(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _LOGGER = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

@@ -17,7 +17,7 @@ async def main() -> None:
     values: list[int] = [i for i in range(10000)]
     await client.delete(list_name)
     await client.rpush(list_name, *values[0:2])
-    res = await client.lrange(list_name, 0, -1)
+    res: list | None = await client.lrange(list_name, 0, -1)
     print(res)
 
 if __name__ == '__main__':

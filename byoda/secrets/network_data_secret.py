@@ -79,7 +79,6 @@ class NetworkDataSecret(DataSecret):
         if not network:
             network = self.network
 
-        # TODO: SECURITY: add constraints
         common_name: str = (
             f'network.{IdType.NETWORK_DATA.value}.{network}'
         )

@@ -229,15 +229,21 @@ class PodServer(Server):
             await key.persist()
 
     async def set_document_store(self, store_type: DocumentStoreType,
-                                 cloud_type: CloudType = None,
-                                 private_bucket: str = None,
-                                 restricted_bucket: str = None,
-                                 public_bucket: str = None,
-                                 root_dir: str = None) -> None:
+                                 cloud_type: CloudType | None = None,
+                                 private_bucket: str | None = None,
+                                 restricted_bucket: str | None = None,
+                                 public_bucket: str | None = None,
+                                 root_dir: str | None = None,
+                                 aws_access_key_id: str | None = None,
+                                 aws_secret_access_key: str | None = None,
+                                 s3_endpoint: str | None = None
+                                 ) -> None:
 
         await super().set_document_store(
             store_type, cloud_type, private_bucket, restricted_bucket,
-            public_bucket, root_dir
+            public_bucket, root_dir, aws_access_key_id=aws_access_key_id,
+            aws_secret_access_key=aws_secret_access_key,
+            s3_endpoint=s3_endpoint
         )
 
         self.local_storage = await FileStorage.setup(root_dir)
@@ -344,9 +350,11 @@ class PodServer(Server):
         Shuts down the server
         '''
 
-        # Note call_data_api.py tool does not set up the data store
         if self.data_store:
             await self.data_store.close()
+
+        if self.cache_store:
+            await self.cache_store.close()
 
         await ApiClient.close_all()
 

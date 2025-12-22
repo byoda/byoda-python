@@ -60,6 +60,13 @@ TEST_ASSET_ID: UUID = '32af2122-4bab-40bb-99cb-4f696da49e26'
 
 DUMMY_SCHEMA: str = 'tests/collateral/addressbook.json'
 
+TEST_DIR: str = '/tmp/byoda-tests/service-data-api'
+
+SERVICE_CERT_FILE: str = 'network-byoda.net-service-16384-cert.pem'
+SERVICE_KEY_FILE: str = 'network-byoda.net-service-16384.key'
+TEST_CERT: str = f'tests/collateral/local/{SERVICE_CERT_FILE}'
+TEST_KEY: str = f'tests/collateral/local/{SERVICE_KEY_FILE}'
+
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
@@ -76,9 +83,8 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         await asset_cache.client.ft(asset_cache.index_name).dropindex()
         await asset_cache.client.delete(AssetCache.LIST_OF_LISTS_KEY)
 
-        sset_key: str
         list_key: str
-        sset_key, list_key = AssetList.get_keys(TESTLIST)
+        list_key = AssetList.get_key(TESTLIST)
         keys: list[str] = await asset_cache.client.keys(f'{list_key}*')
         for key in keys:
             await asset_cache.client.delete(key)
@@ -104,9 +110,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             key_file=service_secret_data['key_file']
         )
 
+        storage_driver: FileStorage = FileStorage('')
         await config.service_secret.load(
             password=service_secret_data['passphrase'],
-            storage_driver=FileStorage('')
+            storage_driver=storage_driver
         )
 
         config.trace_server = os.environ.get(
@@ -364,7 +371,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member_id: UUID = get_test_uuid()
         await channel_cache.add_newest_channel(member_id, first_channel)
 
-        set_key: str = channel_cache.get_set_key(ChannelCache.ALL_CREATORS)
+        set_key: str = channel_cache.get_all_creators_key()
         cursor: str = ChannelCache.get_cursor(member_id, first_channel.creator)
         result = await channel_cache.client.sismember(
             set_key, cursor
@@ -470,7 +477,7 @@ def get_asset(asset_id: str = TEST_ASSET_ID) -> Asset:
 
     if not asset_id:
         asset_id = get_test_uuid()
-    if not isinstance(asset_id, UUID):
+    elif not isinstance(asset_id, UUID):
         asset_id = UUID(asset_id)
 
     asset.asset_id = asset_id

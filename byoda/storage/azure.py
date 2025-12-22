@@ -163,7 +163,8 @@ class AzureFileStorage(FileStorage):
 
         _LOGGER.debug(
             'Initialized Azure Blob SDK for buckets '
-            f'{storage.buckets[StorageType.PRIVATE.value]} and '
+            f'{storage.buckets[StorageType.PRIVATE.value]}, '
+            f'{storage.buckets[StorageType.RESTRICTED.value]}, '
             f'{storage.buckets[StorageType.PUBLIC.value]}'
         )
 

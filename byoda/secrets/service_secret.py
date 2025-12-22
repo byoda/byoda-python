@@ -17,9 +17,11 @@ from cryptography.x509 import CertificateSigningRequest
 
 from byoda.util.paths import Paths
 
+from byoda.datatypes import TEMP_SSL_DIR
 from byoda.datatypes import IdType, EntityId
 
 from .secret import Secret
+
 _LOGGER: Logger = getLogger(__name__)
 
 Network = TypeVar('Network', bound='Network')
@@ -67,7 +69,6 @@ class ServiceSecret(Secret):
         or cert
         '''
 
-        # TODO: SECURITY: add constraints
         common_name: str = ServiceSecret.create_commonname(
             self.service_id, self.network
         )
@@ -147,4 +148,4 @@ class ServiceSecret(Secret):
         key is stored
         '''
 
-        return f'/var/tmp/service-{self.service_id}.key'
+        return f'{TEMP_SSL_DIR}/service-{self.service_id}.key'

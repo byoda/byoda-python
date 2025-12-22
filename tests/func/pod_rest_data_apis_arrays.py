@@ -63,14 +63,14 @@ from tests.lib.auth import get_azure_pod_jwt
 from tests.lib.util import get_test_uuid
 from tests.lib.util import call_data_api
 
-from tests.lib.defines import BASE_URL
-from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import BASE_URL, BYOTUBE_SERVICE_ID
 
 PodServer = TypeVar('PodServer')
 
 # Settings must match config.yml used by directory server
 NETWORK: str = config.DEFAULT_NETWORK
 
+PASSWORD_FILE: str = 'tests/collateral/local/azure-pod-private-key-password'
 # This must match the test directory in tests/lib/testserver.p
 TEST_DIR: str = '/tmp/byoda-tests/pod-rest-data-apis'
 
@@ -81,7 +81,11 @@ ALL_DATA: list[dict[str, AnyScalarType]] = []
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        mock_environment_vars(TEST_DIR, hash_password=False)
+        with open(PASSWORD_FILE, 'r') as file_desc:
+            azure_private_key_password: str = file_desc.read().strip()
+        mock_environment_vars(
+            TEST_DIR, hash_password=False, password=azure_private_key_password
+        )
         network_data: dict[str, str] = await setup_network(delete_tmp_dir=True)
 
         config.test_case = 'TEST_CLIENT'
@@ -92,7 +96,8 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
-            local_service_contract=local_service_contract, clean_pubsub=False
+            local_service_contract=local_service_contract, clean_pubsub=False,
+            service_id=BYOTUBE_SERVICE_ID
         )
 
         global BASE_URL
@@ -116,11 +121,15 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
     @classmethod
     async def asyncTearDown(self) -> None:
         await ApiClient.close_all()
+        server: PodServer = config.server
+        await server.data_store.close()
 
     async def test_pod_rest_data_api_append_with_origin(self) -> None:
+        with open(PASSWORD_FILE, 'r') as file_desc:
+            azure_private_key_password: str = file_desc.read().strip()
         server: PodServer = config.server
         account: Account = server.account
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
         member: Member = await account.get_membership(service_id)
 
         member_auth_header: str = await get_member_auth_header(
@@ -134,7 +143,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         # 3: class_name must not be cache-only
         class_name: str = 'incoming_assets'
         data: dict[str, AnyScalarType] = {
-            'origin_class_name': 'network_assets',
+            'origin_class_name': 'public_assets',
             'data': {
                 'asset_id': str(get_test_uuid()),
                 'asset_type': 'post',
@@ -151,15 +160,18 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ByodaRuntimeError):
             azure_auth_header: str
-            azure_auth_header, _ = await get_azure_pod_jwt(account, TEST_DIR)
+            azure_auth_header, _ = await get_azure_pod_jwt(
+                account, TEST_DIR,service_id=BYOTUBE_SERVICE_ID,
+                password=azure_private_key_password
+            )
             class_name: str = 'network_invites'
-            data: dict[str, AnyScalarType] = {
+            data: dict[str, str] = {
                 'data': {
                     'member_id': str(get_test_uuid()),
                     'relation': 'friend',
                     'created_timestamp': datetime.now(tz=timezone.utc).isoformat(),
                 },
-                'origin_class_name': 'network_assets',
+                'origin_class_name': 'public_assets',
             }
             resp: HttpResponse = await DataApiClient.call(
                 service_id=service_id, class_name=class_name,
@@ -171,13 +183,13 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(True)
 
     async def test_pod_rest_data_api_update_jwt(self) -> None:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 5
-        class_name: str = 'network_assets'
+        class_name: str = 'public_assets'
         await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP
@@ -272,13 +284,13 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
 
     async def test_pod_rest_data_api_delete_jwt(self) -> None:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 10
-        class_name: str = 'network_assets'
+        class_name: str = 'public_assets'
         await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP
@@ -367,13 +379,13 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(deleted_count, 1)
 
     async def test_pod_rest_data_api_filters_jwt(self) -> None:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 50
-        class_name: str = 'network_assets'
+        class_name: str = 'public_assets'
         await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP
@@ -492,14 +504,14 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(filter_batch['edges']), total_records-2)
 
     async def test_pod_rest_data_api_pagination_jwt(self) -> None:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 50
         batch_size: int = 20
-        class_name: str = 'network_assets'
+        class_name: str = 'public_assets'
         await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP
@@ -582,19 +594,19 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             self.assertIsNotNone(node['asset_type'])
 
     async def test_datetime_comparisons(self) -> None:
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
 
         member_auth_header: str = await get_member_auth_header(
             service_id=service_id, test=self, app=APP,
         )
         total_records: int = 5
-        class_name: str = 'network_assets'
+        class_name: str = 'public_assets'
         all_data: list[dict[str, object]] = await populate_data_rest(
             self, service_id, class_name, total_records, member_auth_header,
             app=APP, delay=1/total_records,
         )
 
-        created_timestamp = all_data[1]['data']['created_timestamp']
+        created_timestamp: str = all_data[1]['data']['created_timestamp'].replace('+00:00', 'Z')
         data_filter: dict[str, dict[str, AnyScalarType]] = {
             'created_timestamp': {'at': created_timestamp}
         }
@@ -613,6 +625,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
             action=DataRequestType.QUERY, first=total_records,
             auth_header=member_auth_header, data_filter=data_filter, app=APP
         )
+
         self.assertEqual(data['total_count'], 4)
 
         data_filter = {
@@ -664,11 +677,10 @@ async def populate_data_rest(test, service_id: int, class_name: str,
     global ALL_DATA
     ALL_DATA = []
     for count in range(0, record_count):
+        timestamp: str = str(datetime.now(tz=timezone.utc).isoformat())
         asset_id: UUID = get_test_uuid()
         vars: dict[str, any] = {
-            'created_timestamp': str(
-                datetime.now(tz=timezone.utc).isoformat()
-            ),
+            'created_timestamp': timestamp,
             'asset_type': 'post',
             'asset_id': str(asset_id),
             'creator': f'test account #{count}',
@@ -711,7 +723,7 @@ async def populate_data_rest(test, service_id: int, class_name: str,
                     'claims': ['violence:4', 'scary:5'],
                     'issuer_id': get_test_uuid(),
                     'issuer_type': 'app',
-                    'object_type': 'network_assets',
+                    'object_type': 'public_assets',
                     'keyfield': 'asset_id',
                     'keyfield_id': asset_id,
                     'object_fields': ['asset_id', 'title', 'contents'],
@@ -743,7 +755,7 @@ async def populate_data_rest(test, service_id: int, class_name: str,
             service_id, class_name, test=test,
             action=DataRequestType.APPEND,
             data=data, auth_header=member_auth_header, expect_success=True,
-            app=APP
+            app=app
         )
         if delay:
             await sleep(1)

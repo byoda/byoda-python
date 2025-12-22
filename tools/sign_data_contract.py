@@ -65,7 +65,7 @@ async def main(argv) -> None:
     # Network constructor expects parameters to be in a dict
 
     with open(args.config) as file_desc:
-        app_config = yaml.load(file_desc, Loader=yaml.SafeLoader)
+        app_config: dict = yaml.load(file_desc, Loader=yaml.SafeLoader)
 
     root_dir: str = app_config['svcserver']['root_dir']
     password: str = app_config['svcserver']['private_key_password']
@@ -82,7 +82,7 @@ async def main(argv) -> None:
     network.paths = Paths(
         root_directory=root_dir, network=network.name
     )
-    config.server: ServiceServer = await ServiceServer.setup(
+    config.server = await ServiceServer.setup(
         network, app_config
     )
 

@@ -241,7 +241,7 @@ class PodApiRequestAuth(RequestAuth):
             id_type = RequestAuth.get_cert_idtype(self.client_cn)
         elif self.authorization:
             # Watch out, the JWT signature does not get verified here.
-            jwt = await JWT.decode(
+            jwt: JWT = await JWT.decode(
                 self.authorization, None, network.name,
                 download_remote_cert=False
             )

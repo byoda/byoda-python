@@ -224,7 +224,7 @@ class TestApis(unittest.IsolatedAsyncioTestCase):
         ssl_headers: dict[str, str] = {
             'X-Client-SSL-Verify': 'SUCCESS',
             'X-Client-SSL-Subject':
-                f'CN={member.member_id}.members-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
+                f'CN={member.member_id}.mem-{ADDRESSBOOK_SERVICE_ID}.{network_name}',      # noqa: E501
             'X-Client-SSL-Issuing-CA':
                 (
                     'CN=members-ca.members-ca-'

@@ -25,7 +25,7 @@ TEST_QUEUE: str = 'testqueue'
 
 class TestAccountManager(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
-        queue = await Queue.setup(REDIS_URL)
+        queue: Queue = await Queue.setup(REDIS_URL)
         key: str = queue.get_key(TEST_QUEUE)
         await queue.queue.delete(key)
         await queue.queue.aclose()
@@ -34,7 +34,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         pass
 
     async def test_queue(self) -> None:
-        queue = await Queue.setup(REDIS_URL)
+        queue: Queue = await Queue.setup(REDIS_URL)
         async with create_task_group() as tg:
             await tg.start(queue_listener, queue, TEST_QUEUE)
             await sleep(1)

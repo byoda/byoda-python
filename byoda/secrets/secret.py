@@ -45,7 +45,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import \
 
 # For certchain validation
 from cryptography.x509.verification import ServerVerifier
-from cryptography.x509 import Certificate, DNSName, load_pem_x509_certificates
+from cryptography.x509 import DNSName, load_pem_x509_certificates
 from cryptography.x509.verification import PolicyBuilder, Store
 
 from byoda.storage.filestorage import FileStorage, FileMode
@@ -222,7 +222,6 @@ class Secret:
                 self.generate_private_key()
 
         if issuing_ca:
-            # TODO: SECURITY: add constraints
             csr: CSR = await self.create_csr(ca)
             self.cert = issuing_ca.sign_csr(csr)
         else:
@@ -300,6 +299,9 @@ class Secret:
         )
 
         if self.extended_key_usage:
+            _LOGGER.debug(
+                f'Adding extended key usage: {self.extended_key_usage}'
+            )
             cert_builder = cert_builder.add_extension(
                 x509.ExtendedKeyUsage(self.extended_key_usage), critical=False
             )
@@ -324,7 +326,6 @@ class Secret:
         if (self.private_key or self.cert) and not renew:
             raise ValueError('Secret already has a cert or private key')
 
-        # TODO: SECURITY: add constraints
         self.common_name = common_name
         self.sans = [common_name]
         if sans:
@@ -461,8 +462,8 @@ class Secret:
                  ) -> None:
         '''
         Validate that the cert and its certchain are anchored to the root cert.
-        This function does not check certificate recovation or OCSP. It requires
-        the openssl utilities to be installed on the system it is run
+        This function does not check certificate recovation or OCSP. It
+        requires the openssl utilities to be installed on the system it is run
 
         :param Secret root_ca: the self-signed root CA to validate against
         :param with_openssl: [deprecated] also use the openssl binary to
@@ -479,16 +480,15 @@ class Secret:
     def validate_python_cryptography(self, root_ca: CaSecret) -> None:
         store = Store(load_pem_x509_certificates(root_ca.cert_as_pem()))
         builder: PolicyBuilder = PolicyBuilder().store(store)
-        # builder = builder.time(datetime(tz=UTC))
         verifier: ServerVerifier = builder.build_server_verifier(
             DNSName(self.common_name)
         )
 
         try:
-            chain: list[Certificate] = verifier.verify(self.cert, self.cert_chain)
+            verifier.verify(self.cert, self.cert_chain)
         except x509.verification.VerificationError:
-            # it throws an error on missing ExtendedKeyUsage even when it is present
-            # still, it is good to check this manually once in a while
+            # it throws an error on missing ExtendedKeyUsage even when it is
+            # present still, it is good to check this manually once in a while
             pass
 
     def validate_with_openssl(self, root_ca: CaSecret) -> None:
@@ -628,7 +628,7 @@ class Secret:
         self.private_key = None
         if with_private_key:
             try:
-                await self.load_private_key(password)
+                await self.load_private_key(password, storage_driver)
             except FileNotFoundError:
                 _LOGGER.exception(
                     f'CA private key file not found: {self.private_key_file}'
@@ -648,14 +648,14 @@ class Secret:
         '''
 
         if not storage_driver:
-            if not self.storage_driver:
+            if not hasattr(self, 'storage_driver') or not self.storage_driver:
                 raise ValueError('No storage driver set')
             storage_driver = self.storage_driver
 
         if not self.private_key_file:
             raise ValueError('No private key file set')
 
-        if not await self.storage_driver.exists(self.private_key_file):
+        if not await storage_driver.exists(self.private_key_file):
             raise FileNotFoundError(
                 f'Private key file not found: {self.private_key_file}'
             )
@@ -730,7 +730,7 @@ class Secret:
         return x509.load_pem_x509_csr(csr)
 
     async def save(self, password: str = 'byoda', overwrite: bool = False,
-                   storage_driver: FileStorage = None,
+                   storage_driver: FileStorage | None = None,
                    with_fingerprint: bool = True) -> None:
         '''
         Save a cert and private key (if we have it) to their respective files

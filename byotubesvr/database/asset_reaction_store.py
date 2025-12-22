@@ -238,7 +238,7 @@ class AssetReactionStore(LiteStore):
         return not bool(existing_reaction)
 
     async def delete_reaction(self, lite_id, member_id: UUID, asset_id: UUID
-                              ) -> None:
+                              ) -> int:
         '''
         Delete an asset reaction for an asset
         '''
@@ -255,6 +255,8 @@ class AssetReactionStore(LiteStore):
         reactions_count: int = await self.client.delete(reaction_key)
         if not reactions_count and not result:
             raise HTTPException(404, 'No asset reaction found')
+
+        return reactions_count
 
     @staticmethod
     def _get_keys(lite_id: UUID, member_id: UUID | None = None,

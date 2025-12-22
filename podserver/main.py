@@ -35,7 +35,8 @@ from byoda.storage.pubsub_nng import PubSubNng
 
 from byoda.servers.pod_server import PodServer
 
-from byoda.util.fastapi import setup_api, update_cors_origins
+from byoda.util.logger import Logger as ByodaLogger
+from byoda.util.fastapi import setup_api
 
 from podserver.util import get_environment_vars
 
@@ -188,8 +189,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     )
 
     _LOGGER.debug('Lifespan startup complete')
-    update_cors_origins(cors_origins)
-
     yield
 
     _LOGGER.info('Shutting down pod server')
@@ -197,7 +196,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
 
 config.trace_server = os.environ.get('TRACE_SERVER', config.trace_server)
 
-app = setup_api(
+app: FastAPI = setup_api(
     'BYODA pod server', 'The pod server for a BYODA network',
     'v0.0.1', [
         AccountRouter, MemberRouter, AuthTokenRouter, StatusRouter,

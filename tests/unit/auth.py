@@ -90,10 +90,10 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
            encrypted_key, password=passphrase, backend=default_backend()
         )
         data: dict[str, str] = {'data': 'test'}
-        encoded: str = py_jwt.encode(data, private_key, algorithm='RS256')
+        encoded: str = py_jwt.encode(data, private_key, algorithm='ES256')
         unverified: any = py_jwt.decode(encoded, options={'verify_signature': False})
         self.assertEqual(data, unverified)
-        decoded: any = py_jwt.decode(encoded, public_key, algorithms=['RS256'])
+        decoded: any = py_jwt.decode(encoded, public_key, algorithms=['ES256'])
         self.assertEqual(data, decoded)
 
         #
@@ -142,7 +142,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(request_auth.id_type, IdType.ACCOUNT)
 
-    async def test_cert(self):
+    async def test_cert(self) -> None:
         # flake8: noqa=E501
         client_dn = 'CN=aaaaaaaa-42ee-4574-a620-5dbccf9372fe.accounts.byoda.net'
         ca_dn = 'CN=accounts-ca.byoda.net'
@@ -155,7 +155,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         # We do not test for 'auth.is_authenticated' here as RequestAuth
         # is not responsible for determining that
         self.assertEqual(request_auth.auth_source.value, 'cert')
-        id = client_dn[3:].split('.')[0]
+        id: str = client_dn[3:].split('.')[0]
         self.assertEqual(id, request_auth.account_id)
         self.assertEqual(request_auth.id_type, IdType.ACCOUNT)
 

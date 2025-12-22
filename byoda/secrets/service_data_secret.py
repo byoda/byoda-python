@@ -67,7 +67,6 @@ class ServiceDataSecret(DataSecret):
         if service_id:
             self.service_id = int(service_id)
 
-        # TODO: SECURITY: add constraints
         common_name: str = (
             f'data.{self.id_type.value}{self.service_id}.{self.network}'
         )

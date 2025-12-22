@@ -154,7 +154,7 @@
     All done, just confirm that you can ssh to the VM:
 
     ```bash
-    ssh -i ${SSH_KEY_FILE} azureuser@${PUBLIC_IP}
+    ssh -i ${SSH_KEY_FILE} ubuntu@${PUBLIC_IP}
     ```
 
     If that works for you, you can continue with the remainder of the [tutorial](https://github.com/byoda/byoda-python/blob/master/README.md).

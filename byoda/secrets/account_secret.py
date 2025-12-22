@@ -91,7 +91,6 @@ class AccountSecret(Secret):
         if account_id:
             self.account_id = account_id
 
-        # TODO: SECURITY: add constraints
         if not self.network:
             raise ValueError('Network not defined')
 
@@ -137,4 +136,4 @@ class AccountSecret(Secret):
         key is stored
         '''
 
-        return f'{TEMP_SSL_DIR}/{self.account_id}/private-account.key'
+        return f'{TEMP_SSL_DIR}/unprotected-private-account.key'

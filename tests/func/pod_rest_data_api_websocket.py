@@ -175,7 +175,8 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account: Account = await setup_account(
             network_data, test_dir=TEST_DIR,
-            local_service_contract=local_service_contract, clean_pubsub=False
+            local_service_contract=local_service_contract, clean_pubsub=False,
+            destroy_db=False
         )
 
         config.trace_server = os.environ.get(

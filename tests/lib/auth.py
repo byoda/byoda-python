@@ -113,7 +113,8 @@ async def get_member_auth_header(service_id=ADDRESSBOOK_SERVICE_ID,
 
 async def get_azure_pod_jwt(account: Account, test_dir: str,
                             service_id: int =
-                            ADDRESSBOOK_SERVICE_ID) -> tuple[str, str]:
+                            ADDRESSBOOK_SERVICE_ID,
+                            password: str = 'byoda') -> tuple[str, str]:
     '''
     Gets a JWT as would be created by the Azure Pod.
 
@@ -123,6 +124,7 @@ async def get_azure_pod_jwt(account: Account, test_dir: str,
     member_dir: str = account.paths.member_directory(service_id)
     dest_dir: str = f'{test_dir}/{member_dir}'
 
+    os.makedirs(dest_dir, exist_ok=True)
     shutil.copy(
         'tests/collateral/local/azure-pod-member-data-cert.pem',
         dest_dir
@@ -136,7 +138,7 @@ async def get_azure_pod_jwt(account: Account, test_dir: str,
     )
     data_secret.cert_file = f'{member_dir}/azure-pod-member-data-cert.pem'
     data_secret.private_key_file = f'{member_dir}/azure-pod-member-data.key'
-    await data_secret.load()
+    await data_secret.load(password=password)
     jwt = JWT.create(
         AZURE_POD_MEMBER_ID, IdType.MEMBER, data_secret, account.network.name,
         service_id=service_id, scope_type=IdType.MEMBER,

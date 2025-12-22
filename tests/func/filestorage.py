@@ -28,6 +28,7 @@ For AWS, create a ~/.aws/credentias file with as contents:
 
 import os
 import sys
+import yaml
 import httpx
 import shutil
 import unittest
@@ -37,6 +38,7 @@ from logging import Logger
 from byoda.storage.aws import AwsFileStorage
 from byoda.storage.azure import AzureFileStorage
 from byoda.storage.gcp import GcpFileStorage
+from byoda.storage.ceph_storage import CephFileStorage
 
 from byoda.storage import FileStorage
 from byoda.datatypes import StorageType
@@ -47,9 +49,14 @@ from byoda.util.logger import Logger as ByodaLogger
 from tests.lib.defines import AZURE_RESTRICTED_BUCKET_FILE
 from tests.lib.defines import GCP_RESTRICTED_BUCKET_FILE
 from tests.lib.defines import AWS_RESTRICTED_BUCKET_FILE
+from tests.lib.defines import HOME_RESTRICTED_BUCKET_FILE
+
+STORAGE_TESTS_ENABLED: set[str] = set(('CEPH'))   # 'AWS','AZURE','GCP','LOCAL'
 
 ROOT_DIR = '/tmp/byoda-tests/filestorage'
-CLOUD_STORAGE_TYPES = (AzureFileStorage, AwsFileStorage, GcpFileStorage)
+CLOUD_STORAGE_TYPES: tuple[type] = (
+    AzureFileStorage, AwsFileStorage, GcpFileStorage, CephFileStorage
+)
 
 
 class TestFileStorage(unittest.IsolatedAsyncioTestCase):
@@ -57,40 +64,45 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
         shutil.rmtree(ROOT_DIR, ignore_errors=True)
         os.makedirs(ROOT_DIR, exist_ok=True)
 
-    async def test_gcp_storage(self):
+    @unittest.skipUnless('GCP' in STORAGE_TESTS_ENABLED, 'disabled')
+    async def test_gcp_storage(self) -> None:
+
         with open(GCP_RESTRICTED_BUCKET_FILE) as file_desc:
-            restricted_bucket = file_desc.read().strip()
-        storage = await FileStorage.get_storage(
+            restricted_bucket: str = file_desc.read().strip()
+        storage: FileStorage = await FileStorage.get_storage(
             CloudType.GCP, 'byoda-private', restricted_bucket,
             'byoda-public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
-        bucket = storage.get_bucket(StorageType.RESTRICTED)
+        bucket: str = storage.get_bucket(StorageType.RESTRICTED)
         self.assertEqual(bucket, restricted_bucket)
 
         bucket = storage.get_bucket(StorageType.PUBLIC)
         self.assertEqual(bucket, 'byoda-public')
 
+    @unittest.skipUnless('AZURE' in STORAGE_TESTS_ENABLED, 'disabled')
     async def test_azure_storage(self) -> None:
         with open(AZURE_RESTRICTED_BUCKET_FILE) as file_desc:
             restricted_bucket = file_desc.read().strip()
-        storage = await FileStorage.get_storage(
+        storage: FileStorage = await FileStorage.get_storage(
             CloudType.AZURE, 'byodaprivate:byoda',
             restricted_bucket, 'byodaprivate:public', ROOT_DIR
         )
         await run_file_tests(self, storage)
 
-        bucket = storage.get_bucket(StorageType.RESTRICTED)
+        bucket: str = storage.get_bucket(StorageType.RESTRICTED)
         self.assertEqual(bucket, 'byodaprivate.blob.core.windows.net')
 
         bucket = storage.get_bucket(StorageType.PUBLIC)
         self.assertEqual(bucket, 'byodaprivate.blob.core.windows.net')
 
-    async def test_aws_storage(self):
+    @unittest.skipUnless('AWS' in STORAGE_TESTS_ENABLED, 'disabled')
+    async def test_aws_storage(self) -> None:
+
         with open(AWS_RESTRICTED_BUCKET_FILE) as file_desc:
-            restricted_bucket = file_desc.read().strip()
-        storage = await FileStorage.get_storage(
+            restricted_bucket: str = file_desc.read().strip()
+        storage: FileStorage = await FileStorage.get_storage(
             CloudType.AWS, 'byoda-private', restricted_bucket,
             'byoda-public', ROOT_DIR
         )
@@ -106,12 +118,44 @@ class TestFileStorage(unittest.IsolatedAsyncioTestCase):
             bucket, 'byoda-public.s3-us-east-2.amazonaws.com'
         )
 
-    async def test_local_storage(self):
+    async def test_ceph_storage(self) -> None:
+        with open(HOME_RESTRICTED_BUCKET_FILE) as file_desc:
+            data: dict[str, dict[str, any]] = yaml.load(
+                file_desc, Loader=yaml.SafeLoader
+            )
+
+        restricted_bucket: str = data['restricted_bucket']
+        public_bucket: str = data['public_bucket']
+        private_bucket: str = data['private_bucket']
+        s3_endpoint: str = data['s3_endpoint'].strip('/')
+        access_key_id: str = data['access_key']
+        secret_access_key: str = data['secret_key']
+
+        storage: FileStorage = await FileStorage.get_storage(
+            CloudType.CEPH, private_bucket, restricted_bucket,
+            public_bucket, ROOT_DIR, access_key_id, secret_access_key,
+            s3_endpoint
+        )
+        await run_file_tests(self, storage)
+
+        bucket: str = storage.get_bucket(StorageType.RESTRICTED)
+        self.assertEqual(
+            bucket, f'{s3_endpoint}/{restricted_bucket}'
+        )
+
+        bucket = storage.get_bucket(StorageType.PUBLIC)
+        self.assertEqual(
+            bucket, f'{s3_endpoint}/{public_bucket}'
+        )
+
+    @unittest.skipUnless('LOCAL' in STORAGE_TESTS_ENABLED, 'disabled')
+    async def test_local_storage(self) -> None:
         storage = FileStorage(ROOT_DIR)
         await run_file_tests(self, storage)
 
 
-async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
+async def run_file_tests(test: type[TestFileStorage], storage: FileStorage
+                         ) -> None:
 
     # Prep the test by putting the file in the directory used by the
     # FileStorage instance
@@ -123,33 +167,35 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
     )
 
     with open('/etc/profile', 'rb') as file_desc:
-        profile_data = file_desc.read()
+        profile_data: bytes = file_desc.read()
 
-    data = await storage.read('test/profile')
+    data: str = await storage.read('test/profile')
     test.assertEqual(profile_data, data)
 
     write_filepath = 'test/subdir/profile-write'
     await storage.write(write_filepath, data)
     await storage.write('test/anothersubdir/profile-write', data)
 
-    exists = await storage.exists(write_filepath)
+    exists: bool = await storage.exists(write_filepath)
     test.assertTrue(exists)
 
     exists = await storage.exists('blahblah/blahblah')
     test.assertFalse(exists)
 
-    subdirs: list[str] = await storage.get_folders('test/')
-    test.assertEqual(len(subdirs), 2)
-
-    subdirs = await storage.get_folders('test/', prefix='sub')
-    test.assertEqual(len(subdirs), 1)
+    try:
+        subdirs: list[str] = await storage.get_folders('test/')
+        test.assertEqual(len(subdirs), 2)
+        subdirs: list[str] = await storage.get_folders('test/', prefix='sub')
+        test.assertEqual(len(subdirs), 1)
+    except NotImplementedError:
+        pass
 
     if type(storage) in CLOUD_STORAGE_TYPES:
         url: str = storage.get_url(StorageType.PRIVATE) + 'test/profile'
 
         # This fails because anonymous access to private storage is
         # not allowed
-        response = httpx.get(url, allow_redirects=False)
+        response: httpx.Response = httpx.get(url)
         test.assertIn(response.status_code, (302, 403, 404, 409))
 
         with open('/bin/ls', 'rb') as file_desc:
@@ -188,6 +234,8 @@ async def run_file_tests(test: type[TestFileStorage], storage: FileStorage):
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

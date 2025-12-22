@@ -48,7 +48,7 @@ from tests.lib.setup import setup_account
 
 from tests.lib.defines import AZURE_POD_ACCOUNT_ID
 from tests.lib.defines import AZURE_POD_MEMBER_ID
-from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+from tests.lib.defines import BYOTUBE_SERVICE_ID
 
 NETWORK: str = config.DEFAULT_NETWORK
 TIMEOUT: int = 900
@@ -69,12 +69,9 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
         local_service_contract: str = os.environ.get('LOCAL_SERVICE_CONTRACT')
         account: Account = await setup_account(
-            network_data, test_dir=TEST_DIR,
+            network_data, test_dir=TEST_DIR, service_id=BYOTUBE_SERVICE_ID,
             local_service_contract=local_service_contract, clean_pubsub=False
         )
-
-        global BASE_URL
-        BASE_URL = BASE_URL.format(PORT=server.HTTP_PORT)
 
         config.trace_server = os.environ.get(
             'TRACE_SERVER', config.trace_server
@@ -118,7 +115,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
 
     async def test_string_filter(self) -> None:
         pod_account: Account | None = config.server.account
-        service_id: int = ADDRESSBOOK_SERVICE_ID
+        service_id: int = BYOTUBE_SERVICE_ID
         account_member: Member = await pod_account.get_membership(service_id)
 
         #
@@ -131,7 +128,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             AZURE_POD_ACCOUNT_ID, network=pod_account.network
         )
         azure_member = Member(
-            ADDRESSBOOK_SERVICE_ID, azure_account
+            BYOTUBE_SERVICE_ID, azure_account
         )
         azure_member.member_id = AZURE_POD_MEMBER_ID
 
@@ -143,7 +140,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         data_secret.private_key_file = 'azure-pod-member-data.key'
         with open('tests/collateral/local/azure-pod-private-key-password'
                   ) as file_desc:
-            private_key_password = file_desc.read().strip()
+            private_key_password: str = file_desc.read().strip()
 
         await data_secret.load(
             with_private_key=True, password=private_key_password
@@ -166,17 +163,19 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         origin_member_id: str = AZURE_POD_MEMBER_ID
 
         origin_signature: str = data_proxy.create_signature(
-            ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
+            BYOTUBE_SERVICE_ID, relations, filters, timestamp,
             origin_member_id, member_data_secret=data_secret
         )
 
         await data_proxy.verify_signature(
-            ADDRESSBOOK_SERVICE_ID, relations, filters, timestamp,
+            BYOTUBE_SERVICE_ID, relations, filters, timestamp,
             origin_member_id, origin_signature, 1
         )
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
 
     unittest.main()

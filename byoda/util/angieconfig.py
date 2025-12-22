@@ -31,16 +31,16 @@ class TargetConfig(ABC):
     target configuration
     '''
     @abstractmethod
-    def __init__(self):
-        return NotImplementedError
+    def __init__(self) -> None:
+        raise NotImplementedError
 
     @abstractmethod
-    def exists(self):
-        return NotImplementedError
+    def exists(self) -> type[NotImplementedError]:
+        raise NotImplementedError
 
     @abstractmethod
-    def create(self):
-        return NotImplementedError
+    def create(self) -> type[NotImplementedError]:
+        raise NotImplementedError
 
 
 class AngieConfig(TargetConfig):
@@ -52,7 +52,8 @@ class AngieConfig(TargetConfig):
                  root_dir: str = '/byoda', host_root_dir: str = '/byoda',
                  custom_domain: str = None, shared_webserver: bool = False,
                  public_bucket: str = None, restricted_bucket: str = None,
-                 private_bucket: str = None) -> None:
+                 private_bucket: str = None, cors_origins: list[str] = []
+                 ) -> None:
         '''
         Manages angie configuration files for virtual servers
 
@@ -76,6 +77,8 @@ class AngieConfig(TargetConfig):
         to storage
         :param port: the http port for the virtual server
         :param service_id: service ID for the membership, if applicable
+        :param root_dir: root directory for the app inside the container
+        :param host_root_dir: host directory for the pod
         :param http_port: the http port for the virtual server to listen on
         :param custom_domain: a custom domain to use for the virtual server
         :param shared_webserver: set to False if the angie service is only
@@ -85,7 +88,7 @@ class AngieConfig(TargetConfig):
         :param restricted_bucket: the FQDN for the AWS/GCP bucket or Azure
         storage
         :param private_bucket: the FQDN for the AWS/GCP bucket or Azure storage
-        account
+        :param cors_origins: list of CORS hosts to allow
         '''
 
         self.identifier: str = str(identifier)
@@ -106,23 +109,32 @@ class AngieConfig(TargetConfig):
         self.public_bucket: str = public_bucket
         self.restricted_bucket: str = restricted_bucket
         self.private_bucket: str = private_bucket
+        self.cors_origins: list[str] = cors_origins
+
+        if self.custom_domain:
+            cors_origins.append(f'https://{self.custom_domain}')
 
         self.hostname: str
         self.root_dir: str
         if self.shared_webserver:
             # We are running on shared infrastructure, so no dedicated angie
-            # or postgres pods dedicated
+            # or postgres servers
             self.hostname = 'localhost'
             # Use the actual root_directory for the pod on the host running
             # the container
             self.root_dir = host_root_dir
+            # HACK: adjust the cert and key filepath for shared webserver
+            self.key_filepath: str = (
+                f'{self.root_dir[:-len('byoda')]}ssl/' +
+                os.path.basename(key_filepath)
+            )
         else:
             # There is a pod with containers for angie, byoda and postgres
             self.hostname = 'byoda'
             self.root_dir = root_dir
+            self.key_filepath: str = key_filepath
 
-        self.cert_filepath: str = host_root_dir + cert_filepath[len(root_dir):]
-        self.key_filepath: str = key_filepath
+        self.cert_filepath: str = self.root_dir + cert_filepath[len(root_dir):]
 
         self.config_filepath: str
         if self.subdomain == IdType.ACCOUNT.value:
@@ -174,12 +186,13 @@ class AngieConfig(TargetConfig):
             root_dir=self.root_dir,
             service_id=self.service_id,
             port=self.port,
-            custom_domain=self.custom_domain,
+            custom_domain=self.custom_domain or str(self.identifier),
             shared_webserver=self.shared_webserver,
             public_bucket=self.public_bucket,
             restricted_bucket=self.restricted_bucket,
             private_bucket=self.private_bucket,
             hostname=self.hostname,
+            cors_hosts=self.cors_origins
         )
 
         _LOGGER.debug(

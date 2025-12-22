@@ -1,8 +1,5 @@
 '''
-Bring your own algorithm backend storage for the server.
-
-The directory server uses caching storage for server and client registrations
-The profile server uses noSQL storage for profile data
+Bring your own data & algorithm AWS S3 storage for the PDS.
 
 :maintainer : Steven Hessing (steven@byoda.org)
 :copyright  : Copyright 2020, 2021
@@ -37,7 +34,9 @@ class AwsFileStorage(FileStorage):
     '''
 
     def __init__(self, private_bucket: str, restricted_bucket: str,
-                 public_bucket: str, root_dir: str) -> None:
+                 public_bucket: str, root_dir: str,
+                 config: dict[str, str] = {},
+                 cloud_type: CloudType = CloudType.AWS) -> None:
         '''
         Abstraction of storage of files on S3 object storage. Do not call this
         constructor directly but call the AwaFileStorage.setup() factory method
@@ -53,7 +52,10 @@ class AwsFileStorage(FileStorage):
         boto3.set_stream_logger('botocore', logging.ERROR)
         boto3.set_stream_logger('s3transfer', logging.ERROR)
 
-        self.driver = boto3.client('s3')
+        if config:
+            self.driver = boto3.client('s3', **(config))
+        else:
+            self.driver = boto3.client('s3')
 
         super().__init__(root_dir, cloud_type=CloudType.AWS)
 
@@ -64,7 +66,7 @@ class AwsFileStorage(FileStorage):
         }
 
         _LOGGER.debug(
-            'Initialized boto S3 client for buckets '
+            f'Initialized boto S3 client for {cloud_type.value} buckets '
             f'{self.buckets[StorageType.PRIVATE.value]}, '
             f'{self.buckets[StorageType.RESTRICTED.value]}, and '
             f'{self.buckets[StorageType.PUBLIC.value]}'
@@ -304,13 +306,14 @@ class AwsFileStorage(FileStorage):
         '''
         AWS S3 supports emulated folders through keys that end with a '/'
         '''
+
         # For AWS S3, the folder path must contain a '/' at the end
         folder_path = folder_path.rstrip('/') + '/'
         result: dict[str, any] = self.driver.list_objects(
             Bucket=self.buckets[storage_type.value],
             Prefix=folder_path, Delimiter='/'
         )
-        folders = set()
+        folders: set = set()
         for folder in result.get('CommonPrefixes', []):
             path: str = folder['Prefix'].rstrip('/')
             if folder_path:

@@ -84,7 +84,7 @@ async def main(argv) -> None:
 
     log_file: str = data.get('logdir', '/var/log/byoda') + '/bootstrap.log'
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'),
         logfile=log_file
@@ -110,7 +110,10 @@ async def main(argv) -> None:
             private_bucket=data['private_bucket'],
             restricted_bucket=data['restricted_bucket'],
             public_bucket=data['public_bucket'],
-            root_dir=data['root_dir']
+            root_dir=data['root_dir'],
+            aws_access_key_id=data.get('aws_access_key_id'),
+            aws_secret_access_key=data.get('aws_secret_access_key'),
+            s3_endpoint=data.get('s3_endpoint')
         )
 
         _LOGGER.debug('Setting up the network')

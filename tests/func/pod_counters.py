@@ -72,7 +72,9 @@ class TestDirectoryApis(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
         mock_environment_vars(TEST_DIR)
 
-        network_data: dict[str, str] = await setup_network(delete_tmp_dir=False)
+        network_data: dict[str, str] = await setup_network(
+            delete_tmp_dir=False
+        )
 
         network_data['account_id'] = get_account_id(network_data)
 

@@ -23,6 +23,13 @@ DNS_DIRSERVER_ADDRESSES: list[str] = []
 DNS_DIRSERVER_EXPIRES: datetime = datetime.now(tz=timezone.utc)
 
 
+# The directory server of byoda.net is no longer on the same hosts
+# as the name servers for byoda.net
+DIRSERVER_NS_SERVERS: list[str] = [
+    'ns-va-01.byoda.net', 'ns-va-02.byoda.net',
+]
+
+
 class DnsResolver:
     def __init__(self, network: str) -> None:
         _LOGGER.debug('Initializing DNS resolver')
@@ -47,8 +54,11 @@ class DnsResolver:
         else:
             self.resolver.nameservers = ['1.1.1.1', '8.8.8.8']
 
+            # ips: list[str] = self.resolve(
+            #     f'dir.{self.network}', force=True
+            # )
             ips: list[str] = self.resolve(
-                f'dir.{self.network}', force=True
+                DIRSERVER_NS_SERVERS[0], force=True
             )
 
             global DNS_DIRSERVER_ADDRESSES
@@ -84,6 +94,11 @@ class DnsResolver:
                     pass
         except (dns.resolver.NXDOMAIN, dns.resolver.NoNameservers):
             pass
+        except(dns.resolver.LifetimeTimeout, dns.resolver.NoAnswer):
+            _LOGGER.debug(
+                f'Timeout or no answer when resolving {fqdn} '
+                'against DNS servers {DNS_DIRSERVER_ADDRESSES}'
+            )
 
         _LOGGER.debug(
             f'FQDN addresses {fqdn}: {", ".join([str(ip) for ip in ips])}'

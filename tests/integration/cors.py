@@ -40,7 +40,7 @@ class TestCors(unittest.TestCase):
                 do_request(self, cloud, direct_account_fqdn)
 
                 direct_member_fqdn: str = (
-                    f'{ids["member_id"]}.members-{ADDRESSBOOK_SERVICE_ID}'
+                    f'{ids["member_id"]}.mem-{ADDRESSBOOK_SERVICE_ID}'
                     '.byoda.net'
                 )
                 do_request(self, cloud, direct_member_fqdn)

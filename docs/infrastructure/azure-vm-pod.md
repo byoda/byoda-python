@@ -1,5 +1,7 @@
 # Installing the BYODA pod on an Azure VM
 
+The deployment steps below will create an Azure VM with a boot disk and a public IP address. You will need an existing Azure account to complete this procedure and you will be charged for the resources you create.
+
 This procedure assumes you have access to an existing linux system
 
 1. Install the [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-linux?pivots=apt)
@@ -20,7 +22,7 @@ This procedure assumes you have access to an existing linux system
 
     ```bash
     export RG='byodapod'
-    export REGION=northcentralus
+    export REGION=northeurope
     export SSH_KEY=byoda-pod
     export SSH_KEY_FILE="$HOME/.ssh/id_rsa-${SSH_KEY}"
     export VM_NAME=${RG}
@@ -33,20 +35,21 @@ This procedure assumes you have access to an existing linux system
 
     export PRIVATE_BUCKET="${STORAGE_NAME}:${PRIVATE_CONTAINER}"
     export RESTRICTED_BUCKET="${STORAGE_NAME}:${RESTRICTED_CONTAINER}"
-    export PUBLIC_PUCKET="${STORAGE_NAME}:{PRIVATE_CONTAINER}"
+    export PUBLIC_PUCKET="${STORAGE_NAME}:${PRIVATE_CONTAINER}"
     ```
 
 5. Generate SSH key and upload it
 
     ```bash
     if [ ! -f ${SSH_KEY_FILE} ]; then
-        ssh-keygen -t rsa -b 4096 -C ${SSH_KEY} -f ${SSH_KEY_FILE}
-        az group create --name ${RG} --location ${REGION}
-        az sshkey create --location ${REGION} --resource-group ${RG} --name byodassh --public-key "@${SSH_KEY_FILE}.pub"
+        ssh-keygen -t ed25519 -C ${SSH_KEY} -f ${SSH_KEY_FILE}
     fi
+    az group create --name ${RG} --location ${REGION}
+    az sshkey create --location ${REGION} --resource-group ${RG} --name byodapodssh --public-key "@${SSH_KEY_FILE}.pub"
+
     ```
 
-6. Create the storage accounts. MAke sure to write down the values for ${PRIVATE_BUCKET}, ${RESTRICTED_BUCKET}, and ${PUBLIC_BUCKET} as you will need it when installing the pod on the VM you are creating with this procedure.
+6. Create the storage accounts. Make sure to write down the values for ${PRIVATE_BUCKET}, ${RESTRICTED_BUCKET}, and ${PUBLIC_BUCKET} as you will need it when installing the pod on the VM you are creating with this procedure.
 
     ```bash
     az storage account create \
@@ -61,20 +64,17 @@ This procedure assumes you have access to an existing linux system
 
     az storage container create \
         --name ${PRIVATE_CONTAINER} \
-        --acount-name ${STORAGE_ACCOUNT} \
-        --resource-group ${RG} \
+        --account-name ${STORAGE_ACCOUNT} \
         --public-access off
 
     az storage container create \
         --name ${RESTRICTED_CONTAINER} \
-        --acount-name ${STORAGE_ACCOUNT} \
-        --resource-group ${RG} \
+        --account-name ${STORAGE_ACCOUNT} \
         --public-access blob
 
     az storage container create \
         --name ${PUBLIC_CONTAINER} \
-        --acount-name ${STORAGE_ACCOUNT} \
-        --resource-group ${RG} \
+        --account-name ${STORAGE_ACCOUNT} \
         --public-access blob
     ```
 
@@ -82,7 +82,7 @@ This procedure assumes you have access to an existing linux system
 We recommend restricting SSH access to the VM to the IP address you are currently using
 
     ```bash
-    MY_IP=$(curl -s ifconfig.co); echo {$MY_IP}
+    MY_IP=$(curl -s ifconfig.co); echo ${MY_IP}
     az network nsg create --name byoda-nsg --location ${REGION} --resource-group ${RG}
     az network nsg rule create \
         --name https \
@@ -130,26 +130,39 @@ We recommend restricting SSH access to the VM to the IP address you are currentl
     ```
 
 8. Create the VM
-
+    Here we use an Ubuntu 24.04 minimal image. You can change the image as needed.
+    
     ```bash
-    IMAGE_URN=$(az vm image list --publisher Canonical -l "${REGION}" --sku "minimal-22_04-daily-lts-gen2" --all --architecture x64 | jq -r 'last| .urn'); echo Image: ${IMAGE_URN}
+    IMAGE_URN=$(az vm image list --publisher Canonical -l "${REGION}" --sku "minimal-24_04-daily-lts-gen2" --all --architecture x64 | jq -r 'last| .urn'); echo Image: ${IMAGE_URN}
     PUBLIC_IP=$( \
         az vm create \
             --resource-group ${RG} \
+            --location ${REGION} \
             --name ${VM_NAME} \
             --image ${IMAGE_URN} \
-            --size Standard_B1s \
-            --assign-identity [system] \
-            --role "Storage Blob Data Contributor" \
-            --scope ${STORAGE_ACCOUNT_ID} \
-            --ssh-key-name byodassh \
+            --size Standard_B2ats_v2 \
             --public-ip-address byoda-ip \
             --public-ip-sku Standard \
             --nsg byoda-nsg \
-            --storage-sku Standard_LRS \
+            --storage-sku PREMIUM_LRS \
             --output json \
-            --verbose \ | jq -r .publicIpAddress \
-    )
+            --authentication-type ssh \
+            --ssh-key-name byodapodssh \
+            --admin-username ubuntu \
+            --os-disk-name ${VM_NAME}-osdisk \
+            --enable-agent true \
+            --enable-hibernation false \
+            --nic-delete-option Delete \
+            --os-disk-delete-option Delete \
+            --os-disk-size-gb 30 \
+            --storage-sku Premium_LRS \
+            --public-ip-address-allocation static \
+            --public-ip-sku Standard \
+            --accelerated-networking true \
+            --accept-term \
+            --verbose | jq -r .publicIpAddress \
+    ); echo ${PUBLIC_IP}
+
 
     VM_ID=$( \
         az vm show \
@@ -157,13 +170,28 @@ We recommend restricting SSH access to the VM to the IP address you are currentl
         --resource-group ${RG} \
         --output json | jq -r '.identity | .principalId' \
     )
+
+    az vm identity assign \
+        -n ${VM_NAME} \
+        -g ${RG} \
+        --role "Storage Blob Data Contributor" \
+        --scope ${STORAGE_ACCOUNT_ID}
     ```
 
 9. Validation
+    To specify the storage containers you created earlier when installing the BYODA pod, use the following environment variables:
+
+    ```bash
+    export PRIVATE_BUCKET="${STORAGE_ACCOUNT}:${PRIVATE_CONTAINER}"
+    export RESTRICTED_BUCKET="${STORAGE_ACCOUNT}:${RESTRICTED_CONTAINER}"
+    export PUBLIC_BUCKET="${STORAGE_ACCOUNT}:${PUBLIC_CONTAINER}"
+    ```
+
     All done, just confirm that you can ssh to the VM:
 
     ```bash
-    ssh -i ${SSH_KEY_FILE} azureuser@${PUBLIC_IP}
+    ssh -i ${SSH_KEY_FILE} ubuntu@${PUBLIC_IP}
     ```
+
 
     If that works for you, you can continue with the remainder of the [tutorial](https://github.com/byoda/byoda-python/blob/master/README.md).

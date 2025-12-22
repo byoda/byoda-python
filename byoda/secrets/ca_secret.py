@@ -60,25 +60,28 @@ class CaSecret(Secret):
     IGNORED_X509_NAMES: set[str] = {'C', 'ST', 'L', 'O'}
 
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
-                'digital_signature': False,
-                'content_commitment': False,
-                'key_encipherment': False,
-                'data_encipherment': False,
-                'key_agreement': False,
+                'digital_signature': True,
+                'content_commitment': True,
+                'key_encipherment': True,
+                'data_encipherment': True,
+                'key_agreement': True,
                 'key_cert_sign': True,
                 'crl_sign': True,
                 'encipher_only': False,
                 'decipher_only': False,
     }
 
+    # Per CABforum Baseline Reqquirements (v1.3.4) 7.2.2g, CAs must include
+    # all EKUs that CSRs it would want to sign include.
+    # See https://serverfault.com/questions/785108/why-does-openvpn-give-the-error-unsupported-certificate-purpose-for-an-interm        # noqa: E501
     _EXTENDED_KEY_USAGE: list[x509.ObjectIdentifier] = [
         x509.ExtendedKeyUsageOID.OCSP_SIGNING,
         x509.ExtendedKeyUsageOID.CERTIFICATE_TRANSPARENCY,
-        # x509.ExtendedKeyUsageOID.SERVER_AUTH,
-        # x509.ExtendedKeyUsageOID.CLIENT_AUTH,
-        # x509.ExtendedKeyUsageOID.CODE_SIGNING,
-        # x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
-        # x509.ExtendedKeyUsageOID.TIME_STAMPING,
+        x509.ExtendedKeyUsageOID.SERVER_AUTH,
+        x509.ExtendedKeyUsageOID.CLIENT_AUTH,
+        x509.ExtendedKeyUsageOID.CODE_SIGNING,
+        x509.ExtendedKeyUsageOID.EMAIL_PROTECTION,
+        x509.ExtendedKeyUsageOID.TIME_STAMPING,
         # x509.ExtendedKeyUsageOID.SMARTCARD_LOGON,
         # x509.ExtendedKeyUsageOID.KERBEROS_PKINIT_KDC,
         # x509.ExtendedKeyUsageOID.IPSEC_IKE,
@@ -347,12 +350,12 @@ class CaSecret(Secret):
                 'CSR does not have Key Usage Constraints extension'
             )
 
-        extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage]
+        ext_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage]
         try:
-            extended_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage] = \
+            ext_keyusage_extension: x509.Extension[x509.ExtendedKeyUsage] = \
                 csr.extensions.get_extension_for_class(x509.ExtendedKeyUsage)
         except x509.ExtensionNotFound:
-            extended_keyusage_extension = None
+            ext_keyusage_extension = None
 
         dnsname: str = self.review_subjectalternative_name(csr)
 
@@ -388,9 +391,9 @@ class CaSecret(Secret):
             keyusage_extension.value, critical=True
         )
 
-        if extended_keyusage_extension:
+        if ext_keyusage_extension:
             cert_builder = cert_builder.add_extension(
-                extended_keyusage_extension.value, critical=False
+                ext_keyusage_extension.value, critical=False
             )
 
         if not self.is_root_cert:

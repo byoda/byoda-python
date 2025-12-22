@@ -39,6 +39,7 @@ from httpx import ConnectError
 from httpx import ConnectTimeout
 from httpx import NetworkError
 from httpx import TimeoutException
+from httpx import PoolTimeout
 
 from opentelemetry.propagate import inject
 
@@ -376,23 +377,37 @@ class ApiClient:
                     f'Error connecting to: {exc}', extra=client.extra
                 )
                 raise ByodaRuntimeError(f'Error connecting to {api}')
+            except PoolTimeout as exc:
+                # This is raised by httpx when the connection pool
+                # is exhausted
+                if app:
+                    # No retries for calls from httpx directly to FastAPI APP
+                    raise
+
+                client.extra['api'] = api
+                _LOGGER.debug(
+                    f'PoolTimeout connecting to: {exc}', extra=client.extra
+                )
+                client.create_session()
             except RuntimeError as exc:
                 if app:
                     # No retries for calls from httpx directly to FastAPI APP
                     raise
 
                 _LOGGER.debug(f'RuntimeError: {exc}', extra=client.extra)
-                if is_data_api_query and 'Event loop is closed' in str(exc):
-                    # HACK: this deals with issue in test cases where HTTPX
-                    # fails on 'event loop is closed', especially when
-                    # code uses the redis-py module
-                    _LOGGER.debug(
-                        'Updating query_id after request failure',
-                        extra=client.extra
-                    )
-                    data_dict: dict[str, object] = orjson.loads(processed_data)
-                    data_dict['query_id'] = uuid4()
-                    processed_data = orjson.dumps(data_dict)
+                if 'Event loop is closed' in str(exc):
+                    if is_data_api_query:
+                        # HACK: this deals with issue in test cases where HTTPX
+                        # fails on 'event loop is closed', especially when
+                        # code uses the redis-py module
+                        _LOGGER.debug(
+                            'Updating query_id after request failure',
+                            extra=client.extra
+                        )
+                        data_dict: dict[str, object] = orjson.loads(processed_data)
+                        data_dict['query_id'] = uuid4()
+                        processed_data = orjson.dumps(data_dict)
+                    client.create_session()
             except Exception as exc:
                 _LOGGER.debug(f'Exception: {exc}', extra=client.extra)
                 if app:

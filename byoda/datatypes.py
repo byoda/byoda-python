@@ -107,17 +107,17 @@ class IdType(Enum):
     SERVICE_DATA         = 'service-data-'
     NETWORK_DATA         = 'network-data'
     ACCOUNTS_CA          = 'accounts-ca'
-    ACCOUNT_DATA         = 'account-data'
-    MEMBER_DATA          = 'member-data-'
+    ACCOUNT_DATA         = 'acct-d'
+    MEMBER_DATA          = 'mem-d-'
     SERVICES_CA          = 'services-ca'
     SERVICE_CA           = 'service-ca-'
     MEMBERS_CA           = 'members-ca-'
     APPS_CA              = 'apps-ca-'
     ACCOUNT              = 'accounts'
-    MEMBER               = 'members-'
+    MEMBER               = 'mem-'
     SERVICE              = 'service-'
     APP                  = 'apps-'
-    APP_DATA             = 'app-data-'
+    APP_DATA             = 'apps-d-'
     ANONYMOUS            = 'anonymous'
     BTLITE               = 'btlite'
 
@@ -197,6 +197,7 @@ class CloudType(Enum):
     GCP                  = 'GCP'
     AZURE                = 'Azure'
     LOCAL                = 'LOCAL'
+    CEPH                 = 'Ceph'
 
 class CacheTech(Enum):
     REDIS       = 1

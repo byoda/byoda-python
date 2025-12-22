@@ -11,6 +11,8 @@ import sys
 import shutil
 import unittest
 
+from uuid import UUID
+from uuid import uuid4
 from logging import Logger
 from logging import getLogger
 
@@ -24,7 +26,10 @@ from byoda.datamodel.pubsub_message import PubSubDataAppendMessage
 from byoda.datamodel.pubsub_message import PubSubDataDeleteMessage
 
 from byoda.datamodel.schema import Schema
+from byoda.datamodel.datafilter import DataFilterSet
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.pubsub_message import PubSubDataMessage
+
 
 from byoda.datatypes import MARKER_NETWORK_LINKS
 
@@ -46,7 +51,7 @@ SERVICE_ID: int = 999
 
 
 class TestPubSub(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
+    async def asyncSetUp(self) -> None:
         try:
             shutil.rmtree(TEST_DIR)
             shutil.rmtree(PubSubNng.PUBSUB_DIR)
@@ -59,11 +64,11 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         config.test_case = 'TEST_CLIENT'
 
-    async def test_pynng_one_sender_one_receiver(self):
+    async def test_pynng_one_sender_one_receiver(self) -> None:
         _LOGGER.debug('test_pynng_one_sender_one_receiver')
-        connection_string = f'ipc:///{TEST_DIR}/test.ipc'
+        connection_string: str = f'ipc:///{TEST_DIR}/test.ipc'
 
-        data = {'test': 'test'}
+        data: dict[str, str] = {'test': 'test'}
 
         # Test native pynng
         with pynng.Pub0(listen=connection_string) as pub, \
@@ -71,25 +76,25 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             sub.subscribe(b'')
             pub.send(orjson.dumps(data))
 
-            result = sub.recv()
-            value = orjson.loads(result)
+            result: PubSubDataMessage = sub.recv()
+            value: dict[str, str] = orjson.loads(result)
             self.assertEqual(data, value)
 
-    async def test_pynng_two_senders_two_receiver(self):
+    async def test_pynng_two_senders_two_receiver(self) -> None:
         _LOGGER.debug('test_pynng_two_senders_two_receivers')
-        connection_strings = [
+        connection_strings: list[str] = [
             f'ipc:///{TEST_DIR}/test_one.ipc',
             f'ipc:///{TEST_DIR}/test_two.ipc'
         ]
 
-        data = [{'test': 'test'}, {'test_two': 'test_two'}]
+        data: list[dict[str, str]] = [{'test': 'test'}, {'test_two': 'test_two'}]
 
-        pubs = [
+        pubs: list[pynng.Pub0] = [
             pynng.Pub0(listen=connection_strings[0]),
             pynng.Pub0(listen=connection_strings[1])
         ]
 
-        subs = [
+        subs: list[pynng.Sub0] = [
             pynng.Sub0(dial=connection_strings[0]),
             pynng.Sub0(dial=connection_strings[1])
         ]
@@ -99,9 +104,9 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
         pubs[0].send(orjson.dumps(data[0]))
         pubs[1].send(orjson.dumps(data[1]))
 
-        results = [subs[0].recv(), subs[1].recv()]
+        results: list = [subs[0].recv(), subs[1].recv()]
 
-        values = [
+        values: list[dict[str, any]] = [
             orjson.loads(results[0]),
             orjson.loads(results[1])
         ]
@@ -109,7 +114,7 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(data[1], values[1])
 
-    async def test_one_sender_one_receiver_append(self):
+    async def test_one_sender_one_receiver_append(self) -> None:
         _LOGGER.debug('test_one_sender_one_receiver_append')
 
         storage: FileStorage = FileStorage(TEST_DIR)
@@ -122,24 +127,24 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
-        test_data = {
+        test_data: dict[str, str | datetime | UUID] = {
             'member_id': get_test_uuid(),
             'relation': 'friend',
             'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
-        pub = PubSub.setup('test', data_class, schema, is_sender=True)
+        pub: PubSub = PubSub.setup('test', data_class, schema, is_sender=True)
 
-        sub = PubSub.setup('test', data_class, schema, is_sender=False)
+        sub: PubSub = PubSub.setup('test', data_class, schema, is_sender=False)
 
         message: PubSubDataAppendMessage = PubSubDataAppendMessage.create(
-            test_data, data_class, 'test1234'
-            )
+            test_data, data_class, uuid4()
+        )
         await pub.send(message)
-        values = await sub.recv()
+        values: list[dict[str, any]] = await sub.recv()
 
         value: PubSubDataAppendMessage = values[0]
-        self.assertEqual(value.data, test_data)
+        self.assertEqual(value.node, test_data)
 
     async def test_one_sender_one_receiver_delete(self) -> None:
         _LOGGER.debug('test_one_sender_one_receiver_delete')
@@ -154,22 +159,24 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         data_class: SchemaDataItem = schema.data_classes[MARKER_NETWORK_LINKS]
 
-        test_data = 1
+        test_filter: DataFilterSet = DataFilterSet(
+            {'name': {'eq': 'name'}}
+        )
 
-        pub = PubSub.setup('test', data_class, schema, is_sender=True)
+        pub: PubSub = PubSub.setup('test', data_class, schema, is_sender=True)
 
-        sub = PubSub.setup('test', data_class, schema, is_sender=False)
+        sub: PubSub = PubSub.setup('test', data_class, schema, is_sender=False)
 
-        message = PubSubDataDeleteMessage.create(
-            test_data, data_class
+        message: PubSubDataDeleteMessage = PubSubDataDeleteMessage.create(
+            data_class, test_filter
         )
         await pub.send(message)
-        values = await sub.recv()
+        values: list[PubSubDataDeleteMessage] = await sub.recv()
 
         value: PubSubDataDeleteMessage = values[0]
-        self.assertEqual(value.data, test_data)
+        self.assertEqual(value.class_name, data_class.name)
 
-    async def test_one_sender_two_receivers(self):
+    async def test_one_sender_two_receivers(self) -> None:
         _LOGGER.debug('test_one_sender_two_receivers')
 
         storage: FileStorage = FileStorage(TEST_DIR)
@@ -188,22 +195,22 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
             'created_timestamp': datetime.now(tz=timezone.utc)
         }
 
-        pub = PubSub.setup('test', data_class, schema, is_sender=True)
+        pub: PubSub = PubSub.setup('test', data_class, schema, is_sender=True)
 
         subs: list[PubSub] = [
             PubSub.setup('test', data_class, schema, is_sender=False),
             PubSub.setup('test', data_class, schema, is_sender=False)
         ]
         message: PubSubDataAppendMessage = PubSubDataAppendMessage.create(
-            test_data, data_class, 'test1234'
+            test_data, data_class, uuid4()
         )
         await pub.send(message)
         messages: list[PubSubDataAppendMessage] = [
             await subs[0].recv(),
             await subs[1].recv()
         ]
-        self.assertEqual(messages[0][0].data, test_data)
-        self.assertEqual(messages[1][0].data, test_data)
+        self.assertEqual(messages[0][0].node, test_data)
+        self.assertEqual(messages[1][0].node, test_data)
 
     async def test_two_senders_one_receiver(self) -> None:
         _LOGGER.debug('test_two_senders_one_receiver')
@@ -242,20 +249,21 @@ class TestPubSub(unittest.IsolatedAsyncioTestCase):
 
         test_messages: list[PubSubDataAppendMessage] = [
             PubSubDataAppendMessage.create(
-                test_data[0], data_class, 'test1234'
+                test_data[0], data_class, uuid4()
             ),
             PubSubDataAppendMessage.create(
-                test_data[1], data_class, 'test1234'
+                test_data[1], data_class, uuid4()
             )
         ]
 
         await pubs[0].send(test_messages[0])
         await pubs[1].send(test_messages[1])
 
-        results = await sub.recv()
+        results: PubSubDataAppendMessage = await sub.recv()
 
+        result: PubSubDataAppendMessage
         for result in results:
-            self.assertIn(result.data, test_data)
+            self.assertIn(result.node, test_data)
 
 
 if __name__ == '__main__':

@@ -134,7 +134,7 @@ async def post_member(request: Request, service_id: int, version: int,
 @router.put('/member/service_id/{service_id}/version/{version}',
             response_model=MemberResponseModel)
 async def put_member(request: Request, service_id: int, version: int,
-                     auth: AuthDep):
+                     auth: AuthDep) -> dict[str, any]:
     '''
     Update the membership of the service to the specified version.
     :param service_id: service_id of the service
