@@ -849,7 +849,7 @@ class Member:
 
     async def load_settings(self) -> None:
         '''
-        Loads the settings for the membership from the 'Member' data classs
+        Loads the settings for the membership from the 'Member' data class
 
         :returns: (none)
         :raises ValueError: if the data class for the member settings has

@@ -36,6 +36,7 @@ from byoda.datamodel.dataclass import SchemaDataItem
 
 from byoda.datastore.data_store import DataStore
 
+from byoda.exceptions import ByodaRuntimeError
 from byoda.storage.filestorage import FileStorage
 
 from .youtube_channel import YouTubeChannel
@@ -53,7 +54,9 @@ class YouTube:
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
     INGEST_INTERVAL_SECONDS: int = 5
 
-    def __init__(self, lock_file: str = None, api_key: str | None = None
+    def __init__(self, lock_file: str = None,
+                 storage_driver: FileStorage | None = None,
+                 storage_api_key: str | None = None
                  ) -> None:
         '''
         Constructor. If the 'YOUTUBE_API_KEY environment variable is
@@ -64,6 +67,9 @@ class YouTube:
         self.integration_enabled: bool = YouTube.youtube_integration_enabled()
 
         self.lock_file: str = lock_file
+        self.storage_driver: FileStorage | None = storage_driver
+
+        self.storage_api_key: str | None = storage_api_key
 
         self.channels: dict[str, YouTubeChannel] = {}
         name: str
@@ -74,7 +80,8 @@ class YouTube:
                 ingest = bool(ingest)
 
             channel = YouTubeChannel(
-                name, ingest=ingest, lock_file=self.lock_file
+                name, ingest=ingest, lock_file=self.lock_file,
+                storage_driver=self.storage_driver
             )
             self.channels[name] = channel
 
@@ -105,7 +112,7 @@ class YouTube:
         )
 
         known_channels: set[dict[str, str]] = set(
-            [channel_data['creator'] for channel_data, _ in data or []]
+            [channel_data['channel'] for channel_data, _ in data or []]
         )
 
         _LOGGER.debug(f'Found {len(known_channels)} ingested channels')
@@ -151,13 +158,13 @@ class YouTube:
 
     async def import_videos(
         self, member: Member, data_store: DataStore, video_table: Table,
-        storage_driver: FileStorage = None,
         bento4_directory: str | None = None,
         moderate_request_url: str | None = None,
         moderate_jwt_header: str | None = None,
         moderate_claim_url: str | None = None,
         ingest_interval: int = INGEST_INTERVAL_SECONDS,
-        custom_domain: str | None = None
+        custom_domain: str | None = None,
+        max_videos: int = 200,
     ) -> None:
         '''
         Scrape channel(s) and videos from YouTube and persist them to storage.
@@ -199,10 +206,10 @@ class YouTube:
         all_channels: list[YouTubeChannel] = sample(channels, k=len(channels))
         _LOGGER.debug('Found channels to import', extra=log_extra)
 
-        max_videos_per_channel: int = 0
+        max_videos_per_channel: int = 1
         if len(all_channels) > 1:
             max_videos_per_channel: int = max(
-                200/len(all_channels), MIN_SCRAPE_VIDEOS_PER_CHANNEL
+                max_videos/len(all_channels), MIN_SCRAPE_VIDEOS_PER_CHANNEL
             )
         log_extra['max_videos_per_channel'] = max_videos_per_channel
         _LOGGER.info('Will import videos for all channels', extra=log_extra)
@@ -218,22 +225,24 @@ class YouTube:
             log_extra['channel'] = channel.name
             _LOGGER.debug('Importing channel', extra=log_extra)
 
-            if channel.ingest_videos and not storage_driver:
+            if channel.ingest_videos and not self.storage_driver:
                 raise ValueError(
                     'We need a storage driver to download videos',
                     extra=log_extra
                 )
-
-            await channel.scrape(
-                member, data_store, storage_driver, video_table,
-                bento4_directory,
-                moderate_request_url=moderate_request_url,
-                moderate_jwt_header=moderate_jwt_header,
-                moderate_claim_url=moderate_claim_url,
-                ingest_interval=ingest_interval,
-                custom_domain=custom_domain,
-                max_videos_per_channel=max_videos_per_channel,
-            )
+            try:
+                await channel.scrape_videos(
+                    member, data_store, video_table,
+                    bento4_directory,
+                    moderate_request_url=moderate_request_url,
+                    moderate_jwt_header=moderate_jwt_header,
+                    moderate_claim_url=moderate_claim_url,
+                    ingest_interval=ingest_interval,
+                    custom_domain=custom_domain,
+                    max_videos_per_channel=max_videos_per_channel,
+                )
+            except ByodaRuntimeError:
+                pass
 
             # Release memory used by the import run
             channel.videos = []

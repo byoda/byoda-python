@@ -7,6 +7,7 @@ Model a thumbnail of a Youtube video
 '''
 
 import os
+import logging
 
 from enum import Enum
 from uuid import uuid4
@@ -55,18 +56,13 @@ class YouTubeThumbnail:
         self.width: int = data.get('width', 0)
         self.height: int = data.get('height', 0)
         self.id: str = data.get('id')
-        self.youtube_url: str | None = None
+        self.preference: str = str(data.get('preference', ''))
+        self.youtube_url: str = self.url
 
         # What type of display the thumbnail was created for.
         # Only used for channel banners
         # For banners, YouTube uses: 'banner', 'tvBanner', 'mobileBanner'
         self.display_hint: str | None = display_hint
-
-        self.preference: str = data.get('preference')
-        if self.preference:
-            self.preference = str(self.preference)
-        else:
-            self.preference = ''
 
         self.size: str | YouTubeThumbnailSize
         if size:
@@ -104,6 +100,9 @@ class YouTubeThumbnail:
         )
 
         return same
+
+    def __lt__(self, thumbnail: Self) -> bool:
+        return (self.width * self.height) < (thumbnail.width * thumbnail.height)
 
     def as_dict(self) -> dict[str, str | int | UUID]:
         '''
@@ -150,6 +149,7 @@ class YouTubeThumbnail:
             'member_id': member.member_id,
             'cdn_fqdn': server.cdn_fqdn,
             'cdn_origin_site_id': server.cdn_origin_site_id,
+            'url': self.url
         }
         if not self.youtube_url:
             self.youtube_url = self.url
@@ -167,11 +167,8 @@ class YouTubeThumbnail:
                         async for chunk in resp.aiter_bytes():
                             file_desc.write(chunk)
         except Exception as exc:
-            _LOGGER.debug(
-                f'Failed to download thumbnail: {exc}', extra=log_extra
-            )
             raise ByodaRuntimeError(
-                f'Thumbnail download failure: {self.youtube_url}'
+                'Thumbnail download failure', extra=log_extra,
             ) from exc
 
         ext: str | None = None
@@ -227,7 +224,9 @@ class YouTubeThumbnail:
                     storage_type=StorageType.PUBLIC
                 )
         except Exception as exc:
-            _LOGGER.debug(f'Failed to save thumbnail to storage {exc}')
-            raise ByodaRuntimeError('Save thumbnail failure') from exc
+            raise ByodaRuntimeError(
+                f'Failed to save thumbnail to storage {exc}',
+                extra=log_extra, loglevel=logging.DEBUG
+            ) from exc
 
         return self.url
