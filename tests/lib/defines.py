@@ -20,6 +20,7 @@ ADDRESSBOOK_VERSION: int = 1
 
 BYOTUBE_SERVICE_ID: int = 16384
 BYOTUBE_VERSION: int = 1
+BYOTUBE_LOCAL_SCHEMA: str = 'tests/collateral/byotube.json'
 
 # Test moderation API server
 MODTEST_FQDN: str = 'modtest.byoda.io'

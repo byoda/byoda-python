@@ -160,8 +160,8 @@ permitted. Each of the actions may support some specifiers that provide addition
 - member: The membership in the Pod of the service, or, with other words, you; the owner of the pod
 - service: The person or organization hosting the service
 - network: someone that you have a network relation with. This entity supports two specifiers:
-- distance (integer, n>=1, default=1): some other member who you have a network path in your social graph with, with a maximum distance of 'n'
-- relation (string with regular expression, defaults to None): the relation with the members in your social graph must match this regular expression. If not specified, all relations are permitted access
+  - distance (integer, n>=1, default=1): some other member who you have a network path in your social graph with, with a maximum distance of 'n'
+  - relation (string with regular expression, defaults to None): the relation with the members in your social graph must match this regular expression. If not specified, all relations are permitted access
 - any_member: Any person who has joined the service
 - anonymous: Anyone, regardless whether or not they provided credentials to authenticate their data request
 
@@ -174,6 +174,7 @@ The following actions are supported:
 - append: add an entry to an array
 - persist: allow the client to persist this data. This action must only be used for data that the service  needs to reach out to members when there is a problem with the service or with someones membership of the service, ie. the email address and the member_id of the membership. In addition, pods and services are allowed to store the member_id of a member of a service
 - search: special case to allow services to provide a search function
+- subscribe: allow the requesting entity to subscribe to updates for this data using websockets
 
 The access controls can only be defined for the 'properties' defined for the 'jsonschema' in the service contract and not for the data structures defined under the '$defs' section
 

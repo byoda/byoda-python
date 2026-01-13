@@ -32,6 +32,7 @@ from byoda.datamodel.service import Service
 from byoda.datastore.certstore import CertStore
 from byoda.datastore.memberdb import MemberDb
 
+from byoda.secrets.certchain import CertChain
 from byoda.secrets.secret import Secret
 from byoda.secrets.membersca_secret import MembersCaSecret
 
@@ -138,8 +139,8 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     # End of Authorization
 
     if csr_entity_id.service_id is None:
-        raise ValueError(
-            f'No service id found in common name {common_name}'
+        raise HTTPException(
+            400, f'No service id found in common name {common_name}'
         )
 
     if csr_entity_id.service_id != service.service_id:
@@ -150,15 +151,15 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(service.members_ca)
 
-    certchain = certstore.sign(
+    certchain: CertChain = certstore.sign(
         csr.csr, IdType.MEMBER, request.client.host
     )
 
     # Get the certs as strings so we can return them
-    signed_cert = certchain.cert_as_string()
-    cert_chain = certchain.cert_chain_as_string()
+    signed_cert: str = certchain.cert_as_string()
+    cert_chain: str = certchain.cert_chain_as_string()
 
-    service_data_cert_chain = service.data_secret.cert_as_pem()
+    service_data_cert_chain: bytes = service.data_secret.cert_as_pem()
 
     _LOGGER.info(f'Signed certificate with commonname {common_name}')
 

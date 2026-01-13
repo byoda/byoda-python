@@ -7,7 +7,9 @@ Model a Youtube video
 '''
 
 import os
+import re
 import shutil
+import logging
 import subprocess
 
 from copy import copy
@@ -61,18 +63,21 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
+from byoda.util.test_tooling import convert_number_string
 
 from byoda.servers.pod_server import PodServer
 
+from byoda.exceptions import ByodaException, ByodaValueError
 from byoda.exceptions import ByodaRuntimeError
 
 from byoda import config
 
+from .youtube_format import YouTubeFormat
 from .youtube_thumbnail import YouTubeThumbnail
+from .youtube_streams import EncodingCategory
 from .youtube_streams import TARGET_AUDIO_STREAMS
 from .youtube_streams import TARGET_VIDEO_STREAMS
-from .youtube_streams import EncodingCategory
-from .youtube_format import YouTubeFormat
+from .youtube_client import AsyncYouTubeClient
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -99,6 +104,41 @@ class YouTubeVideoChapter:
         }
 
 
+class YouTubeCaption:
+    def __init__(self, language_code: str, is_auto_generated: bool,
+                 caption_info: dict[str, str]) -> None:
+        '''
+        Describes a caption / subtitle track for a YouTube video
+
+        :param language_code: BCP-47 language code for the caption
+        :param is_auto_generated: whether the caption track is auto-generated
+        :param caption_info: information about the caption track
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        self.caption_id: UUID = uuid4()
+        self.language_code: str = language_code
+        self.is_auto_generated: bool = is_auto_generated
+        self.url: str = caption_info.get('url')
+        self.extension: str = caption_info.get('ext')
+        self.protocol: str = caption_info.get('protocol')
+
+    def as_dict(self) -> dict[str, str]:
+        '''
+        Returns a dict representation of the caption
+        '''
+
+        return {
+            'caption_id': self.caption_id,
+            'language_code': self.language_code,
+            'is_auto_generated': self.is_auto_generated,
+            'url': self.url,
+            'extension': self.extension,
+            'protocol': self.protocol
+        }
+
+
 class YouTubeVideo:
     VIDEO_URL: str = 'https://www.youtube.com/watch?v={video_id}'
     DATASTORE_CLASS_NAME: str = 'public_assets'
@@ -106,77 +146,123 @@ class YouTubeVideo:
     DATASTORE_CLASS_NAME_CHAPTERS: str = 'video_chapters'
     DATASTORE_CLASS_NAME_CLAIMS: str = 'claims'
     DATASTORE_FIELD_MAPPINGS: dict[str, str] = {
-        'video_id': 'publisher_asset_id',
-        'title': 'title',
-        'description': 'contents',
-        'published_time': 'published_timestamp',
-        'channel_creator': 'creator',
-        'creator_thumbnail': 'creator_thumbnail',
-        'url': 'asset_url',
-        'created_time': 'created_timestamp',
-        'duration': 'duration',
-        'asset_type': 'asset_type',
+        'created_timestamp': 'created_timestamp',
         'asset_id': 'asset_id',
-        'locale': 'locale',
-        'publisher': 'publisher',
-        'ingest_status': 'ingest_status',
+        'asset_type': 'asset_type',
+        'url': 'asset_url',
         'merkle_root_hash': 'asset_merkle_root_hash',
-        'screen_orientation_horizontal': 'screen_orientation_horizontal',
-        'categories': 'categories',
-        'annotations': 'annotations',
+        'locale': 'locale',
+        'default_audio_language': 'default_audio_language',
+        'channel': 'publisher_channel',
+        'channel_thumbnail_url': 'channel_thumbnail',
+        'uploaded_timestamp': 'uploaded_timestamp',
+        'published_timestamp': 'published_timestamp',
+        'license': 'license',
+        'publisher': 'publisher',
+        'video_id': 'publisher_asset_id',
         'view_count': 'publisher_views',
         'like_count': 'publisher_likes',
-        'monetizations': 'monetizations',
+        'dislike_count': 'publisher_dislikes',
+        'comment_count': 'publisher_comment_count',
+        'title': 'title',
+        'description': 'contents',
+        'is_live': 'is_live',
+        'was_live': 'was_live',
+        'keywords': 'keywords',
+        'tags': 'tags',
+        'annotations': 'annotations',
+        'categories': 'categories',
+        'duration': 'duration',
+        'channel_id': 'publisher_channel_id',
+        'ingest_status': 'ingest_status',
+        'screen_orientation_horizontal': 'screen_orientation_horizontal',
+        'is_family_safe': 'is_family_safe',
+        'age_limit': 'age_limit',
     }
 
-    def __init__(self) -> None:
-        self.video_id: str | None = None
+    def __init__(self,
+                 video_id: str | None = None,
+                 user_agent: str | None = None,
+                 consent_cookies: dict[str, str] = {},
+                 use_consent_cookies: bool = True,
+                 browse_client: YoutubeDL | None = None,
+                 download_client: YoutubeDL | None = None,
+                 storage_driver: FileStorage | None = None) -> None:
+
+        # Consent cookies needed for YouTubeClient and yt-dlp
+        self.consent_cookies: dict[str, str] = consent_cookies
+        self.browse_client: YoutubeDL | None = browse_client
+        self.download_client: YoutubeDL | None = download_client
+
+        self.asset_id: UUID = uuid4()
+
+        self.video_id: str | None = video_id
         self.title: str | None = None
         self.kind: str | None = None
         self.long_title: str | None = None
         self.description: str | None = None
-        self.channel_creator: str | None = None
-        self.creator_thumbnail_asset: YouTubeThumbnail | None = None
 
-        # URL for the thumbnail of the creator of the video
-        self.creator_thumbnail: str | None = None
+        # Info about the channel
         self.channel_id: str | None = None
-        self.published_time: datetime | None = None
-        self.published_time_info: str | None = None
+        self.channel: str | None = None
+        self.channel_thumbnail: str | None = None
+        self.channel_thumbnail_asset: YouTubeThumbnail | None = None
+        self.channel_thumbnail_url: str | None = None
+
+        self.created_timestamp: datetime = datetime.now(tz=timezone.utc)
+        self.uploaded_timestamp: datetime | None = None
+        self.published_timestamp: datetime | None = None
+        self.availability: str | None = None
+
         self.view_count: int | None = None
         self.like_count: int | None = None
+        self.dislike_count: int | None = None
+        self.comment_count: int | None = None
+
         self.url: str | None = None
+        self.short_url: str | None = None
+        self.embed_url: str | None = None
         self.thumbnails: dict[YouTubeThumbnail] = {}
-        self.duration: str | None = None
-        self.is_live: bool | None = None
-        self.was_live: bool | None = None
-        self.availability: str | None = None
+
+        self.is_live: bool = False
+        self.was_live: bool = False
+        self.is_short: bool = False
         self.embedable: bool | None = None
-        self.age_limit: int | None = None
+
+        self.age_limit: int = 0
+        self.age_restricted: bool = False
+        self.is_family_safe: bool | None = None
         self.screen_orientation_horizontal: bool = True
 
         # Duration of the video in seconds
         self.duration: int | None = None
 
         self.chapters: list[YouTubeVideoChapter] = []
-        self.tags: list[str] = []
+        self.captions: list[YouTubeCaption] = []
+        self.heatmaps: list[dict[str, float]] = []
         self.monetizations: Monetizations | None = None
 
         # Data for the Byoda table with assets
         self.publisher = 'YouTube'
         self.asset_type: str = 'video'
+        self.license: str | None = None
         self.ingest_status: IngestStatus = IngestStatus.NONE
 
         # This is the default profile. If we ingest the asset from
         # YouTube then this will be overwritten with info about the
         # YouTube formats
         self.encoding_profiles: dict[str, YouTubeFormat] = {}
-        self.asset_id: UUID = uuid4()
-        self.locale: str | None = None
-        self.annotations: list[str] = []
-        self.categories: list[str] = []
 
-        self.created_time: datetime = datetime.now(tz=timezone.utc)
+        self.locale: str | None = None
+        self.default_audio_language: str | None = 'en'
+
+        self.tags: set[str] = set()
+        self.annotations: set[str] = set()
+        self.categories: set[str] = set()
+        self.keywords: set[str] = set()
+        self.privacy_status: str = 'public'
+
+        self._work_dir: str | None = None
 
         self.merkle_root_hash: str | None = None
 
@@ -184,157 +270,431 @@ class YouTubeVideo:
         # playlist
         self.playlistId: str | None = None
 
+        self.client: AsyncYouTubeClient = AsyncYouTubeClient(
+            user_agent=user_agent, consent_cookies=consent_cookies,
+            use_consent_cookies=use_consent_cookies
+        )
+        self.ydl: YoutubeDL | None = None
+
+        if storage_driver:
+            self.storage_driver: FileStorage = storage_driver
+            self._work_dir: str = self._get_tempdir(storage_driver)
+
     @staticmethod
-    async def scrape(video_id: str, ingest_videos: bool, channel_name: str,
-                     creator_thumbnail: YouTubeThumbnail | None) -> Self:
+    async def scrape(
+        video_id: str, ingest_videos: bool, channel_name: str | None,
+        channel_thumbnail: YouTubeThumbnail | None,
+        consent_cookies: dict[str, str] = {},
+        browse_client: YoutubeDL | None = None,
+        download_client: YoutubeDL | None = None,
+        storage_driver: FileStorage | None = None
+    ) -> Self | None:
         '''
         Collects data about a video by scraping the webpage for the video
 
         :param video_id: YouTube video ID
         :param ingest_videos: whether the video will be ingested
         :param channel_name: Name of the channel that we are scraping
-        :param creator_thumbnail: Thumbnail for the creator of the video
+        :param channel_thumbnail: Thumbnail for the creator of the video
         page
         '''
 
-        video = YouTubeVideo()
+        log_extra: dict[str, str | int] = {'video_id': video_id}
 
-        video.video_id = video_id
-        video.url = YouTubeVideo.VIDEO_URL.format(video_id=video_id)
-
-        ydl_opts: dict[str, bool] = {
-            'quiet': True,
-            'logger': _LOGGER,
-        }
-
-        if config.debug:
-            ydl_opts['verbose'] = True
-            ydl_opts['quiet'] = False
-
-        log_data: dict[str, str] = {
-            'channel': channel_name,
-            'video_id': video_id,
-            'ingest_status': video.ingest_status.value
-        }
-
-        _LOGGER.debug(
-            'Instantiating YouTubeDL client', extra=log_data
+        self: YouTubeVideo = YouTubeVideo(
+            video_id=video_id,
+            consent_cookies=consent_cookies,
+            browse_client=browse_client,
+            download_client=download_client,
+            storage_driver=storage_driver
         )
 
-        with YoutubeDL(ydl_opts) as ydl:
-            try:
-                _LOGGER.debug('Scraping YouTube video', extra=log_data)
-                video_info: dict[str, any] = ydl.extract_info(
-                    video.url, download=False
-                )
-                if video_info:
-                    sleepy_time: int = randrange(1, 3)
-                    _LOGGER.debug(
-                        'Collected info for video, sleeping',
-                        extra=log_data | {'seconds': sleepy_time}
-                    )
-                    await sleep(sleepy_time)
-                else:
-                    sleepy_time: int = randrange(10, 30)
-                    _LOGGER.info(
-                        'Video scrape failed, sleeping',
-                        extra=log_data | {'seconds': sleepy_time}
-                    )
-                    await sleep(sleepy_time)
-                    return
-            except DownloadError as exc:
-                sleepy_time: int = randrange(2, 5)
-                video._transition_state(IngestStatus.UNAVAILABLE)
-                log_data['ingest_status'] = video.ingest_status.value
-                _LOGGER.info(
-                    f'Failed to extract info for video, sleeping: {exc}',
-                    extra=log_data | {'seconds': sleepy_time}
-                )
-                video._transition_state(IngestStatus.UNAVAILABLE)
-                await sleep(sleepy_time)
-                return video
+        canonical_url: str = self.VIDEO_URL.format(video_id=video_id)
+        html_content: str | None = await self.client.get(canonical_url)
 
-            except Exception as exc:
-                sleepy_time: int = randrange(10, 30)
-                _LOGGER.info(
-                    f'Failed to extract info for video: {exc}',
-                    extra=log_data | {'seconds': sleepy_time}
-                )
-                await sleep(sleepy_time)
-                return None
+        # Extract initial data
+        initial_data: dict[str, any] = self._extract_initial_data(html_content)
+        player_response: dict[str, any] = self._extract_player_response(
+            html_content
+        )
 
-        video.channel_creator = video_info.get('channel')
-        if channel_name and channel_name != video.channel_creator:
-            video._transition_state(IngestStatus.UNAVAILABLE)
-            log_data['ingest_status'] = video.ingest_status.value
-            _LOGGER.debug(
-                f'Skipping video from channel {video.channel_creator}',
-                extra=log_data
+        self._parse_video_html(initial_data, player_response)
+
+        await self._scrape_video(
+            ingest_videos=ingest_videos, channel_name=channel_name,
+            channel_thumbnail=channel_thumbnail
+        )
+
+        self.is_short = self._is_short(initial_data)
+
+        return self
+
+    def _extract_initial_data(self, html_content: str) -> dict:
+        '''
+        Extract ytInitialData from the HTML page
+
+        :param html_content: HTML content of the video page
+        :returns: dict with player response data
+        :raises: ByodaValueError if data could not be extracted
+        '''
+
+        patterns: list[str] = [
+            r'ytInitialData\s*=\s*({.*?});',
+            r'window\["ytInitialData"\] = ({.*?});',
+        ]
+
+        for pattern in patterns:
+            match: re.Match[str] | None = re.search(
+                pattern, html_content, re.DOTALL
             )
-            return video
+            if match:
+                try:
+                    json_str: str = match.group(1).replace("\\'", "'")
+                    return orjson.loads(json_str)
+                except orjson.JSONDecodeError:
+                    continue
 
-        if video_info.get('is_live'):
-            _LOGGER.debug('Skipping live video', extra=log_data)
-            return None
+        raise ByodaValueError(
+            'Could not extract initial data from video page',
+            loglevel=logging.INFO, extra={'video_id': self.video_id}
+        )
 
-        video.embedable = video_info.get('playable_in_embed', True)
-        if not (video.embedable or ingest_videos):
-            _LOGGER.debug('Skipping non-embedable video', extra=log_data)
-            return None
+    def _extract_player_response(self, html_content: str) -> dict:
+        '''
+        Extract ytInitialPlayerResponse from the HTML page
 
-        video.description = video_info.get('description')
-        video.title = video_info.get('title')
-        video.view_count = video_info.get('view_count')
-        video.like_count = video_info.get('like_count')
-        video.duration = video_info.get('duration')
-        video.long_title = video_info.get('fulltitle')
-        video.is_live = video_info.get('is_live')
-        video.was_live = video_info.get('was_live')
-        video.availability = video_info.get('availability')
-        video.duration = video_info.get('duration')
-        video.annotations = video_info.get('tags')
-        video.categories = video_info.get('categories')
-        video.creator_thumbnail_asset = creator_thumbnail
+        :param html_content: HTML content of the video page
+        :returns: dict with player response data
+        :raises: ByodaValueError if data could not be extracted
+        '''
+        patterns: list[str] = [
+            r'ytInitialPlayerResponse\s*=\s*({.*?});',
+            r'var ytInitialPlayerResponse = ({.*?});',
+        ]
 
-        video.age_limit = video_info.get('age_limit', 0)
+        for pattern in patterns:
+            match: re.Match[str] | None = re.search(
+                pattern, html_content, re.DOTALL
+            )
+            if match:
+                try:
+                    json_str: str = match.group(1)
+                    json_str = json_str.replace("\\'", "'")
+                    return orjson.loads(json_str)
+                except orjson.JSONDecodeError:
+                    continue
+
+        raise ByodaValueError(
+            'Could not extract player response data from video page',
+            loglevel=logging.INFO, extra={'video_id': self.video_id}
+        )
+
+    def _parse_video_html(self, initial_data: dict,
+                          player_response: dict) -> None:
+        '''
+        Parse the metadata scraped from a YouTube video page
+
+        :param initial_data:
+        :param player_response:
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        # Basic info from player response
+        video_details: dict[str, any] = player_response.get('videoDetails', {})
+        microformat: dict[str, any] = player_response.get(
+            'microformat', {}
+        ).get(
+            'playerMicroformatRenderer'
+        )
+        if not video_details or not microformat:
+            _LOGGER.info(
+                'Missing microformat data for video',
+                extra={'video_id': self.video_id}
+            )
+            raise ValueError('Missing microformat data for video')
+
+        # Video ID and URLs
+        self.url = f'https://www.youtube.com/watch?v={self.video_id}'
+        self.short_url = f'https://youtu.be/{self.video_id}'
+        self.embed_url = f'https://www.youtube.com/embed/{self.video_id}'
+
+        self.title = video_details.get('title')
+        self.description = video_details.get('shortDescription')
 
         try:
-            if int(video.age_limit) >= 18 and not ingest_videos:
-                _LOGGER.debug(
-                    'Video is for 18+ videos and can not be embedded',
-                    extra=log_data
+            self.duration = int(
+                microformat.get(
+                    'lengthSeconds', video_details.get('lengthSeconds')
                 )
-                return
+            )
         except ValueError:
             pass
 
-        # For fully ingested assets, the _ingest_video method
-        # updates the url of the thumbnail
-        video.creator_thumbnail = None
-        if creator_thumbnail:
-            video.creator_thumbnail = creator_thumbnail.url
-
-        video.published_time = dateutil_parser.parse(
-            video_info['upload_date']
+        self.view_count = convert_number_string(
+            video_details.get('viewCount', 0)
         )
-        video.channel_id = video_info.get('channel_id')
 
-        for thumbnail in video_info.get('thumbnails') or []:
+        if microformat.get('publishDate'):
+            self.published_timestamp = dateutil_parser.parse(
+                microformat['publishDate']
+            )
+
+        if microformat.get('uploadDate'):
+            self.uploaded_timestamp = dateutil_parser.parse(
+                microformat['uploadDate']
+            )
+
+        if microformat.get('category'):
+            self.categories | set(microformat.get('category', []))
+
+        self.default_audio_language = microformat.get(
+            'defaultAudioLanguage'
+        )
+
+        self.is_family_safe = microformat.get('isFamilySafe', False)
+
+        self.privacy_status = microformat.get(
+            'isUnlisted', self.privacy_status or 'public')
+
+        self.is_live = video_details.get(
+            'isLive', video_details.get('isLiveContent', False)
+        )
+
+        results: str = initial_data.get('contents', {}).get(
+                'twoColumnWatchNextResults', {}).get('secondaryResults', '')
+        if (self.duration and self.duration < 60
+                and microformat.get('isShortsEligible', False)
+                and 'reelShelfRenderer' in results):
+            self.is_short = True
+
+        self.keywords = self.keywords | set(video_details.get('keywords', []))
+
+        self.thumbnails = self.thumbnails | YouTubeVideo._parse_thumbnails(
+            None, video_details.get('thumbnail', {}).get('thumbnails', []) +
+            microformat.get('thumbnail', {}).get('thumbnails', [])
+        )
+
+        self.age_restricted = self._check_age_restriction(
+            player_response.get('playabilityStatus', {})
+        )
+
+        self.embedable = \
+            microformat.get('embed', {}).get('iframeUrl') is not None
+
+        if microformat.get('hasYpcMetadata'):
+            self.license = 'youtube'
+
+    @staticmethod
+    def _parse_thumbnails(label: str | None,
+                          thumbnail_data: list[dict[str, str | int]]
+                          ) -> dict[str, YouTubeThumbnail]:
+        '''
+        Parse thumbnail URLs without downloading
+        '''
+
+        thumbnails: dict[str, YouTubeThumbnail] = {}
+        thumb_list: list[YouTubeThumbnail] = []
+        for thumbnail in thumbnail_data or []:
             thumbnail = YouTubeThumbnail(None, thumbnail)
             if thumbnail.size and thumbnail.url:
                 # We only want to store thumbnails for which
                 # we know the size and have a URL
-                video.thumbnails[thumbnail.size] = thumbnail
+                thumb_list.append(thumbnail)
             else:
                 _LOGGER.debug(
                     f'Not importing thumbnail without size '
                     f'({thumbnail.size}) or URL ({thumbnail.url})'
                 )
 
+        if not thumb_list:
+            return {}
+
+        # Sort by width and assign to standard sizes
+        thumb_list = sorted(
+            thumb_list, key=lambda x: (int(x.preference or 0), x.width)
+        )
+
+        # size_names: list[str] = [
+        #     'default', 'medium', 'high', 'standard', 'maxres'
+        # ]
+        seen_urls: set[str] = set()
+
+        thumb: YouTubeThumbnail
+        for thumb in thumb_list:
+            if thumb.url in seen_urls:
+                continue
+            seen_urls.add(thumb.url)
+
+            if not label:
+                label = f'video_{thumb.width}x{thumb.height}'
+
+            if label not in thumbnails:
+                thumbnails[label] = thumb
+
+        return thumbnails
+
+    def _check_age_restriction(self, playability: dict) -> bool:
+        '''Check if video is age-restricted'''
+        reason: str = playability.get('reason', '')
+        if 'age' in reason.lower() or 'sign in' in reason.lower():
+            return True
+
+        # Check for age gate
+        if playability.get('status') == 'LOGIN_REQUIRED':
+            return True
+
+        return False
+
+    async def _scrape_video(self, ingest_videos: bool, channel_name: str,
+                            channel_thumbnail: YouTubeThumbnail | None
+                            ) -> None:
+        '''
+        Collects data about a video by scraping the webpage for the video.
+        This method does not download the video itself.
+
+        :param video_id: YouTube video ID
+        :param ingest_videos: whether the video will be ingested
+        :param channel_name: Name of the channel that we are scraping
+        :param channel_thumbnail: Thumbnail for the creator of the video
+        page
+        '''
+
+        log_data: dict[str, str] = {
+            'channel': channel_name,
+            'video_id': self.video_id,
+            'ingest_status': self.ingest_status.value
+        }
+
+        if not self.browse_client:
+            raise ByodaRuntimeError(
+                'No browse_client available for scraping video'
+            )
+
+        self.channel_thumbnail_url = \
+            channel_thumbnail.url if channel_thumbnail else None
+        self.channel_thumbnail_asset = channel_thumbnail
+
+        try:
+            _LOGGER.debug('Scraping YouTube video', extra=log_data)
+            video_info: dict[str, any] = self.browse_client.extract_info(
+                self.url, download=False
+            )
+            if video_info:
+                _LOGGER.debug('Collected info for video', extra=log_data)
+            else:
+                sleepy_time: int = randrange(10, 30)
+                log_data['sleep_seconds'] = sleepy_time
+                await sleep(sleepy_time)
+                raise ByodaValueError(
+                    'Video scrape failed, no info returned',
+                    loglevel=logging.INFO, extra=log_data
+                )
+        except DownloadError as exc:
+            sleepy_time: int = randrange(2, 5)
+            self._transition_state(IngestStatus.UNAVAILABLE)
+            log_data['ingest_status'] = self.ingest_status.value
+            self._transition_state(IngestStatus.UNAVAILABLE)
+            await sleep(sleepy_time)
+            raise ByodaRuntimeError(
+                'Failed to extract info for video, sleeping',
+                extra=log_data | {'seconds': sleepy_time},
+                loglevel=logging.INFO
+            ) from exc
+        except Exception as exc:
+            sleepy_time: int = randrange(10, 30)
+            await sleep(sleepy_time)
+            raise ByodaException(
+                'Failed to extract info for video, sleeping',
+                extra=log_data | {'seconds': sleepy_time},
+                loglevel=logging.INFO
+            ) from exc
+
+        self.channel = video_info.get('channel')
+
+        self.is_live = self.is_live or video_info.get('is_live')
+        if self.is_live:
+            _LOGGER.debug('Skipping live video', extra=log_data)
+            return
+
+        self.embedable = self.embedable or video_info.get(
+            'playable_in_embed', True
+        )
+        if not (self.embedable or ingest_videos):
+            _LOGGER.debug('Skipping non-embedable video', extra=log_data)
+            return
+
+        self.description = self.description or video_info.get('description')
+        self.title = self.title or video_info.get('title')
+        self.view_count = self.view_count or video_info.get('view_count')
+        self.like_count = self.like_count or video_info.get('like_count')
+        self.comment_count = self.comment_count or video_info.get(
+            'comment_count'
+        )
+        self.long_title = self.long_title or video_info.get('fulltitle')
+        self.is_live = self.is_live or video_info.get('is_live')
+        self.was_live = self.was_live or video_info.get('was_live')
+        self.availability = video_info.get('availability')
+        self.duration = self.duration or video_info.get('duration')
+        self.tags = self.tags | set(video_info.get('tags', []))
+        self.categories = self.categories | set(video_info.get('categories', []))
+        self.default_audio_language = video_info.get('language')
+        self.age_limit = self.age_limit or video_info.get('age_limit', 0)
+        self.heatmaps = video_info.get('heatmaps', [])
+
+        try:
+            if (not ingest_videos
+                    and self.age_limit and int(self.age_limit) >= 18):
+                _LOGGER.debug(
+                    'Video is for 18+ videos and can not be embedded',
+                    extra=log_data
+                )
+                return
+        except ValueError:
+            _LOGGER.debug(
+                'Age limit is not an integer: '
+                f'{self.age_limit, type(self.age_limit)}',
+                extra=log_data
+            )
+
+        for language_code, captions in video_info.get(
+                'automatic_captions', {}).items():
+            for caption in captions:
+                caption = YouTubeCaption(
+                    language_code, True, caption
+                )
+                self.captions.append(caption)
+
+        for language_code, captions in video_info.get(
+                'subtitles', {}).items():
+            for caption in captions:
+                caption = YouTubeCaption(
+                    language_code, False, caption
+                )
+                self.captions.append(caption)
+
+        self.published_timestamp = dateutil_parser.parse(
+            video_info.get('upload_date', self.published_timestamp)
+        )
+        self.channel_id = video_info.get('channel_id')
+
+        self.thumbnails = YouTubeVideo._parse_thumbnails(
+            None, video_info.get('thumbnails') or []
+        )
+
         for chapter_data in video_info.get('chapters') or []:
             chapter = YouTubeVideoChapter(chapter_data)
-            video.chapters.append(chapter)
+            self.chapters.append(chapter)
 
+        self.screen_orientation_horizontal = self._parse_encoding_profiles(
+            video_info
+        )
+
+        _LOGGER.debug(
+            'Parsed all available data for video', extra=log_data
+        )
+
+    def _parse_encoding_profiles(self, video_info: dict[str, any]) -> bool:
         max_height: int = 0
         max_width: int = 0
         for format_data in video_info.get('formats') or []:
@@ -343,15 +703,42 @@ class YouTubeVideo:
                 max_height = yt_format.height
             if yt_format.width and yt_format.width > max_width:
                 max_width = yt_format.width
-            video.encoding_profiles[yt_format.format_id] = yt_format
+            self.encoding_profiles[yt_format.format_id] = yt_format
 
+        self.screen_orientation_horizontal = True
         if max_height > max_width:
-            video.screen_orientation_horizontal = False
+            self.screen_orientation_horizontal = False
 
-        _LOGGER.debug(
-            'Parsed all available data for video', extra=log_data
-        )
-        return video
+        return self.screen_orientation_horizontal
+
+    def _is_short(self, initial_data: dict) -> bool:
+        '''
+        Determine if the video is a YouTube Short
+
+        :param video_details: videoDetails section from the player response
+        :param initial_data: ytInitialData extracted from the HTML page
+        :returns: True if the video is a YouTube Short, False otherwise
+        '''
+
+        if self.screen_orientation_horizontal is True:
+            return False
+
+        if self.duration and self.duration > 60:
+            return False
+
+        # Check for Shorts-specific markers in initial data
+        try:
+            # Look for reelWatchEndpoint or shorts indicators
+            contents = initial_data.get('contents', {})
+            if 'twoColumnWatchNextResults' in contents:
+                results = contents['twoColumnWatchNextResults']
+                secondary = results.get('secondaryResults', {})
+                if 'reelShelfRenderer' in str(secondary):
+                    return True
+        except (KeyError, TypeError):
+            pass
+
+        return False
 
     @staticmethod
     def get_video_id_from_api(data) -> str:
@@ -381,10 +768,14 @@ class YouTubeVideo:
 
         snippet: dict = data.get('snippet')
         if not snippet:
-            raise ValueError('Invalid data from YouTube API: no snippet')
+            raise ByodaValueError(
+                'Invalid data from YouTube API: no snippet'
+            )
 
         if 'publishedAt' not in snippet:
-            raise ValueError('Invalid data from YouTube API: no publishedAt')
+            raise ByodaValueError(
+                'Invalid data from YouTube API: no publishedAt'
+            )
 
         published_at: datetime = dateutil_parser.parse(snippet['publishedAt'])
 
@@ -401,7 +792,7 @@ class YouTubeVideo:
             ingest_status = IngestStatus(ingest_status)
 
         log_data: dict[str, str] = {
-            'channel': self.channel_creator,
+            'channel': self.channel,
             'video_id': self.video_id,
             'ingest_status': self.ingest_status.value
         }
@@ -428,12 +819,14 @@ class YouTubeVideo:
             'video_thumbnails': [
                 thumbnail.url for thumbnail in self.thumbnails.values()
                 ],
-            'creator': self.channel_creator,
+            'creator': self.channel,
             'publisher': self.publisher,
             'publisher_asset_id': self.video_id,
             'title': self.title,
             'contents': self.description,
-            'annotations': self.annotations
+            'keywords': list(self.keywords),
+            'annotations': list(self.annotations),
+            'categories': list(self.categories),
         }
 
         return claim_data
@@ -457,12 +850,12 @@ class YouTubeVideo:
         return claim_request
 
     async def persist(
-        self, member: Member, storage_driver: FileStorage, ingest_asset: bool,
+        self, member: Member, ingest_asset: bool,
         video_table: Table, bento4_directory: str = None,
         moderate_request_url: str | None = None,
         moderate_jwt_header: str = None, moderate_claim_url: str | None = None,
         custom_domain: str | None = None, _test_asset_dir: str | None = None
-    ) -> bool | None:
+    ) -> bool:
         '''
         Adds or updates a video in the datastore.
 
@@ -476,34 +869,34 @@ class YouTubeVideo:
         packaging tool
         :param claim: a claim for the video signed by a moderate API
         :param _test_asset_dir: location of test asset to avoid downloading
-        :returns: True if the video was added, False if it already existed, or
-        None if an error was encountered
+        :returns: True if the video was added, False if it already existed
+        :raises: ByodaValueError if storage_driver is not set
         '''
 
-        if not storage_driver:
-            raise ValueError(
-                'storage_driver must be provided if ingest_asset is True'
-            )
-
         log_data: dict[str, str] = {
-            'video_id': self.video_id, 'channel': self.channel_creator,
-            'channel_thumbnail': self.creator_thumbnail,
+            'video_id': self.video_id, 'channel': self.channel,
+            'channel_id': self.channel_id,
+            'channel_thumbnail': self.channel_thumbnail_url,
             'ingest_status': self.ingest_status.value
         }
 
+        if not self.storage_driver:
+            raise ByodaValueError(
+                'storage_driver must be set if ingest_asset is True',
+                extra=log_data, loglevel=_LOGGER.error
+            )
+
         update: bool = False
         claim_request: ClaimRequest | None = None
-        unavailable: IngestStatus = IngestStatus.UNAVAILABLE
-        if self.ingest_status != unavailable:
+        log_data['ingest_status'] = self.ingest_status.value
+        if self.ingest_status != IngestStatus.UNAVAILABLE:
             # We import thumbnails regardless of ingress setting so that
             # the browser doesn't have to download these from YouTube, which
             # may improve privacy
             await self._ingest_thumbnails(
-                storage_driver, member, custom_domain=custom_domain
+                self.storage_driver, member, custom_domain=custom_domain
             )
 
-        log_data['ingest_status'] = self.ingest_status.value
-        if self.ingest_status != unavailable:
             if not ingest_asset:
                 self._transition_state(IngestStatus.EXTERNAL)
                 log_data['ingest_status'] = self.ingest_status.value
@@ -516,7 +909,7 @@ class YouTubeVideo:
                         'Ingesting AV tracks for video', extra=log_data
                     )
                     update = await self._ingest_assets(
-                        member, storage_driver, video_table,
+                        member, self.storage_driver, video_table,
                         bento4_directory, custom_domain=custom_domain,
                         _test_asset_dir=_test_asset_dir
                     )
@@ -548,7 +941,7 @@ class YouTubeVideo:
 
                     # We now set state to PUBLISHED because we need that value
                     # to be written to the database
-                    if self.ingest_status != unavailable:
+                    if self.ingest_status != IngestStatus.UNAVAILABLE:
                         self._transition_state(IngestStatus.PUBLISHED)
                         log_data['ingest_status'] = self.ingest_status.value
 
@@ -558,18 +951,19 @@ class YouTubeVideo:
                             'Test case, not bothering about moderation failure'
                         )
                     else:
-                        _LOGGER.debug(
-                            'Ingesting asset for YouTube video failed',
-                            extra=log_data | {'exception': str(exc)}
-                        )
-                        raise
+                        raise ByodaRuntimeError(
+                            'Moderation request for YouTube video failed',
+                            extra=log_data, loglevel=logging.INFO
+                        ) from exc
 
         asset: dict[str, any] = {}
         for field, mapping in YouTubeVideo.DATASTORE_FIELD_MAPPINGS.items():
             value: any = getattr(self, field)
-            if value:
+            if value is not None:
                 if isinstance(value, Enum):
                     asset[mapping] = value.value
+                elif isinstance(value, set):
+                    asset[mapping] = list(value)
                 else:
                     asset[mapping] = value
 
@@ -585,7 +979,7 @@ class YouTubeVideo:
                 claim_data.pop('claim_data')
                 asset[YouTubeVideo.DATASTORE_CLASS_NAME_CLAIMS] = [claim_data]
             else:
-                storage_driver.save(
+                self.storage_driver.save(
                     f'claim_requests/pending/{self.asset_id}',
                     orjson.dumps(claim_request, orjson.OPT_INDENT_2)
                 )
@@ -599,6 +993,10 @@ class YouTubeVideo:
         ]
 
         asset['encoding_profiles'] = list(self.encoding_profiles.keys())
+        asset['video_captions'] = [
+            caption.as_dict() for caption in self.captions or []
+        ]
+
         network: Network = member.network
         schema: Schema = member.schema
         data_class: SchemaDataArray = \
@@ -639,11 +1037,10 @@ class YouTubeVideo:
                 )
                 return None
         except Exception as exc:
-            _LOGGER.warning(
-                f'Failed to ingest video with query_id {query_id}: {exc}',
-                extra=log_data
-            )
-            return None
+            raise ByodaRuntimeError(
+                f'Failed to ingest video with query_id {query_id}',
+                extra=log_data, loglevel=logging.DEBUG
+            ) from exc
 
         _LOGGER.info(
             'Added YouTube video', extra=log_data
@@ -651,75 +1048,84 @@ class YouTubeVideo:
 
         return not update
 
-    def download(self, video_formats: set[str], audio_formats: set[str],
-                 work_dir: str = None) -> str | None:
+    def _recreate_work_dir(self) -> str:
+        '''
+        Recreates the work directory for the video
+
+        :returns: path to the work directory
+        :raises: ByodaRuntimeError if the work directory can not be created
+        '''
+
+        if not self.storage_driver:
+            raise ByodaRuntimeError(
+                'No storage driver available to create work directory',
+                log_extra={
+                    'video_id': self.video_id, 'work_dir': self._work_dir
+                }
+            )
+
+        try:
+            shutil.rmtree(self._work_dir, ignore_errors=True)
+            os.makedirs(self._work_dir, exist_ok=True)
+        except OSError as exc:
+            raise ByodaValueError(
+                f'Failed to create work directory {self._work_dir}',
+                log_extra={
+                    'video_id': self.video_id, 'work_dir': self._work_dir
+                }
+            ) from exc
+
+        return self._work_dir
+
+    def download(self, _test_asset_dir: str | None = None) -> str:
         '''
         Downloads the video and audio streams of the video. Stores the
         different files in work_directory. Will create 'work_dir' if it
         does not exist.
 
-        :param video_formats: the YouTube video format IDs to download
-        :param audio_formats: the YouTube audio format IDs to download
-        :returns: whether the download was successful
+        The directory used to temporarily store the downloaded video files
+        is defined by self.download_client so this method does not
+        support concurrent downloads of videos using the same
+        self.download_client.
+
+        :returns: directory where the video was downloaded
         :raises: OSError if work_dir exists and is not empty
         '''
 
-        if not work_dir:
-            work_dir = f'/tmp/{self.video_id}'
-
         log_data: dict[str, str] = {
-            'video_id': self.video_id, 'channel': self.channel_creator,
+            'video_id': self.video_id, 'channel': self.channel,
             'ingest_status': self.ingest_status.value
         }
 
         self._transition_state(IngestStatus.DOWNLOADING)
         log_data['ingest_status'] = self.ingest_status.value
 
-        if config.test_case and os.path.exists(work_dir):
+        self._recreate_work_dir()
+        if config.test_case and _test_asset_dir is not None:
+            copytree(_test_asset_dir, self._work_dir,)
+
             _LOGGER.debug(
                 'Skipping download of video in test case', extra=log_data
             )
-            return work_dir
+            return self._work_dir
 
-        os.makedirs(work_dir, exist_ok=True)
+        try:
+            _LOGGER.debug(
+                f'Downloading YouTube video to {self._work_dir} started',
+                extra=log_data
+            )
+            self.download_client.download([self.url])
+            _LOGGER.debug(
+                f'Download of YouTube video to {self._work_dir} completed',
+                extra=log_data
+            )
+        except (DownloadError, Exception) as exc:
+            raise ByodaValueError(
+                'Failed to download YouTube video', loglevel=logging.INFO,
+                extra=log_data
+            ) from exc
 
-        ydl_opts: dict[str, any] = {
-            'quiet': True,
-            'logger': _LOGGER,
-            'noprogress': True,
-            'no_color': True,
-            'format': ','.join(video_formats | audio_formats),
-            'outtmpl': {'default': 'asset-%(id)s.%(format_id)s.%(ext)s'},
-            'paths': {'home': work_dir, 'temp': work_dir},
-            'fixup': 'never',
-        }
-
-        if config.debug:
-            ydl_opts['verbose'] = True
-            ydl_opts['quiet'] = False
-
-        _LOGGER.debug(
-            'Instantiating YouTubeDL client', extra=log_data
-        )
-        with YoutubeDL(ydl_opts) as ydl:
-            try:
-                _LOGGER.debug(
-                    f'Downloading YouTube video to {work_dir} started',
-                    extra=log_data
-                )
-                ydl.download([self.url])
-                _LOGGER.debug(
-                    f'Download of YouTube video to {work_dir} completed',
-                    extra=log_data
-                )
-            except (DownloadError, Exception) as exc:
-                _LOGGER.info(
-                    f'Failed to download YouTube video: {exc}',
-                    extra=log_data
-                )
-                return None
-
-        return work_dir
+        return self._work_dir
 
     async def download_claim(self, moderate_claim_url: str) -> dict[str, any]:
         '''
@@ -756,18 +1162,20 @@ class YouTubeVideo:
         :param bento4_directory: directory where to find the BenTo4 MP4
         packaging tool
         :param custom_domain: custom domain to use for the video URL
-        :param _test_asset_dir: directory where to find the test asset
-        :returns: True if the video was updated, False if it was created,
-        None if an error was encountered
-        :raises: ValueError if the ingest status of the video is invalid
+        :param _test_asset_dir: directory where to find the test asset so
+        that it does not need to be downloaded
+        :returns: True if the video was updated, False if it was created
+        :raises: ByodaValueError if the ingest status of the video is invalid
         '''
 
         server: PodServer = config.server
+
         log_data: dict[str, str] = {
-            'video_id': self.video_id, 'channel': self.channel_creator,
+            'video_id': self.video_id, 'channel': self.channel,
             'ingest_status': self.ingest_status.value,
             'cdn_fqdn': server.cdn_fqdn,
-            'cdn_origin_site_id': server.cdn_origin_site_id
+            'cdn_origin_site_id': server.cdn_origin_site_id,
+            'work_dir': self._work_dir
         }
 
         _LOGGER.debug('Ingesting AV for video', extra=log_data)
@@ -787,12 +1195,11 @@ class YouTubeVideo:
                 log_data['ingest_status'] = current_status
                 if not isinstance(current_status, IngestStatus):
                     current_status = IngestStatus(current_status)
-            except ValueError:
-                _LOGGER.warning(
+            except ValueError as exc:
+                raise ByodaValueError(
                     f'Video has an invalid ingest status, {current_status}, '
                     'skipping ingest', extra=log_data
-                )
-                raise
+                ) from exc
 
             if current_status == IngestStatus.PUBLISHED:
                 return False
@@ -800,45 +1207,36 @@ class YouTubeVideo:
             if current_status == IngestStatus.EXTERNAL:
                 update = True
 
-        tmp_dir: str = self._get_tempdir(storage_driver)
-
         try:
-            if not _test_asset_dir:
-                download_dir: str | None = self.download(
-                    TARGET_VIDEO_STREAMS, TARGET_AUDIO_STREAMS,
-                    work_dir=tmp_dir
-                )
-                if not download_dir:
-                    return None
-            else:
-                if not config.test_case:
-                    raise ValueError(
-                        'Test asset directory must only be used in test cases'
-                    )
-                copytree(_test_asset_dir, tmp_dir)
+            self.download(_test_asset_dir=_test_asset_dir)
 
-            self.package_streams(tmp_dir, bento4_dir=bento4_directory)
+            self.package_streams(self._work_dir, bento4_dir=bento4_directory)
 
-            await self.upload(tmp_dir, storage_driver)
+            await self.upload(self._work_dir, storage_driver)
 
-            tree: ByoMerkleTree = ByoMerkleTree.calculate(directory=tmp_dir)
+            tree: ByoMerkleTree = ByoMerkleTree.calculate(
+                directory=self._work_dir
+            )
             self.merkle_root_hash = tree.as_string()
 
-            tree_filename: str = tree.save(tmp_dir)
+            tree_filename: str = tree.save(self._work_dir)
             await storage_driver.copy(
-                f'{tmp_dir}/{tree_filename}',
+                f'{self._work_dir}/{tree_filename}',
                 f'{self.asset_id}/{tree_filename}',
                 storage_type=StorageType.RESTRICTED, exist_ok=True
             )
-        except Exception as exc:
-            _LOGGER.debug(
-                'Ingesting asset for YouTube video failed',
-                extra=log_data | {'exception': str(exc)}
-            )
+        except ByodaRuntimeError:
             self._transition_state(IngestStatus.UNAVAILABLE)
-            return None
+            raise
+        except Exception as exc:
+            self._transition_state(IngestStatus.UNAVAILABLE)
+            raise ByodaException(
+                'Ingesting asset for YouTube video failed',
+                extra=log_data
+            ) from exc
         finally:
-            self._delete_tempdir(storage_driver)
+            if not config.test_case:
+                self._recreate_work_dir()
 
         if server.cdn_fqdn and server.cdn_origin_site_id:
             _LOGGER.debug(
@@ -868,17 +1266,18 @@ class YouTubeVideo:
     async def _ingest_thumbnails(
         self, storage_driver: FileStorage, member: Member,
         custom_domain: str | None = None
-    ) -> int | None:
+    ) -> int:
         '''
         Ingests the thumbnails of the video and its creator
 
         :param storage_driver: the storage driver to upload the video with
         :param member: the membership for the service
+        :returns: number of ingested thumbnails
         '''
 
         log_data: dict[str, str] = {
             'video_id': self.video_id,
-            'channel': self.channel_creator,
+            'channel': self.channel,
             'asset_id': self.asset_id,
             'ingest_status': self.ingest_status.value
         }
@@ -902,28 +1301,29 @@ class YouTubeVideo:
                 thumbnails_counter += 1
             except ByodaRuntimeError:
                 self._transition_state(IngestStatus.UNAVAILABLE)
-                self._delete_tempdir(storage_driver)
-                return None
+                raise
+            finally:
+                self._delete_tempdir(tmp_dir)
 
-        if self.creator_thumbnail_asset:
+        tmp_dir: str = self._create_tempdir(storage_driver)
+        if self.channel_thumbnail_asset:
             _LOGGER.debug(
                 'Starting ingest of creator thumbnail from '
-                f'{self.creator_thumbnail_asset.url}',
+                f'{self.channel_thumbnail_asset.url}',
                 extra=log_data
             )
             try:
-                self.creator_thumbnail = \
-                    await self.creator_thumbnail_asset.ingest(
+                self.channel_thumbnail = \
+                    await self.channel_thumbnail_asset.ingest(
                         self.asset_id, storage_driver, member, tmp_dir,
                         custom_domain=custom_domain
                     )
                 thumbnails_counter += 1
             except ByodaRuntimeError:
                 self._transition_state(IngestStatus.UNAVAILABLE)
-                self._delete_tempdir(storage_driver)
-                return None
-
-        self._delete_tempdir(storage_driver)
+                raise
+            finally:
+                self._delete_tempdir(tmp_dir)
 
         _LOGGER.debug(
             f'Ingested {thumbnails_counter} thumbnails',
@@ -943,7 +1343,7 @@ class YouTubeVideo:
 
         log_data: dict[str, str] = {
             'video_id': self.video_id,
-            'channel': self.channel_creator,
+            'channel': self.channel,
             'asset_id': self.asset_id,
             'ingest_status': self.ingest_status.value
         }
@@ -964,19 +1364,47 @@ class YouTubeVideo:
             )
 
     def _get_tempdir(self, storage_driver: FileStorage) -> str:
-        tmp_dir: str = storage_driver.local_path + 'tmp/' + self.video_id
+        '''
+        Gets the path to a temporary directory for downloading
+        and processing the video. The directory is not created.
+
+        :param storage_driver:
+        :returns: the path to the temporary directory
+        '''
+
+        tmp_dir: str = storage_driver.local_path + 'tmp/'
+        if self.video_id:
+            tmp_dir += f'ytvideo_{self.video_id}/'
+        else:
+            tmp_dir += f'ytvideo_{uuid4()[0:6]}/'
 
         return tmp_dir
 
     def _create_tempdir(self, storage_driver: FileStorage) -> str:
+        '''
+        Creates a temporary directory for downloading and processing
+        the video
+
+        :param storage_driver:
+        :returns: the path to the temporary directory
+
+        '''
+
         tmp_dir: str = self._get_tempdir(storage_driver)
+
         os.makedirs(tmp_dir, exist_ok=True)
 
         return tmp_dir
 
-    def _delete_tempdir(self, storage_driver: FileStorage) -> None:
-        tmp_dir: str = self._get_tempdir(storage_driver)
-        shutil.rmtree(tmp_dir)
+    def _delete_tempdir(self, tmp_dir: str) -> None:
+        '''
+        Deletes the temporary directory for downloading and processing
+        the video
+
+        :param tmp_dir: path to the temporary directory to be deleted
+        '''
+
+        shutil.rmtree(tmp_dir, ignore_errors=True)
 
     def package_streams(self, work_dir: str, bento4_dir: str = BENTO4_DIR
                         ) -> None:
@@ -987,7 +1415,7 @@ class YouTubeVideo:
 
         log_extra: dict[str, str] = {
             'video_id': self.video_id,
-            'channel': self.channel_creator,
+            'channel': self.channel,
             'asset_id': self.asset_id,
             'ingest_status': self.ingest_status.value
         }
@@ -1092,7 +1520,7 @@ class YouTubeVideo:
             file_name for file_name in os.listdir(work_dir)
             if not file_name.endswith('.json')
         ]
-
+        log_extra['files'] = file_names
         _LOGGER.debug(
             'Packaging MPEG-DASH and HLS manifests for '
             f'files: {", ".join(file_names)}', extra=log_extra

@@ -71,7 +71,7 @@
                         "format": "iri"
                     },
                     "show_external_assets": {
-                        "description": "Should the pod show assets from other social media services?",
+                        "description": "Should the pod show assets hosted on other social media services?",
                         "type": "boolean"
                     },
                     "email_address": {
@@ -255,6 +255,22 @@
                     },
                     "anonymous": {
                         "permissions": ["read", "subscribe"]
+                    }
+                },
+                "type": "array",
+                "items": {
+                    "$ref": "#/schemas/asset"
+                }
+            },
+            "network_assets": {
+                "#accesscontrol": {
+                    "member": {
+                        "permissions": ["read", "update", "delete", "append", "subscribe"]
+                    },
+                    "network": {
+                        "permissions": ["read", "subscribe"],
+                        "distance": 1,
+                        "relation": "subscriber"
                     }
                 },
                 "type": "array",
@@ -882,6 +898,13 @@
                             "$ref": "/schemas/video_chapter"
                         }
                     },
+                    "video_captions": {
+                        "description": "list of caption tracks for the asset",
+                        "type": "array",
+                        "items": {
+                            "$ref": "/schemas/video_caption"
+                        }
+                    },
                     "encoding_profiles": {
                         "description": "list of encoding profiles for the asset",
                         "type": "array",
@@ -893,20 +916,33 @@
                         "description": "locale for the metadata, ie. en_US",
                         "type": "string"
                     },
-                    "creator": {
-                        "description": "creator of the asset",
+                    "default_audio_language": {
+                        "description": "language of the audio track, as a BCP-47 language tag",
+                        "type": "string"
+                    },
+                    "publisher_channel": {
+                        "description": "channel of the asset on the publisher platform",
                         "type": "string",
                         "#properties": ["index"]
                     },
-                    "creator_thumbnail": {
+                    "channel_thumbnail": {
                         "description": "URL for the creator's thumbnail",
                         "type": "string",
                         "format": "iri"
+                    },
+                    "uploaded_timestamp": {
+                        "description": "date-time of upload of the content",
+                        "type": "string",
+                        "format": "date-time"
                     },
                     "published_timestamp": {
                         "description": "date-time of first publication of the content",
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "license": {
+                        "description": "license for the asset, ie. 'CC-BY-SA-4.0'",
+                        "type": "string"
                     },
                     "content_warnings": {
                         "description": "list of terms with potential triggers, such as violence, or cursing",
@@ -946,6 +982,14 @@
                         "description": "The number of likes the asset has had on the publisher platform",
                         "type": "number"
                     },
+                    "publisher_dislikes": {
+                        "description": "The number of dislikes the asset has had on the publisher platform",
+                        "type": "number"
+                    },
+                    "publisher_comment_count": {
+                        "description": "The number of comments the asset has had on the publisher platform",
+                        "type": "number"
+                    },
                     "title": {
                         "description": "title of the asset",
                         "type": "string"
@@ -958,8 +1002,23 @@
                         "description": "text for the asset",
                         "type": "string"
                     },
+                    "is_live": {
+                        "description": "Whether the asset is a live stream",
+                        "type": "boolean"
+                    },
+                    "was_live": {
+                        "description": "Whether the asset was at one point a live stream",
+                        "type": "boolean"
+                    },
                     "keywords": {
                         "description": "comma-separated list of keywords",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "tags": {
+                        "description": "tags for the asset, things like '#funny', '#howto', etc.",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -980,13 +1039,18 @@
                         }
                     },
                     "duration": {
-                        "description": "the duration of the video",
+                        "description": "the duration of the video (in seconds)",
                         "type": "number"
                     },
                     "channel_id": {
                         "description": "UUID of the channel, if any, that the asset was posted to",
                         "type": "string",
                         "format": "uuid"
+                    },
+                    "publisher_channel_id": {
+                        "description": "Identifier of the channel on the publisher platform",
+                        "type": "string",
+                        "#properties": ["index"]
                     },
                     "ingest_status": {
                         "description": "status of the ingest process",
@@ -1002,9 +1066,53 @@
                         "items": {
                             "$ref": "/schemas/monetization"
                         }
+                    },
+                    "is_family_safe": {
+                        "description": "Whether the asset is marked as made for kids",
+                        "type": "boolean"
+                    },
+                    "age_limit": {
+                        "description": "The minimum age required to view the asset",
+                        "type": "number"
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
+            },
+            "video_caption": {
+                "$id": "/schemas/video_caption",
+                "$schema": "https://json-schema.org/draft/2020-12/schema#",
+                "description": "A caption track for a video asset",
+                "type": "object",
+                "properties": {
+                    "caption_id": {
+                        "description": "The UUID of the video caption",
+                        "type": "string",
+                        "format": "uuid",
+                        "#properties": ["primary_key", "index", "counter"]
+                    },
+                    "language_code": {
+                        "description": "The language of the caption track, as a BCP-47 language tag",
+                        "type": "string"
+                    },
+                    "is_auto_generated": {
+                        "description": "Whether the caption track was auto-generated by the publisher",
+                        "type": "boolean"
+                    },
+                    "url": {
+                        "description": "The URL of the caption track file",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "extension": {
+                        "description":  "The extension of the caption track file, ie. 'srt', 'vtt', etc.",
+                        "type": "string"
+                    },
+                    "protocol": {
+                        "description": "The protocol used to deliver the caption track file, ie. 'https', 'ftp', etc.",
+                        "type": "string"
+                    }
+                },
+                "required": ["caption_id", "language_code", "url"]
             },
             "burst_point_attestation": {
                 "$id": "/schemas/burst_point_attestation",
@@ -1245,7 +1353,7 @@
                 "type": "object",
                 "properties": {
                     "created_timestamp": {
-                        "description": "time the channel was created",
+                        "description": "time this channel entry was created",
                         "format": "date-time",
                         "type": "string"
                     },
@@ -1254,10 +1362,14 @@
                         "type": "string",
                         "format": "uuid"
                     },
-                    "creator": {
-                        "description": "creator of the asset",
+                    "channel": {
+                        "description": "name of the channel",
                         "type": "string",
                         "#properties": ["index"]
+                    },
+                    "title": {
+                        "description": "title of the channel",
+                        "type": "string"
                     },
                     "description": {
                         "description": "information about the channel",
@@ -1265,6 +1377,13 @@
                     },
                     "keywords": {
                         "description": "keywords that apply to all the videos of the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "categories": {
+                        "description": "categories for the channel",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -1281,8 +1400,12 @@
                         "description": "Whether the channel is family safe",
                         "type": "boolean"
                     },
+                    "country_code": {
+                        "description": "ISO3166-2 country code for the owner of the channel, ie. US",
+                        "type": "string"
+                    },
                     "available_country_codes": {
-                        "description": "list of country codes where the channel is available",
+                        "description": "list of ISO3166-2 country codes where the channel is available",
                         "type": "array",
                         "items": {
                             "type": "string"
@@ -1309,15 +1432,33 @@
                             "$ref": "#/schemas/external_link"
                         }
                     },
-                    "thirdparty_platform_followers": {
+                    "publisher_channel_id": {
+                        "description": "The ID of the channel on the thirdparty platform",
+                        "type": "string"
+                    },
+                    "publisher_joined_date": {
+                        "description": "The date the channel was created on the thirdparty platform",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "publisher_rss_url": {
+                        "description": "The RSS feed URL of the channel on the thirdparty platform",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "publisher_verified": {
+                        "description": "Whether the channel is verified on the thirdparty platform",
+                        "type": "boolean"
+                    },
+                    "publisher_platform_followers": {
                         "description": "The number of followers the channel has on other platforms",
                         "type": "integer"
                     },
-                    "thirdparty_platform_videos": {
+                    "publisher_platform_videos": {
                         "description": "The number of videos the channel has on other platforms",
                         "type": "integer"
                     },
-                    "thirdparty_platform_views": {
+                    "publisher_platform_views": {
                         "description": "The number of views the channel has on other platforms",
                         "type": "integer"
                     },
@@ -1355,11 +1496,11 @@
     },
     "name": "BYO.Tube",
     "owner": "Steven Hessing",
-    "max_query_depth": 5,
+    "max_query_depth": 3,
     "service_id": 16384,
     "signatures": {},
     "supportemail": "support@byo.tube",
-    "version": 1,
+    "version": 2,
     "website": "https://byo.tube/",
     "cors_origins": [
         "byo.tube",

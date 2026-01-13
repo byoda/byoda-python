@@ -43,6 +43,7 @@ def convert_number_string(number_text: str | int) -> int | None:
                 count_pre * multipliers[multiplier]
             )
         else:
+            number_text = number_text.replace(',', '')
             count = int(number_text)
 
         return count

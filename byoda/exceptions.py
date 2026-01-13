@@ -9,38 +9,47 @@ Exceptions that log messages
 import logging
 from logging import Logger
 from logging import getLogger
+
 _LOGGER: Logger = getLogger(__name__)
 
 
-class ByodaException(BaseException):
+class ByodaException(Exception):
     '''
     Base class for Byoda exceptions
     '''
-    def __init__(self, message, loglevel=logging.DEBUG):
-        logging.log(level=loglevel, msg=message)
+    def __init__(self, message, loglevel=logging.DEBUG,
+                 extra: dict[str, any] = {}) -> None:
+        _LOGGER.log(
+            level=loglevel, msg=message,
+            extra=extra | {'exception': {str(self)}}
+        )
         super().__init__(message)
 
 
 class ByodaValueError(ByodaException, ValueError):
-    def __init__(self, message, loglevel=logging.DEBUG):
-        super(ByodaException, self).__init__(message, loglevel)
+    def __init__(self, message, loglevel=logging.DEBUG,
+                 extra: dict[str, any] = {}) -> None:
+        super(ByodaException, self).__init__(message, loglevel, extra=extra)
         super(ValueError, self).__init__(message)
 
 
 class ByodaRuntimeError(ByodaException, RuntimeError):
-    def __init__(self, message, loglevel=logging.DEBUG):
-        super(ByodaException, self).__init__(message, loglevel)
+    def __init__(self, message, loglevel=logging.DEBUG,
+                 extra: dict[str, any] = {}) -> None:
+        super(ByodaException, self).__init__(message, loglevel, extra=extra)
         super(RuntimeError, self).__init__(message)
 
 
 class ByodaMissingAuthInfo(ByodaException):
-    def __init__(self, message, loglevel=logging.DEBUG):
-        super().__init__(message, loglevel)
+    def __init__(self, message, loglevel=logging.DEBUG,
+                 extra: dict[str, any] = {}) -> None:
+        super().__init__(message, loglevel, extra=extra)
 
 
 class ByodaDataClassReferenceNotFound(ByodaException):
-    def __init__(self, message, loglevel=logging.DEBUG):
-        super().__init__(message, loglevel)
+    def __init__(self, message, loglevel=logging.DEBUG,
+                 extra: dict[str, any] = {}) -> None:
+        super().__init__(message, loglevel, extra=extra)
 
 
 class PodInvalidAuthInfo(BaseException):

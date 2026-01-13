@@ -38,7 +38,7 @@
     ],
     "locale": "en-US",
     "creator": "John Doe",
-    "creator_thumbnail": "https://dummy.url/creator_thumbnail",
+    "channel_thumbnail": "https://dummy.url/channel_thumbnail",
     "content_warnings": ["are not", "fun"],
     "claims": [
         {

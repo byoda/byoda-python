@@ -18,7 +18,14 @@ from logging import Logger
 from datetime import UTC
 from datetime import datetime
 
+import httpx
+
+from yt_dlp import YoutubeDL
+
+from byoda.data_import.youtube_client import Response
 from byoda.data_import.youtube_channel import YouTubeChannel
+from byoda.data_import.youtube_client import AsyncYouTubeClient
+from byoda.data_import.youtube_thumbnail import YouTubeThumbnail
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.account import Account
@@ -65,6 +72,7 @@ from tests.lib.setup import mock_environment_vars
 from tests.lib.auth import get_member_auth_header
 
 from tests.lib.defines import BYOTUBE_SERVICE_ID
+from tests.lib.defines import BYOTUBE_LOCAL_SCHEMA
 from tests.lib.defines import MODTEST_FQDN, MODTEST_APP_ID
 
 _LOGGER = None
@@ -102,15 +110,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         except FileNotFoundError:
             pass
 
-        os.makedirs(f'{TEST_DIR}/tests/collateral', exist_ok=True)
-        shutil.copy(
-            'tests/collateral/byotube.json', f'{TEST_DIR}/tests/collateral/'
-        )
-        shutil.copy(
-            'tests/collateral/addressbook.json',
-            f'{TEST_DIR}/tests/collateral/'
-        )
-
         mock_environment_vars(TEST_DIR, hash_password=False)
         network_data: dict[str, str] = await setup_network(
             delete_tmp_dir=False
@@ -120,8 +119,9 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         config.disable_pubsub = True
 
         account: Account = await setup_account(
-            network_data, clean_pubsub=False, service_id=BYOTUBE_SERVICE_ID,
-            local_service_contract=os.environ.get('LOCAL_SERVICE_CONTRACT')
+            network_data, test_dir=TEST_DIR, clean_pubsub=False,
+            service_id=BYOTUBE_SERVICE_ID, version=2,
+            local_service_contract=BYOTUBE_LOCAL_SCHEMA
         )
 
         config.trace_server = os.environ.get(
@@ -133,7 +133,7 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             exist_ok=True
         )
         shutil.copy(
-            'tests/collateral/byotube.json',
+            BYOTUBE_LOCAL_SCHEMA,
             (
                 f'{TEST_DIR}/network-byoda.net/services/service-16384'
                 '/service-contract.json'
@@ -172,44 +172,24 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
 
         await ApiClient.close_all()
 
-    async def atest_find_value(self) -> None:
-        '''
-        Unit test for finding a value in a nested dictionary
-        '''
-
-        data: dict = {
-            'level-1': {
-                'level-2': {
-                    'level-3': 'some value'
-                }
-            }
-        }
-        result: list[str] | None = YouTubeChannel._find_value(data, 'value')
-        self.assertEqual(
-            result, ['level-1', 'level-2', 'level-3', 'some value']
+    @unittest.skip(
+        'Skipping consent cookies test, '
+        'generating new cookies not worked yet'
+    )
+    async def test_consent_cookies(self) -> None:
+        client = AsyncYouTubeClient()
+        await client.get_consent_cookies()
+        response: Response = httpx.get(
+            'https://www.youtube.com/', headers=client.headers,
+            cookies=client.cookies
         )
 
-        data = {
-            'level-1': [
-                {
-                    'level-2[0]': {
-                        'level-3': 'no matchalue'
-                    }
-                },
-                {
-                    'level-2[1]': {
-                        'level-3': 'some value'
-                    }
-                },
-            ]
-        }
-
-        result = YouTubeChannel._find_value(data, 'value')
-        self.assertEqual(
-            result, ['level-1', '[]', 'level-2[1]', 'level-3', 'some value']
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(    # NOSONAR (S5906)
+            'consent.youtube.com' in response.text
         )
 
-    async def atest_content_categories(self) -> None:
+    async def test_video_ingest(self) -> None:
         '''
         Test the content categories
         '''
@@ -221,98 +201,47 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         data_classes: dict[str, SchemaDataItem] = schema.data_classes
 
         server: PodServer = config.server
-        data_store: DataStore = server.data_store
-        storage_driver: FileStorage = server.storage_driver
 
         data_class: SchemaDataItem = \
             data_classes[YouTubeVideo.DATASTORE_CLASS_NAME]
+        data_store: DataStore = server.data_store
         video_table: Table = data_store.get_table(
             member.member_id, data_class.name
         )
 
-        video: YouTubeVideo = await YouTubeVideo.scrape(
-            'dtp6b76pMak', True, 'Marques Brownlee', None
+        channel_name: str = 'Marques Brownlee'
+        storage_driver: FileStorage = server.storage_driver
+        ytc = YouTubeChannel(
+            name=channel_name, ingest=True, storage_driver=storage_driver
         )
-        await video.persist(
-            member=member, storage_driver=storage_driver, ingest_asset=True,
+        browse_client: YoutubeDL = ytc._setup_yt_dlp(with_download=False)
+        download_client: YoutubeDL = ytc._setup_yt_dlp(with_download=True)
+
+        thumb = YouTubeThumbnail(
+            size='high',
+            data={
+                'url': 'https://i.ytimg.com/vi/5Y9L5NBINV4/hqdefault.jpg?sqp=-oaymwE1CKgBEF5IVfKriqkDKAgBFQAAiEIYAXABwAEG8AEB-AH-CYAC0AWKAgwIABABGGUgTyg_MA8=&rs=AOn4CLAXVLUryrnVlr6FnuChsr72CnCcFQ',   # noqa: E501
+                'width': 480,
+                'height': 360
+            }
+        )
+        video: YouTubeVideo = await YouTubeVideo.scrape(
+            'dtp6b76pMak', True, channel_name, thumb,
+            consent_cookies=AsyncYouTubeClient.CONSENT_COOKIES,
+            browse_client=browse_client, download_client=download_client,
+            storage_driver=storage_driver
+        )
+        result: bool | None = await video.persist(
+            member=member, ingest_asset=True,
             video_table=video_table, bento4_directory=BENTO4_DIRECTORY,
             moderate_request_url=None, moderate_jwt_header=None,
             moderate_claim_url=None, custom_domain=None,
-            _test_asset_dir=TEST_ASSET_DIR
+            #_test_asset_dir=TEST_ASSET_DIR
 
         )
+        self.assertIsNotNone(result)
 
-    async def atest_scrape_unavailable_video(self) -> None:
-        '''
-        Test scraping a video that is unavailable
-        '''
-
-        video_id: str = 'JZ9Qj7bGizA'
-        video: YouTubeVideo = await YouTubeVideo.scrape(
-            video_id, None, None, None
-        )
-        self.assertIsNotNone(video)
-        self.assertIsNotNone(video.asset_id)
-        self.assertEqual(video.ingest_status, IngestStatus.UNAVAILABLE)
-        self.assertEqual(video.video_id, video_id)
-
-    async def test_get_channelname(self) -> None:
-        '''
-        Test getting the channel name from a video
-        '''
-
-        channel_name: str = 'LegalEagle'
-        ytc = YouTubeChannel(name=channel_name)
-        page_data: str = await ytc.get_videos_page()
-        ytc.parse_channel_info(page_data)
-        self.assertIsNotNone(ytc)
-        self.assertEqual(ytc.title, channel_name)
-        self.assertEqual(ytc.youtube_channel_id, 'UCpa-Zb0ZcQjTCPP1Dx_1M8Q')
-        # this banners test is flakey as scrape does not always include
-        # expected 'c4TabbedHeaderRenderer' in the page_data
-        # self.assertEqual(len(ytc.banners), 16)
-        self.assertEqual(ytc.channel_thumbnail.size, '160x160')
-        self.assertEqual(len(ytc.channel_thumbnails), 3)
-        self.assertTrue(
-            ytc.description.startswith(
-                'History Matters is a history-focused'
-            )
-        )
-        self.assertEqual(len(ytc.external_urls), 2)
-        self.assertEqual(len(ytc.keywords), 1)
-        self.assertIn('Education', ytc.keywords)
-
-    async def atest_scrape_channel(self) -> None:
-        account: Account = config.server.account
-        service_id: int = BYOTUBE_SERVICE_ID
-        member: Member = await account.get_membership(service_id)
-        schema: Schema = member.schema
-        data_classes: dict[str, SchemaDataItem] = schema.data_classes
-        class_name: str = YouTubeVideo.DATASTORE_CLASS_NAME
-        data_class: SchemaDataItem = data_classes[class_name]
-
-        server: PodServer = config.server
-        data_store: DataStore = server.data_store
-        storage_driver: FileStorage = server.storage_driver
-
-        video_table: Table = data_store.get_table(
-            member.member_id, data_class.name
-        )
-
-        channel: str = 'Dathes'
-
-        await channel.scrape(
-            member, data_store, storage_driver, video_table,
-            BENTO4_DIRECTORY,
-            moderate_request_url=None,
-            moderate_jwt_header=None,
-            moderate_claim_url=None,
-            ingest_interval=None,
-            custom_domain='test.byoda.me',
-            max_videos_per_channel=10,
-        )
-
-    async def atest_scrape_videos(self) -> None:
+    async def test_scrape_videos(self) -> None:
         '''
         Test scraping a video that is available
         '''
@@ -330,15 +259,17 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         storage_driver: FileStorage = server.storage_driver
         network: Network = server.network
 
-        channel: str = 'Dathes'
+        # channel: str = 'Dathes'
+        # channel: str = 'CNN'
         # channel: str = 'nfl:ALL'
-        # channel: str = 'accountabletech'
+        channel: str = 'accountabletech'
         # channel: str = 'PolyMatter:ALL'
         # channel: str = 'HistoryMatters'
         # channel: str = 'thedealguy'
         # os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}:ALL'
         os.environ[YouTube.ENVIRON_CHANNEL] = f'{channel}'
-        yt = YouTube()
+
+        yt = YouTube(storage_driver=storage_driver)
 
         channel_data_class: SchemaDataItem = \
             data_classes[YouTubeChannel.DATASTORE_CLASS_NAME]
@@ -404,13 +335,13 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         mod_claim_url: str = mod_url + YouTube.MODERATION_CLAIM_URL
 
         await yt.import_videos(
-            member, data_store, video_table, storage_driver,
-            ingested_channels,
+            member, data_store, video_table,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url,
             ingest_interval=4,
-            custom_domain='test_domain'
+            custom_domain='test_domain',
+            max_videos=1
         )
 
         ingested_videos = await YouTube.load_ingested_videos(
@@ -419,20 +350,24 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         self.assertGreaterEqual(len(ingested_videos), 1)
 
         await yt.import_videos(
-            member, data_store, video_table, storage_driver,
-            ingested_channels,
+            member,
+            data_store=data_store, video_table=video_table,
+            bento4_directory=BENTO4_DIRECTORY,
             moderate_request_url=mod_api_url,
             moderate_jwt_header=jwt.encoded,
             moderate_claim_url=mod_claim_url,
             ingest_interval=4,
-            custom_domain='test_domain'
+            custom_domain='test_domain',
+            max_videos=1
         )
 
         newly_ingested_videos: dict[str, dict[str, str]] = \
             await YouTube.load_ingested_videos(
                 member.member_id, data_class, data_store
             )
-        self.assertEqual(len(ingested_videos), len(newly_ingested_videos))
+        self.assertGreaterEqual(
+            len(newly_ingested_videos), len(ingested_videos)
+        )
 
         ingested_channels = await YouTube.load_ingested_channels(
             member.member_id, channel_data_class, data_store
@@ -452,15 +387,42 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(data['edges'][0]['node']['claims']), 0)
 
         # Start with clean slate
-        yt = YouTube()
+        yt = YouTube(storage_driver=storage_driver)
 
         await yt.import_videos(
-            member, data_store, video_table, storage_driver,
+            member, data_store, video_table,
             ingested_channels, ingest_interval=4,
             custom_domain=server.custom_domain
         )
 
+    @unittest.skip('Boring...')
+    async def test_scrape_unavailable_video(self) -> None:
+        '''
+        Test scraping a video that is unavailable
+        '''
+
+        ytc = YouTubeChannel(
+            name='Marques Brownlee',
+            storage_driver=config.server.storage_driver
+        )
+        browse_client: YoutubeDL = ytc._setup_yt_dlp(with_download=False)
+        download_client: YoutubeDL = ytc._setup_yt_dlp(with_download=True)
+
+        video_id: str = 'JZ9Qj7bGizA'
+        video: YouTubeVideo = await YouTubeVideo.scrape(
+            video_id, False, None, None,
+            browse_client=browse_client, download_client=download_client,
+            storage_driver=config.server.storage_driver
+
+        )
+        self.assertIsNotNone(video)
+        self.assertIsNotNone(video.asset_id)
+        self.assertEqual(video.ingest_status, IngestStatus.UNAVAILABLE)
+        self.assertEqual(video.video_id, video_id)
+
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

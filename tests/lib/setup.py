@@ -147,15 +147,16 @@ async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
     return data
 
 
-async def setup_account(data: dict[str, str], test_dir: str = None,
-                        local_service_contract: str = 'addressbook.json',
-                        clean_pubsub: bool = True,
-                        service_id: int = ADDRESSBOOK_SERVICE_ID,
-                        version: int = ADDRESSBOOK_VERSION,
-                        member_id: UUID | None = None,
-                        store_type: DataStoreType = DataStoreType.POSTGRES,
-                        destroy_db: bool = True
-                        ) -> Account:
+async def setup_account(
+    data: dict[str, str], test_dir: str = None,
+    local_service_contract: str = 'addressbook.json',
+    clean_pubsub: bool = True,
+    service_id: int = ADDRESSBOOK_SERVICE_ID,
+    version: int = ADDRESSBOOK_VERSION,
+    member_id: UUID | None = None,
+    store_type: DataStoreType = DataStoreType.POSTGRES,
+    destroy_db: bool = True
+) -> Account:
     # Deletes files from tmp directory. Possible race condition
     # with other process so we do it right at the start
     if clean_pubsub:
@@ -165,8 +166,7 @@ async def setup_account(data: dict[str, str], test_dir: str = None,
         dest: str = f'{test_dir}/{local_service_contract}'
         dest_dir: str = os.path.dirname(dest)
         os.makedirs(dest_dir, exist_ok=True)
-        if service_id == ADDRESSBOOK_SERVICE_ID:
-            shutil.copyfile(local_service_contract, dest)
+        shutil.copyfile(local_service_contract, dest)
 
     server: PodServer = config.server
     local_storage: FileStorage = server.local_storage
