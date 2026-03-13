@@ -62,6 +62,7 @@ httpcore = "<1.0"
 country-converter = "*"
 yt-dlp = {extras = ["default"], version = "*"}
 bgutil-ytdlp-pot-provider = "*"
+inotify = "*"
 
 [dev-packages]
 flake8 = "*"

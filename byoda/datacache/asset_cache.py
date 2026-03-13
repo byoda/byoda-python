@@ -235,7 +235,7 @@ class AssetCache(SearchableCache, Metrics):
             metrics[metric].inc()
 
         asset_data['node'] = Asset(**asset_data['node'])
-        edge = Edge(**asset_data)
+        edge: Edge = Edge(**asset_data)
         return edge
 
     async def search(self, query: str, offset: int = 0, num: int = 10
@@ -542,7 +542,7 @@ class AssetCache(SearchableCache, Metrics):
                 metrics[metric].inc()
 
         node: dict[str, object] = data['edges'][0]['node']
-        asset = Edge(
+        asset: Edge = Edge(
             origin=member_id,
             cursor=data['edges'][0]['cursor'],
             node=self.asset_class(**node)
