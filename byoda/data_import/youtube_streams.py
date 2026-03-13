@@ -249,10 +249,10 @@ TARGET_STORYBOARD_STREAMS: dict[str, dict] = {
 # in a single stream and are downloaded as a single file (not DASH/HLS segments).
 # Most are discontinued on YouTube but may still appear on Google Drive previews.
 TARGET_PROGRESSIVE_STREAMS: dict[str, dict] = {
-    '17': {'resolution': RES_144P,  'fps': 7.5, 'video_codec': 'MPEG-4',   'audio_codec': 'AAC-LC', 'audio_bitrate': 24,  'container': '3gp', 'wanted': False, 'replacement': '160', 'category': EncodingCategory.SD},
-    '18': {'resolution': RES_360P,  'fps': 30,  'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '134', 'category': EncodingCategory.SD},
-    '37': {'resolution': RES_1080P, 'fps': 30,  'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
-    '59': {'resolution': RES_480P,  'fps': 30,  'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '135', 'category': EncodingCategory.SD},
+    '17': {'resolution': RES_144P,  'fps': 7.5, 'codec': 'MPEG-4 AAC-LC', 'video_codec': 'MPEG-4',   'audio_codec': 'AAC-LC', 'audio_bitrate': 24,  'container': '3gp', 'wanted': False, 'replacement': '160', 'category': EncodingCategory.SD},
+    '18': {'resolution': RES_360P,  'fps': 30,  'codec': 'H.264 AAC-LC', 'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '134', 'category': EncodingCategory.SD},
+    '37': {'resolution': RES_1080P, 'fps': 30,  'codec': 'H.264 AAC-LC', 'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
+    '59': {'resolution': RES_480P,  'fps': 30,  'codec': 'H.264 AAC-LC', 'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '135', 'category': EncodingCategory.SD},
     # Discontinued June 2024, listed for completeness
-    '22': {'resolution': RES_720P,  'fps': 30,  'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
+    '22': {'resolution': RES_720P,  'fps': 30,  'codec': 'H.264 AAC-LC', 'video_codec': CODEC_H264, 'audio_codec': 'AAC-LC', 'audio_bitrate': 128, 'container': 'mp4', 'wanted': False, 'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
 }
