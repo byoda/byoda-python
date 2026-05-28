@@ -102,7 +102,13 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool | None]] = {
     '696': {'resolution': RES_360P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '396', 'category': EncodingCategory.SD},
     '695': {'resolution': RES_240P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '395', 'category': EncodingCategory.SD},
     '694': {'resolution': RES_144P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '394', 'category': EncodingCategory.SD},
+
+    '632': {'resolution': RES_4320P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': False, 'replacement': '702', 'category': EncodingCategory.EIGHTK},
+    '631': {'resolution': RES_2160P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '701', 'category': EncodingCategory.FOURK},
+    '633': {'resolution': RES_1440P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '700', 'category': EncodingCategory.FOURK},
+    
     # AV1 HFR — DASH
+
     '402': {'resolution': RES_4320P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR, 'tbr': None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.EIGHTK},
     '571': {'resolution': RES_4320P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR, 'tbr': None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.EIGHTK},
     '401': {'resolution': RES_2160P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR, 'tbr': None, 'wanted': True,  'replacement': '305', 'category': EncodingCategory.FOURK},
@@ -116,10 +122,12 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool | None]] = {
     '395': {'resolution': RES_240P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1, 'tbr': None, 'wanted': True, 'replacement': '133', 'category': EncodingCategory.SD},
     '394': {'resolution': RES_144P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1, 'tbr': None, 'wanted': True, 'replacement': '160', 'category': EncodingCategory.SD},
     # VP9 — M3U8  (tbr from gist HLS playlist; includes muxed audio)
+    '628': {'resolution': RES_4320P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9_HFR, 'tbr':  None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.EIGHTK},
     '625': {'resolution': RES_2160P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9,     'tbr': 18661, 'wanted': False, 'replacement': '313', 'category': EncodingCategory.FOURK},
     '623': {'resolution': RES_1440P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9_HFR, 'tbr':  None, 'wanted': False, 'replacement': '308', 'category': EncodingCategory.FOURK},
     '620': {'resolution': RES_1440P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9,     'tbr':  8745, 'wanted': False, 'replacement': '271', 'category': EncodingCategory.FOURK},
     '617': {'resolution': RES_1080P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9_HFR, 'tbr':  6443, 'wanted': False, 'replacement': '303', 'category': EncodingCategory.TENEIGHTY},
+    '616': {'resolution': RES_1080P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9,     'tbr':  4418, 'wanted': False, 'replacement': '270', 'category': EncodingCategory.TENEIGHTY},
     '614': {'resolution': RES_1080P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9,     'tbr':  2940, 'wanted': False, 'replacement': '248', 'category': EncodingCategory.TENEIGHTY},
     '612': {'resolution': RES_720P,  'streaming_protocol': PROTO_HLS, 'codec': CODEC_VP9_HFR, 'tbr':  None, 'wanted': False, 'replacement': '302', 'category': EncodingCategory.SEVENTWENTY},
     # VP9 — DASH
@@ -161,16 +169,24 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool | None]] = {
     '305': {'resolution': RES_2160P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': False, 'replacement': '266', 'category': EncodingCategory.FOURK},
     '304': {'resolution': RES_1440P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': False, 'replacement': '264', 'category': EncodingCategory.FOURK},
     '299': {'resolution': RES_1080P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': True,  'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
+    '299-dash': {'resolution': RES_1080P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': True,  'replacement': '137', 'category': EncodingCategory.TENEIGHTY},
     '298': {'resolution': RES_720P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': True,  'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
+    '298-dash': {'resolution': RES_720P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264_HFR, 'tbr': None, 'wanted': True,  'replacement': '136', 'category': EncodingCategory.SEVENTWENTY},
     '266': {'resolution': RES_2160P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.FOURK},
     '264': {'resolution': RES_1440P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.FOURK},
     '212': {'resolution': RES_480P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': '135', 'category': EncodingCategory.SD},
     '137': {'resolution': RES_1080P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
+    '137-dash': {'resolution': RES_1080P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
     '136': {'resolution': RES_720P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SEVENTWENTY},
+    '136-dash': {'resolution': RES_720P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SEVENTWENTY},
     '135': {'resolution': RES_480P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
+    '135-dash': {'resolution': RES_480P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
     '134': {'resolution': RES_360P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
+    '134-dash': {'resolution': RES_360P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
     '133': {'resolution': RES_240P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
+    '133-dash': {'resolution': RES_240P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
     '160': {'resolution': RES_144P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
+    '160-dash': {'resolution': RES_144P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
     '597': {'resolution': RES_144P,  'streaming_protocol': PROTO_DASH, 'codec': CODEC_H264,     'tbr': None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.SD},
     # H.264 — M3U8  (tbr from gist HLS playlist; includes muxed audio)
     '312': {'resolution': RES_1080P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_H264_HFR, 'tbr': 7987, 'wanted': False, 'replacement': '299', 'category': EncodingCategory.TENEIGHTY},
@@ -201,17 +217,22 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool | None]] = {
 TARGET_AUDIO_STREAMS: dict[str, dict[str, str | int]] = {
     # DASH stereo — MP4/AAC
     '139':     {'codec': CODEC_MP4A_HE_V1_48,   'bitrate':  48, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
-    '139-drc': {'codec': CODEC_MP4A_HE_V1_48,   'bitrate':  48, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
+    '139-drc': {'codec': CODEC_MP4A_HE_V1_48,   'bitrate':  48, 'wanted': False,  'replacement': None,  'category': EncodingCategory.SD},
+    '139-dash': {'codec': CODEC_MP4A_HE_V1_48,   'bitrate':  48, 'wanted': True,  'replacement': None,  'category': EncodingCategory.SD},
     '140':     {'codec': CODEC_MP4A_AAC_LC_128,  'bitrate': 128, 'wanted': True,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
-    '140-drc': {'codec': CODEC_MP4A_AAC_LC_128,  'bitrate': 128, 'wanted': True,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
+    '140-drc': {'codec': CODEC_MP4A_AAC_LC_128,  'bitrate': 128, 'wanted': False,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
+    '140-dash': {'codec': CODEC_MP4A_AAC_LC_128,  'bitrate': 128, 'wanted': True,  'replacement': None,  'category': EncodingCategory.TENEIGHTY},
     '141':     {'codec': 'mp4a AAC-LC 256kbps',  'bitrate': 256, 'wanted': True,  'replacement': None,  'category': EncodingCategory.FOURK},
     # DASH stereo — WebM/Opus
     '249':     {'codec': CODEC_OPUS_50,  'bitrate':  50, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     '249-drc': {'codec': CODEC_OPUS_50,  'bitrate':  50, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
+    '249-dash':     {'codec': CODEC_OPUS_50,  'bitrate':  50, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     '250':     {'codec': CODEC_OPUS_70,  'bitrate':  70, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     '250-drc': {'codec': CODEC_OPUS_70,  'bitrate':  70, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
+    '250-dash': {'codec': CODEC_OPUS_70,  'bitrate':  70, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     '251':     {'codec': CODEC_OPUS_128, 'bitrate': 128, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     '251-drc': {'codec': CODEC_OPUS_128, 'bitrate': 128, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
+    '251-dash': {'codec': CODEC_OPUS_128, 'bitrate': 128, 'wanted': False, 'replacement': None, 'category': EncodingCategory.SD},
     # DASH surround — MP4
     '256':     {'codec': 'mp4a HE v1 192kbps',  'bitrate': 192, 'channels': '5.1', 'wanted': False, 'replacement': None, 'category': EncodingCategory.TENEIGHTY},
     '258':     {'codec': 'mp4a AAC-LC 384kbps',  'bitrate': 384, 'channels': '5.1', 'wanted': False, 'replacement': None, 'category': EncodingCategory.FOURK},
