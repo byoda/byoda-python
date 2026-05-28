@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "931321dec67e67c86e7d7a17f2f3f19e00d14cd7cf2f6ab2b47108fa92b750f3"
+            "sha256": "c1e8e395c1e39e3be2ea10e9bc5441ce38a021309adc577b5d8cf72a0b02e73f"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -459,6 +459,14 @@
                 "sha256:ff09cd8c5eec3b9d02d2408db41be150d8891c5566addce57513bf546e3d6c6d"
             ],
             "version": "==1.2.0"
+        },
+        "build": {
+            "hashes": [
+                "sha256:6a07c1b8eb6f2b311b96fcbdbce5dab5fe637ffda0fd83c9cac622e927501596",
+                "sha256:f1b91b925aa322be454f8330c6fb48b465da993d1e7e7e6fa35027ec49f3c936"
+            ],
+            "markers": "python_version >= '3.9'",
+            "version": "==1.4.0"
         },
         "cachetools": {
             "hashes": [
@@ -1367,6 +1375,14 @@
             "markers": "python_version >= '3.8' and python_version < '4.0'",
             "version": "==2.1.19"
         },
+        "inotify": {
+            "hashes": [
+                "sha256:9aee407f92c7d51a2ce50f3b78291a9094e334e34bd68e82bf60020795fa2c94",
+                "sha256:e4f1c8ec7ba5ec2a1a7fce48c0c917234af9d756495ebae7ffa00e41a305ab90"
+            ],
+            "index": "pypi",
+            "version": "==0.2.12"
+        },
         "isodate": {
             "hashes": [
                 "sha256:28009937d8031054830160fce6d409ed342816b543597cece116d966c6d99e15",
@@ -1980,11 +1996,11 @@
         },
         "packaging": {
             "hashes": [
-                "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484",
-                "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f"
+                "sha256:00243ae351a257117b6a241061796684b084ed1c516a08c48a3f7e147a9d80b4",
+                "sha256:b36f1fef9334a5588b4166f8bcd26a14e521f2b55e6b9de3aaa80d3ff7a37529"
             ],
             "markers": "python_version >= '3.8'",
-            "version": "==25.0"
+            "version": "==26.0"
         },
         "pandas": {
             "hashes": [
@@ -2639,6 +2655,14 @@
             ],
             "markers": "python_version >= '3.9'",
             "version": "==3.2.5"
+        },
+        "pyproject-hooks": {
+            "hashes": [
+                "sha256:1e859bd5c40fae9448642dd871adf459e5e2084186e8d2c2a79a824c970da1f8",
+                "sha256:9e5c6bfa8dcc30091c74b0cf803c81fdd29d94f01992a7707bc97babb1141913"
+            ],
+            "markers": "python_version >= '3.7'",
+            "version": "==1.2.0"
         },
         "pyrfc3339": {
             "hashes": [

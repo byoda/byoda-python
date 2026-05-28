@@ -594,7 +594,6 @@ class YouTubeVideo:
             sleepy_time: int = randrange(2, 5)
             self._transition_state(IngestStatus.UNAVAILABLE)
             log_data['ingest_status'] = self.ingest_status.value
-            self._transition_state(IngestStatus.UNAVAILABLE)
             await sleep(sleepy_time)
             raise ByodaRuntimeError(
                 'Failed to extract info for video, sleeping',
