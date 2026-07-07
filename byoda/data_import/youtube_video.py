@@ -7,7 +7,6 @@ Model a Youtube video
 '''
 
 import os
-import re
 import shutil
 import logging
 import subprocess
@@ -16,18 +15,14 @@ from copy import copy
 from enum import Enum
 from uuid import UUID
 from uuid import uuid4
-from typing import Self
 from shutil import copytree
-from random import randrange
 from logging import Logger
 from logging import getLogger
 from datetime import datetime
 from datetime import timezone
-from dateutil import parser as dateutil_parser
 
 import orjson
 
-from anyio import sleep
 from fastapi import FastAPI
 
 from yt_dlp import YoutubeDL
@@ -63,7 +58,6 @@ from byoda.util.api_client.api_client import HttpResponse
 
 from byoda.util.paths import Paths
 from byoda.util.merkletree import ByoMerkleTree
-from byoda.util.test_tooling import convert_number_string
 
 from byoda.servers.pod_server import PodServer
 
@@ -77,7 +71,6 @@ from .youtube_thumbnail import YouTubeThumbnail
 from .youtube_streams import EncodingCategory
 from .youtube_streams import TARGET_AUDIO_STREAMS
 from .youtube_streams import TARGET_VIDEO_STREAMS
-from .youtube_client import AsyncYouTubeClient
 
 _LOGGER: Logger = getLogger(__name__)
 
@@ -154,9 +147,15 @@ class YouTubeVideo:
         'locale': 'locale',
         'default_audio_language': 'default_audio_language',
         'channel': 'publisher_channel',
+        'channel_url': 'channel_url',
+        'channel_country': 'channel_country',
+        'channel_is_verified': 'channel_is_verified',
+        'channel_follower_count': 'channel_follower_count',
         'channel_thumbnail_url': 'channel_thumbnail',
+        'long_title': 'long_title',
         'uploaded_timestamp': 'uploaded_timestamp',
         'published_timestamp': 'published_timestamp',
+        'availability': 'availability',
         'license': 'license',
         'publisher': 'publisher',
         'video_id': 'publisher_asset_id',
@@ -168,6 +167,16 @@ class YouTubeVideo:
         'description': 'contents',
         'is_live': 'is_live',
         'was_live': 'was_live',
+        'media_type': 'media_type',
+        'is_tv_film_video': 'is_tv_film_video',
+        'embed_url': 'embed_url',
+        'embedable': 'embedable',
+        'aspect_ratio': 'aspect_ratio',
+        'available_country_codes': 'available_country_codes',
+        'heatmaps': 'heatmaps',
+        'subtitles': 'subtitles',
+        'automatic_captions': 'automatic_captions',
+        'formats': 'formats',
         'keywords': 'keywords',
         'tags': 'tags',
         'annotations': 'annotations',
@@ -178,20 +187,18 @@ class YouTubeVideo:
         'screen_orientation_horizontal': 'screen_orientation_horizontal',
         'is_family_safe': 'is_family_safe',
         'age_limit': 'age_limit',
+        'age_restricted': 'age_restricted',
+        'privacy_status': 'privacy_status',
     }
 
     def __init__(self,
                  video_id: str | None = None,
-                 user_agent: str | None = None,
                  consent_cookies: dict[str, str] = {},
-                 use_consent_cookies: bool = True,
-                 browse_client: YoutubeDL | None = None,
                  download_client: YoutubeDL | None = None,
                  storage_driver: FileStorage | None = None) -> None:
 
         # Consent cookies needed for YouTubeClient and yt-dlp
         self.consent_cookies: dict[str, str] = consent_cookies
-        self.browse_client: YoutubeDL | None = browse_client
         self.download_client: YoutubeDL | None = download_client
 
         self.asset_id: UUID = uuid4()
@@ -205,6 +212,10 @@ class YouTubeVideo:
         # Info about the channel
         self.channel_id: str | None = None
         self.channel: str | None = None
+        self.channel_url: str | None = None
+        self.channel_country: str | None = None
+        self.channel_is_verified: bool | None = None
+        self.channel_follower_count: int | None = None
         self.channel_thumbnail: str | None = None
         self.channel_thumbnail_asset: YouTubeThumbnail | None = None
         self.channel_thumbnail_url: str | None = None
@@ -228,6 +239,10 @@ class YouTubeVideo:
         self.was_live: bool = False
         self.is_short: bool = False
         self.embedable: bool | None = None
+        self.media_type: str | None = None
+        self.is_tv_film_video: bool | None = None
+        self.aspect_ratio: float | None = None
+        self.available_country_codes: list[str] = []
 
         self.age_limit: int = 0
         self.age_restricted: bool = False
@@ -240,6 +255,9 @@ class YouTubeVideo:
         self.chapters: list[YouTubeVideoChapter] = []
         self.captions: list[YouTubeCaption] = []
         self.heatmaps: list[dict[str, float]] = []
+        self.subtitles: dict[str, list[dict[str, any]]] = {}
+        self.automatic_captions: dict[str, list[dict[str, any]]] = {}
+        self.formats: dict[str, any] = {}
         self.monetizations: Monetizations | None = None
 
         # Data for the Byoda table with assets
@@ -270,515 +288,11 @@ class YouTubeVideo:
         # playlist
         self.playlistId: str | None = None
 
-        self.client: AsyncYouTubeClient = AsyncYouTubeClient(
-            user_agent=user_agent, consent_cookies=consent_cookies,
-            use_consent_cookies=use_consent_cookies
-        )
         self.ydl: YoutubeDL | None = None
 
         if storage_driver:
             self.storage_driver: FileStorage = storage_driver
             self._work_dir: str = self._get_tempdir(storage_driver)
-
-    @staticmethod
-    async def scrape(
-        video_id: str, ingest_videos: bool, channel_name: str | None,
-        channel_thumbnail: YouTubeThumbnail | None,
-        consent_cookies: dict[str, str] = {},
-        browse_client: YoutubeDL | None = None,
-        download_client: YoutubeDL | None = None,
-        storage_driver: FileStorage | None = None
-    ) -> Self | None:
-        '''
-        Collects data about a video by scraping the webpage for the video
-
-        :param video_id: YouTube video ID
-        :param ingest_videos: whether the video will be ingested
-        :param channel_name: Name of the channel that we are scraping
-        :param channel_thumbnail: Thumbnail for the creator of the video
-        page
-        '''
-
-        log_extra: dict[str, str | int] = {'video_id': video_id}
-
-        self: YouTubeVideo = YouTubeVideo(
-            video_id=video_id,
-            consent_cookies=consent_cookies,
-            browse_client=browse_client,
-            download_client=download_client,
-            storage_driver=storage_driver
-        )
-
-        canonical_url: str = self.VIDEO_URL.format(video_id=video_id)
-        html_content: str | None = await self.client.get(canonical_url)
-
-        # Extract initial data
-        initial_data: dict[str, any] = self._extract_initial_data(html_content)
-        player_response: dict[str, any] = self._extract_player_response(
-            html_content
-        )
-
-        self._parse_video_html(initial_data, player_response)
-
-        await self._scrape_video(
-            ingest_videos=ingest_videos, channel_name=channel_name,
-            channel_thumbnail=channel_thumbnail
-        )
-
-        self.is_short = self._is_short(initial_data)
-
-        return self
-
-    def _extract_initial_data(self, html_content: str) -> dict:
-        '''
-        Extract ytInitialData from the HTML page
-
-        :param html_content: HTML content of the video page
-        :returns: dict with player response data
-        :raises: ByodaValueError if data could not be extracted
-        '''
-
-        patterns: list[str] = [
-            r'ytInitialData\s*=\s*({.*?});',
-            r'window\["ytInitialData"\] = ({.*?});',
-        ]
-
-        for pattern in patterns:
-            match: re.Match[str] | None = re.search(
-                pattern, html_content, re.DOTALL
-            )
-            if match:
-                try:
-                    json_str: str = match.group(1).replace("\\'", "'")
-                    return orjson.loads(json_str)
-                except orjson.JSONDecodeError:
-                    continue
-
-        raise ByodaValueError(
-            'Could not extract initial data from video page',
-            loglevel=logging.INFO, extra={'video_id': self.video_id}
-        )
-
-    def _extract_player_response(self, html_content: str) -> dict:
-        '''
-        Extract ytInitialPlayerResponse from the HTML page
-
-        :param html_content: HTML content of the video page
-        :returns: dict with player response data
-        :raises: ByodaValueError if data could not be extracted
-        '''
-        patterns: list[str] = [
-            r'ytInitialPlayerResponse\s*=\s*({.*?});',
-            r'var ytInitialPlayerResponse = ({.*?});',
-        ]
-
-        for pattern in patterns:
-            match: re.Match[str] | None = re.search(
-                pattern, html_content, re.DOTALL
-            )
-            if match:
-                try:
-                    json_str: str = match.group(1)
-                    json_str = json_str.replace("\\'", "'")
-                    return orjson.loads(json_str)
-                except orjson.JSONDecodeError:
-                    continue
-
-        raise ByodaValueError(
-            'Could not extract player response data from video page',
-            loglevel=logging.INFO, extra={'video_id': self.video_id}
-        )
-
-    def _parse_video_html(self, initial_data: dict,
-                          player_response: dict) -> None:
-        '''
-        Parse the metadata scraped from a YouTube video page
-
-        :param initial_data:
-        :param player_response:
-        :returns: (none)
-        :raises: (none)
-        '''
-
-        # Basic info from player response
-        video_details: dict[str, any] = player_response.get('videoDetails', {})
-        microformat: dict[str, any] = player_response.get(
-            'microformat', {}
-        ).get(
-            'playerMicroformatRenderer'
-        )
-        if not video_details or not microformat:
-            _LOGGER.info(
-                'Missing microformat data for video',
-                extra={'video_id': self.video_id}
-            )
-            raise ValueError('Missing microformat data for video')
-
-        # Video ID and URLs
-        self.url = f'https://www.youtube.com/watch?v={self.video_id}'
-        self.short_url = f'https://youtu.be/{self.video_id}'
-        self.embed_url = f'https://www.youtube.com/embed/{self.video_id}'
-
-        self.title = video_details.get('title')
-        self.description = video_details.get('shortDescription')
-
-        try:
-            self.duration = int(
-                microformat.get(
-                    'lengthSeconds', video_details.get('lengthSeconds')
-                )
-            )
-        except ValueError:
-            pass
-
-        self.view_count = convert_number_string(
-            video_details.get('viewCount', 0)
-        )
-
-        if microformat.get('publishDate'):
-            self.published_timestamp = dateutil_parser.parse(
-                microformat['publishDate']
-            )
-
-        if microformat.get('uploadDate'):
-            self.uploaded_timestamp = dateutil_parser.parse(
-                microformat['uploadDate']
-            )
-
-        if microformat.get('category'):
-            self.categories | set(microformat.get('category', []))
-
-        self.default_audio_language = microformat.get(
-            'defaultAudioLanguage'
-        )
-
-        self.is_family_safe = microformat.get('isFamilySafe', False)
-
-        self.privacy_status = microformat.get(
-            'isUnlisted', self.privacy_status or 'public')
-
-        self.is_live = video_details.get(
-            'isLive', video_details.get('isLiveContent', False)
-        )
-
-        results: str = initial_data.get('contents', {}).get(
-                'twoColumnWatchNextResults', {}).get('secondaryResults', '')
-        if (self.duration and self.duration < 60
-                and microformat.get('isShortsEligible', False)
-                and 'reelShelfRenderer' in results):
-            self.is_short = True
-
-        self.keywords = self.keywords | set(video_details.get('keywords', []))
-
-        self.thumbnails = self.thumbnails | YouTubeVideo._parse_thumbnails(
-            None, video_details.get('thumbnail', {}).get('thumbnails', []) +
-            microformat.get('thumbnail', {}).get('thumbnails', [])
-        )
-
-        self.age_restricted = self._check_age_restriction(
-            player_response.get('playabilityStatus', {})
-        )
-
-        self.embedable = \
-            microformat.get('embed', {}).get('iframeUrl') is not None
-
-        if microformat.get('hasYpcMetadata'):
-            self.license = 'youtube'
-
-    @staticmethod
-    def _parse_thumbnails(label: str | None,
-                          thumbnail_data: list[dict[str, str | int]]
-                          ) -> dict[str, YouTubeThumbnail]:
-        '''
-        Parse thumbnail URLs without downloading
-        '''
-
-        thumbnails: dict[str, YouTubeThumbnail] = {}
-        thumb_list: list[YouTubeThumbnail] = []
-        for thumbnail in thumbnail_data or []:
-            thumbnail = YouTubeThumbnail(None, thumbnail)
-            if thumbnail.size and thumbnail.url:
-                # We only want to store thumbnails for which
-                # we know the size and have a URL
-                thumb_list.append(thumbnail)
-            else:
-                _LOGGER.debug(
-                    f'Not importing thumbnail without size '
-                    f'({thumbnail.size}) or URL ({thumbnail.url})'
-                )
-
-        if not thumb_list:
-            return {}
-
-        # Sort by width and assign to standard sizes
-        thumb_list = sorted(
-            thumb_list, key=lambda x: (int(x.preference or 0), x.width)
-        )
-
-        # size_names: list[str] = [
-        #     'default', 'medium', 'high', 'standard', 'maxres'
-        # ]
-        seen_urls: set[str] = set()
-
-        thumb: YouTubeThumbnail
-        for thumb in thumb_list:
-            if thumb.url in seen_urls:
-                continue
-            seen_urls.add(thumb.url)
-
-            if not label:
-                label = f'video_{thumb.width}x{thumb.height}'
-
-            if label not in thumbnails:
-                thumbnails[label] = thumb
-
-        return thumbnails
-
-    def _check_age_restriction(self, playability: dict) -> bool:
-        '''Check if video is age-restricted'''
-        reason: str = playability.get('reason', '')
-        if 'age' in reason.lower() or 'sign in' in reason.lower():
-            return True
-
-        # Check for age gate
-        if playability.get('status') == 'LOGIN_REQUIRED':
-            return True
-
-        return False
-
-    async def _scrape_video(self, ingest_videos: bool, channel_name: str,
-                            channel_thumbnail: YouTubeThumbnail | None
-                            ) -> None:
-        '''
-        Collects data about a video by scraping the webpage for the video.
-        This method does not download the video itself.
-
-        :param video_id: YouTube video ID
-        :param ingest_videos: whether the video will be ingested
-        :param channel_name: Name of the channel that we are scraping
-        :param channel_thumbnail: Thumbnail for the creator of the video
-        page
-        '''
-
-        log_data: dict[str, str] = {
-            'channel': channel_name,
-            'video_id': self.video_id,
-            'ingest_status': self.ingest_status.value
-        }
-
-        if not self.browse_client:
-            raise ByodaRuntimeError(
-                'No browse_client available for scraping video'
-            )
-
-        self.channel_thumbnail_url = \
-            channel_thumbnail.url if channel_thumbnail else None
-        self.channel_thumbnail_asset = channel_thumbnail
-
-        try:
-            _LOGGER.debug('Scraping YouTube video', extra=log_data)
-            video_info: dict[str, any] = self.browse_client.extract_info(
-                self.url, download=False
-            )
-            if video_info:
-                _LOGGER.debug('Collected info for video', extra=log_data)
-            else:
-                sleepy_time: int = randrange(10, 30)
-                log_data['sleep_seconds'] = sleepy_time
-                await sleep(sleepy_time)
-                raise ByodaValueError(
-                    'Video scrape failed, no info returned',
-                    loglevel=logging.INFO, extra=log_data
-                )
-        except DownloadError as exc:
-            sleepy_time: int = randrange(2, 5)
-            self._transition_state(IngestStatus.UNAVAILABLE)
-            log_data['ingest_status'] = self.ingest_status.value
-            await sleep(sleepy_time)
-            raise ByodaRuntimeError(
-                'Failed to extract info for video, sleeping',
-                extra=log_data | {'seconds': sleepy_time},
-                loglevel=logging.INFO
-            ) from exc
-        except Exception as exc:
-            sleepy_time: int = randrange(10, 30)
-            await sleep(sleepy_time)
-            raise ByodaException(
-                'Failed to extract info for video, sleeping',
-                extra=log_data | {'seconds': sleepy_time},
-                loglevel=logging.INFO
-            ) from exc
-
-        self.channel = video_info.get('channel')
-
-        self.is_live = self.is_live or video_info.get('is_live')
-        if self.is_live:
-            _LOGGER.debug('Skipping live video', extra=log_data)
-            return
-
-        self.embedable = self.embedable or video_info.get(
-            'playable_in_embed', True
-        )
-        if not (self.embedable or ingest_videos):
-            _LOGGER.debug('Skipping non-embedable video', extra=log_data)
-            return
-
-        self.description = self.description or video_info.get('description')
-        self.title = self.title or video_info.get('title')
-        self.view_count = self.view_count or video_info.get('view_count')
-        self.like_count = self.like_count or video_info.get('like_count')
-        self.comment_count = self.comment_count or video_info.get(
-            'comment_count'
-        )
-        self.long_title = self.long_title or video_info.get('fulltitle')
-        self.is_live = self.is_live or video_info.get('is_live')
-        self.was_live = self.was_live or video_info.get('was_live')
-        self.availability = video_info.get('availability')
-        self.duration = self.duration or video_info.get('duration')
-        self.tags = self.tags | set(video_info.get('tags', []))
-        self.categories = self.categories | set(video_info.get('categories', []))
-        self.default_audio_language = video_info.get('language')
-        self.age_limit = self.age_limit or video_info.get('age_limit', 0)
-        self.heatmaps = video_info.get('heatmaps', [])
-
-        try:
-            if (not ingest_videos
-                    and self.age_limit and int(self.age_limit) >= 18):
-                _LOGGER.debug(
-                    'Video is for 18+ videos and can not be embedded',
-                    extra=log_data
-                )
-                return
-        except ValueError:
-            _LOGGER.debug(
-                'Age limit is not an integer: '
-                f'{self.age_limit, type(self.age_limit)}',
-                extra=log_data
-            )
-
-        for language_code, captions in video_info.get(
-                'automatic_captions', {}).items():
-            for caption in captions:
-                caption = YouTubeCaption(
-                    language_code, True, caption
-                )
-                self.captions.append(caption)
-
-        for language_code, captions in video_info.get(
-                'subtitles', {}).items():
-            for caption in captions:
-                caption = YouTubeCaption(
-                    language_code, False, caption
-                )
-                self.captions.append(caption)
-
-        self.published_timestamp = dateutil_parser.parse(
-            video_info.get('upload_date', self.published_timestamp)
-        )
-        self.channel_id = video_info.get('channel_id')
-
-        self.thumbnails = YouTubeVideo._parse_thumbnails(
-            None, video_info.get('thumbnails') or []
-        )
-
-        for chapter_data in video_info.get('chapters') or []:
-            chapter = YouTubeVideoChapter(chapter_data)
-            self.chapters.append(chapter)
-
-        self.screen_orientation_horizontal = self._parse_encoding_profiles(
-            video_info
-        )
-
-        _LOGGER.debug(
-            'Parsed all available data for video', extra=log_data
-        )
-
-    def _parse_encoding_profiles(self, video_info: dict[str, any]) -> bool:
-        max_height: int = 0
-        max_width: int = 0
-        for format_data in video_info.get('formats') or []:
-            yt_format: YouTubeFormat = YouTubeFormat.from_dict(format_data)
-            if yt_format.height and yt_format.height > max_height:
-                max_height = yt_format.height
-            if yt_format.width and yt_format.width > max_width:
-                max_width = yt_format.width
-            self.encoding_profiles[yt_format.format_id] = yt_format
-
-        self.screen_orientation_horizontal = True
-        if max_height > max_width:
-            self.screen_orientation_horizontal = False
-
-        return self.screen_orientation_horizontal
-
-    def _is_short(self, initial_data: dict) -> bool:
-        '''
-        Determine if the video is a YouTube Short
-
-        :param video_details: videoDetails section from the player response
-        :param initial_data: ytInitialData extracted from the HTML page
-        :returns: True if the video is a YouTube Short, False otherwise
-        '''
-
-        if self.screen_orientation_horizontal is True:
-            return False
-
-        if self.duration and self.duration > 60:
-            return False
-
-        # Check for Shorts-specific markers in initial data
-        try:
-            # Look for reelWatchEndpoint or shorts indicators
-            contents = initial_data.get('contents', {})
-            if 'twoColumnWatchNextResults' in contents:
-                results = contents['twoColumnWatchNextResults']
-                secondary = results.get('secondaryResults', {})
-                if 'reelShelfRenderer' in str(secondary):
-                    return True
-        except (KeyError, TypeError):
-            pass
-
-        return False
-
-    @staticmethod
-    def get_video_id_from_api(data) -> str:
-        '''
-        Extract the video ID from the data returned by the YouTube Data API
-
-        :param data: data as returned by the YouTube Data API
-        :returns: the video ID
-        '''
-
-        if 'id' not in data:
-            raise ValueError('Invalid data from YouTube API: no id')
-
-        video_id: str = data['id']['videoId']
-
-        return video_id
-
-    @staticmethod
-    def get_publish_datetime_from_api(data) -> datetime:
-        '''
-        Extract the publication date/time from the data returned by the
-        YouTube Data API
-
-        :param data: data as returned by the YouTube Data API
-        :returns: the publication date/time
-        '''
-
-        snippet: dict = data.get('snippet')
-        if not snippet:
-            raise ByodaValueError(
-                'Invalid data from YouTube API: no snippet'
-            )
-
-        if 'publishedAt' not in snippet:
-            raise ByodaValueError(
-                'Invalid data from YouTube API: no publishedAt'
-            )
-
-        published_at: datetime = dateutil_parser.parse(snippet['publishedAt'])
-
-        return published_at
 
     def _transition_state(self, ingest_status: IngestStatus | str) -> None:
         '''

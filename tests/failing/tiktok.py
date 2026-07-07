@@ -168,7 +168,6 @@ class TestYouTubeDownloads(unittest.IsolatedAsyncioTestCase):
             await member.enable_data_apis(APP, data_store, cache_store)
 
         os.environ[YouTube.ENVIRON_CHANNEL] = ''
-        os.environ[YouTube.ENVIRON_API_KEY] = ''
 
     @classmethod
     async def asyncTearDown(cls) -> None:
