@@ -71,9 +71,9 @@ class AppRequestAuthOptionalFast(RequestAuth):
         except ByodaMissingAuthInfo:
             return
 
-        if self.id_type != IdType.MEMBER:
+        if self.id_type != IdType.APP:
             _LOGGER.debug(
-                f'Authentication with {self.id_type} cert instead of an'
+                f'Authentication with {self.id_type} cert instead of an '
                 f'app cert'
             )
             raise HTTPException(status_code=403)

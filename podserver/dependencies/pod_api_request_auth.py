@@ -307,6 +307,24 @@ class PodApiRequestAuth(RequestAuth):
                 f'Authentication for service f{self.service_id}: '
                 f'{self.is_authenticated}'
             )
+        elif id_type == IdType.APP:
+            await super().authenticate(
+                self.tls_status, self.client_dn, self.issuing_ca_dn,
+                self.client_cert, self.authorization
+            )
+            if self.auth_source == AuthSource.CERT:
+                self.check_app_cert(service_id, network)
+            else:
+                raise HTTPException(
+                    status_code=401,
+                    detail='App authentication requires a TLS client cert'
+                )
+
+            self.is_authenticated = True
+            _LOGGER.debug(
+                f'Authentication for app {self.app_id}: '
+                f'{self.is_authenticated}'
+            )
         elif id_type == IdType.ANONYMOUS:
             self.is_authenticated = False
             self.id_type = IdType.ANONYMOUS
