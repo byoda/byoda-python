@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -199,7 +199,16 @@ class DataSecret(Secret):
                 size_data: bytes = fd_in.read(4)
                 if len(size_data) == 0:
                     break
-                chunk: bytes = fd_in.read(struct.unpack('<I', size_data)[0])
+                if len(size_data) != 4:
+                    raise ValueError(
+                        'Protected file has truncated chunk-size header'
+                    )
+
+                chunk_size: int = struct.unpack('<I', size_data)[0]
+                chunk: bytes = fd_in.read(chunk_size)
+                if len(chunk) != chunk_size:
+                    raise ValueError('Protected file has truncated chunk')
+
                 decrypted: bytes = self.decrypt(chunk, with_logging=False)
                 fd_out.write(decrypted)
 

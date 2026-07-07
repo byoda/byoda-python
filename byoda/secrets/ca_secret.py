@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -181,9 +181,13 @@ class CaSecret(Secret):
         Extracts the subject alternative name extension of the CSR
         '''
 
-        extention: x509.Extension = csr.extensions.get_extension_for_class(
-            x509.SubjectAlternativeName
-        )
+        try:
+            extention: x509.Extension = csr.extensions.get_extension_for_class(
+                x509.SubjectAlternativeName
+            )
+        except x509.ExtensionNotFound:
+            raise ValueError('CSR does not have SubjectAlternativeName')
+
         dnsnames: list[str] = extention.value.get_values_for_type(x509.DNSName)
 
         if not dnsnames:
@@ -325,7 +329,12 @@ class CaSecret(Secret):
                     f'{type(expire)}'
                 )
         else:
-            entity_id: EntityId = self.review_csr(csr, source=CsrSource.LOCAL)
+            entity_id: EntityId | str = self.review_csr(
+                csr, source=CsrSource.LOCAL
+            )
+            if not isinstance(entity_id, EntityId):
+                entity_id = self.review_commonname(entity_id)
+
             if entity_id.id_type not in self.accepted_csrs:
                 raise ValueError(
                     f'We do not sign CSRs for entity type: {entity_id.id_type}'

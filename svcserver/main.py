@@ -9,7 +9,7 @@ To run this service in a test environment:
 - scp azureuser@dir.byoda.net:/opt/byoda/dirserver/network-byoda.net/services/service-4294929430/service-contract.json .
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

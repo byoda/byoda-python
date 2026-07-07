@@ -34,8 +34,8 @@ APP_ID=$(uuid -v 4)
 git clone https://github.com/byoda/byoda-python
 cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:.
-pipenv install
-pipenv run tools/create_csr.py \
+uv sync
+uv run tools/create_csr.py \
     --network ${NETWORK} \
     --service-id ${SERVICE_ID} \
     --type app \
@@ -61,14 +61,14 @@ export SERVICE_DIR=/opt/byoda/service-${SERVICE_ID}
 export BYODA_PASSWORD=<password>        # the super secure password for your service CA key
 export PRIVATE_APPS_DIR="${SERVICE_DIR}/private/network-${NETWORK}/service-${SERVICE_ID}/apps"
 # First the CSR for the cert for M-TLS
-pipenv run tools/sign_csr.py \
+uv run tools/sign_csr.py \
     --root-dir ${SERVICE_DIR} \
     --service-id ${SERVICE_ID} \
     --csr-file ${PRIVATE_APPS_DIR}/app-${FQDN}.csr \
     --type app \
     --out-dir .
 # Now the CSR for the data cert
-pipenv run tools/sign_csr.py \
+uv run tools/sign_csr.py \
     --root-dir ${SERVICE_DIR} \
     --service-id ${SERVICE_ID} \
     --csr-file ${PRIVATE_APPS_DIR}/app-data-${FQDN}.csr \

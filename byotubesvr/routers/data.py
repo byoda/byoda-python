@@ -2,7 +2,7 @@
 /service/data API
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

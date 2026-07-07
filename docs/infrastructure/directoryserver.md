@@ -141,7 +141,7 @@ On a private server, preferably air-gapped:
 cd ${BYODA_HOME}
 git clone https://github.com/byoda/byoda-python
 cd byoda-python
-pipenv shell
+uv sync
 
 BYODA_DOMAIN=somecooldomain.net
 
@@ -168,19 +168,19 @@ scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_
 
 This is the public server that exposes the APIs
 
-Byoda code requires python 3.10 or later, ie. for Ubuntu:
+Byoda code requires Python 3.12, ie. for Ubuntu:
 ```
 sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get -y install python3.10 pipenv
+sudo apt-get -y install python3.12
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-or run a distribution (like Ubuntu 22.04 or later) that includes python3.10
+or run a distribution (like Ubuntu 24.04 or later) that includes Python 3.12.
 
 
-There is currently an issue with 'pipenv' to install the modules so we install
-python modules system-wide:
+Install the Python dependencies:
 
-```
-sudo pipenv install --system
+```bash
+uv sync --frozen
 ```
 
 Clone the repo:

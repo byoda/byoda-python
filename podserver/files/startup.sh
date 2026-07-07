@@ -43,7 +43,7 @@ fi
 
 mkdir -p $LOGDIR
 echo "{\"message\": \"Starting bootstrap for podserver\"}"
-pipenv run podserver/bootstrap.py
+uv run --no-sync podserver/bootstrap.py
 
 if [[ "$?" != "0" ]]; then
     echo "{\"message\": \"Bootstrap failed\"}"
@@ -56,7 +56,7 @@ if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting pod_worker\"}"
     # pod_worker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
-    nice -20 pipenv run podserver/pod_worker.py \
+    nice -20 uv run --no-sync podserver/pod_worker.py \
         1>${LOGDIR}/worker-stdout.log \
         2>${LOGDIR}/worker-stderr.log &
 
@@ -70,7 +70,7 @@ fi
 
 if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting feed worker\"}"
-    nice -20 pipenv run podserver/feed_worker.py \
+    nice -20 uv run --no-sync podserver/feed_worker.py \
         1>${LOGDIR}/feed-stdout.log \
         2>${LOGDIR}/feed-stderr.log &
 
@@ -92,7 +92,7 @@ if [[ -z "${FAILURE}" ]]; then
     # location of pid file is used by byoda.util.reload.reload_gunicorn
     rm -rf /var/run/podserver.pid
     echo "{\"message\": \"Starting the web application server\"}"
-    pipenv run python3 -m gunicorn \
+    uv run --no-sync python3 -m gunicorn \
         -c gunicorn.conf.py \
         podserver.main:app
     if [[ "$?" != "0" ]]; then

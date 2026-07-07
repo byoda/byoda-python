@@ -5,7 +5,7 @@ Worker that performs queries against registered members of
 the service
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026, 2024
 :license    : GPLv3
 '''
 

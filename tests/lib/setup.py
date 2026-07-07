@@ -2,7 +2,7 @@
 Helper functions to set up tests
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license
 '''
 
@@ -43,6 +43,7 @@ from tests.lib.defines import CDN_ORIGIN_SITE_ID
 
 from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from tests.lib.defines import ADDRESSBOOK_VERSION
+from tests.lib.postgres_server import postgres_connection_string
 
 PASSWORD: str = 'byoda-secret-password'
 
@@ -86,8 +87,7 @@ def mock_environment_vars(test_dir: str, hash_password: bool = True,
     os.environ['CDN_FQDN'] = CDN_FQDN
     os.environ['CDN_ORIGIN_SITE_ID'] = CDN_ORIGIN_SITE_ID
 
-    with open('tests/collateral/local/test_postgres_db') as file_desc:
-        os.environ['DB_CONNECTION'] = file_desc.read().strip()
+    os.environ['DB_CONNECTION'] = postgres_connection_string()
 
 
 async def setup_network(delete_tmp_dir: bool = True) -> dict[str, str]:
@@ -239,8 +239,11 @@ def get_account_id(data: dict[str, str]) -> str:
     :returns: the account ID
     '''
 
-    with open(f'{data["root_dir"]}/account_id', 'rb') as file_desc:
-        account_id = orjson.loads(file_desc.read())
+    try:
+        with open(f'{data["root_dir"]}/account_id', 'rb') as file_desc:
+            account_id = orjson.loads(file_desc.read())
+    except FileNotFoundError:
+        account_id = data['account_id']
 
     return account_id
 

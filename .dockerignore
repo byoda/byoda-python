@@ -4,6 +4,8 @@ __pycache__
 *.pyd
 .Python
 .mypy_cache
+.venv
+.uv-cache
 
 .git
 .gitignore

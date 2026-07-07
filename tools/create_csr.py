@@ -6,7 +6,7 @@ Create a CSRs for the TLS and the Data secret for signature by the CA
 See documentation in docs/infrastructure/create_an_app.md
 
 Example invocation:
-    pipenv run tools/create_csr.py \
+    uv run tools/create_csr.py \
         --type app \
         --network byoda.net \
         --service-id <service-id> \
@@ -15,7 +15,7 @@ Example invocation:
         --debug
 
 On the Service Apps CA server, you can run the corresponding sign_csr.py tool for both the TLS CSR and the Data CSR:
-    pipenv run tools/sign_csr.py \
+    uv run tools/sign_csr.py \
         --type app \
         --network byoda.net \
         --service-id <service-id> \

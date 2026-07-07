@@ -4,7 +4,7 @@
 Listen for updates of pods in the network and store them in the local pod
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license
 '''
 

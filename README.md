@@ -19,25 +19,13 @@ This is alpha-quality software. The only user interface available today is curl 
 
 ## Getting started with the data pod
 
-There are two ways to install the pod:
+There are two deployment choices:
+- Deploy on a local server in your home or use a VM in a public cloud.
+  Deploying locally is free. You'll need to configure your broadband router to forward ports 80, 443 and 444 to your server. This exposes you to attacks from the Internet but it is free. Deploying in a public cloud is not free but it does not increase your home network's exposure to attacks.
+- Deploy using a disk for storing content or storing the content in a cloud storage service: The pod supports Azure Storage Accounts and S3 buckets for AWS, Google Cloud or other S3-compatible storage providers.
 
-1. Use a public cloud like Amazon Web Services, Microsoft Azure or Google Cloud.
-    - Create an account with the cloud provider of choice
-    - Create a VM with a public IP address, The VM should have at least 1GB of memory and 8GB of disk space.
-    - Create three buckets (AWS/GCP) or, for Azure a storage account with three containers.
-        - For AWS/GCP: Pick a random string (ie. 'mybyoda') and the name of the storage accounts must then be that string appended with '-private', '-public' and '-restricted-[random-string-of-12-characters]', (ie.: 'mybyoda-private', 'mybyoda-public', and 'mybyoda-restricted-abcdefghij'). The bucket names have to be globally unique so you may have to try different strings.
-        - For Azure, pick a random string and create a storage account with that string.
-        - Disable public access to the '-private' bucket or storage-account container. If the cloud has the option available, specify uniform access for all objects.
-    - Follow the cloud-specific instructions for creating the VM to run the pod on
-        - [Azure](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/azure-vm-pod.md)
-        - [AWS](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/aws-vm-pod.md)
-        - [GCP](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/gcp-vm-pod.md)
-    - Ports 80, 443 and 444 for the public IP must be accessible from the Internet and the SSH port must be reachable from your home IP address (or any other IP address you trust).
-    - Running the VM, its public IP address and the storage may incur costs, unless you manage to stay within the limits of the free services offered by:
-        - [Azure](https://azure.microsoft.com/en-us/free/), consider using the B1s SKU for the VM.
-        - [AWS](https://aws.amazon.com/free), consider using the t2.micro SKU for the VM.
-        - [GCP](https://cloud.google.com/free/), consider using the e2-micro SKU for the VM.
-2. Install the pod as a docker container in a server in your home.
+To install in a public cloud, follow the steps in the [cloud documentation](docs/infrastructure/clouds.md).
+To install the pod as a docker container in a server in your home.
     - TCP ports 80, 443, and port 444 on your server must be available for the pod to use and must be accessible from the Internet
     - Carefully consider the security implications of enabling port forwarding on your broadband router and whether this is the right setup for you.
     - Detailed instructions are available for running the pod on your [server](https://github.com/byoda/byoda-python/blob/master/docs/infrastructure/server-pod.md)
@@ -50,7 +38,7 @@ To launch the pod:
 - Install some tools, make sure there is some swap space for the kernel, and clone the [byoda repository](https://github.com/byoda/byoda-python.git)
 
 ```bash
-sudo apt update && sudo apt-get install -y docker.io uuid jq git vim python3-pip bind9-host sqlite3 libnng1
+sudo apt update && sudo apt-get install -y docker.io uuid jq git vim bind9-host sqlite3 libnng1
 
 git clone https://github.com/byoda/byoda-python.git
 ```
@@ -175,13 +163,13 @@ cat >/tmp/person.json <<EOF
 }
 EOF
 
-pipenv run tools/call_data_api.py --object person --action mutate --data-file /tmp/person.json
+uv run tools/call_data_api.py --object person --action mutate --data-file /tmp/person.json
 ```
 
 If you want to see your details again, you can run
 
 ```bash
-pipenv run tools/call_data_api.py --object person --action query
+uv run tools/call_data_api.py --object person --action query
 ```
 
 and you'll see a bit more info than what you put in person.json as we only supplied the fields required by the data model of the 'address book' service:
@@ -222,7 +210,7 @@ cat >/tmp/follow.json <<EOF
 }
 EOF
 
-pipenv run tools/call_data_api.py --object network_links --action append --data-file /tmp/follow.json
+uv run tools/call_data_api.py --object network_links --action append --data-file /tmp/follow.json
 ```
 
 The 'Address Book' service has unidirectional relations. So the fact that you follow me doesn't mean I follow you back. But you can send me an invite to start following you:
@@ -237,7 +225,7 @@ cat >/tmp/invite.json <<EOF
 }
 EOF
 
-pipenv run tools/call_data_api.py --object network_invites --action append --remote-member-id 94f23c4b-1721-4ffe-bfed-90f86d07611a --data-file /tmp/invite.json --depth 1
+uv run tools/call_data_api.py --object network_invites --action append --remote-member-id 94f23c4b-1721-4ffe-bfed-90f86d07611a --data-file /tmp/invite.json --depth 1
 ```
 
 With the '--depth 1' and '--remote-member-id <uuid>' parameters, you tell your pod to connect to my pod and perform the 'append' action. So the data does not get stored in your pod but in mine! I could periodically review the invites I have received and perform 'appends' to my 'network_links' for the people that I want to accept the invitation to.

@@ -3,7 +3,7 @@ The generic PubSub classes from which tech-specific classes should
 derive
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

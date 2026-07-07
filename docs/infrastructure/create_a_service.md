@@ -221,10 +221,10 @@ cd ${BYODA_HOME}
 git clone https://github.com/byoda/byoda-python
 cd byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
-sudo pip3 install passgen
+uv sync
 PASSWORD=$(passgen -n 1 -l 48)
 echo "Passwords for service secrets except the Service CA: ${PASSWORD}"
-pipenv run tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
+uv run tools/create_service_secrets.py --debug --schema ${SERVICE_CONTRACT} --network ${BYODA_DOMAIN} --root-directory ${SERVICE_DIR} --password ${PASSWORD} 2>&1 | tee /tmp/service.log
 ```
 
 Make sure you retrieved the generated secret to protect the private key of the Service CA as described in the previous alinea. Look for the line with '!!' in it. Delete the service log file after you have extracted and persisted the secret protecting the private key.
@@ -277,7 +277,7 @@ sudo chown $USER:$USER  /var/tmp/service-${SERVICE_ID}.key
 
 cd ${BYODA_HOME}/byoda-python
 export PYTHONPATH=${PYTHONPATH}:${BYODA_HOME}/byoda-python
-pipenv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
+uv run tools/sign_data_contract.py --debug --contract ${SERVICE_CONTRACT}
 
 # Set file ownership of the unencrypted private key to the user/group used
 # by angie so it can read the private key

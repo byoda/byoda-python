@@ -2,7 +2,7 @@
 DataApiClient, derived from ApiClient for calling REST Data APIs
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

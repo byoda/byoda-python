@@ -2,7 +2,7 @@
 Exceptions that log messages
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -29,15 +29,13 @@ class ByodaException(Exception):
 class ByodaValueError(ByodaException, ValueError):
     def __init__(self, message, loglevel=logging.DEBUG,
                  extra: dict[str, any] = {}) -> None:
-        super(ByodaException, self).__init__(message, loglevel, extra=extra)
-        super(ValueError, self).__init__(message)
+        super().__init__(message, loglevel, extra=extra)
 
 
 class ByodaRuntimeError(ByodaException, RuntimeError):
     def __init__(self, message, loglevel=logging.DEBUG,
                  extra: dict[str, any] = {}) -> None:
-        super(ByodaException, self).__init__(message, loglevel, extra=extra)
-        super(RuntimeError, self).__init__(message)
+        super().__init__(message, loglevel, extra=extra)
 
 
 class ByodaMissingAuthInfo(ByodaException):

@@ -2,7 +2,7 @@
 Definitions for the tracks containing audio and video of a Youtube video
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -106,7 +106,7 @@ TARGET_VIDEO_STREAMS: dict[str, dict[str, str | bool | None]] = {
     '632': {'resolution': RES_4320P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': False, 'replacement': '702', 'category': EncodingCategory.EIGHTK},
     '631': {'resolution': RES_2160P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '701', 'category': EncodingCategory.FOURK},
     '633': {'resolution': RES_1440P, 'streaming_protocol': PROTO_HLS, 'codec': CODEC_AV1_HFR_HIGH, 'tbr': None, 'wanted': True,  'replacement': '700', 'category': EncodingCategory.FOURK},
-    
+
     # AV1 HFR — DASH
 
     '402': {'resolution': RES_4320P, 'streaming_protocol': PROTO_DASH, 'codec': CODEC_AV1_HFR, 'tbr': None, 'wanted': False, 'replacement': None,  'category': EncodingCategory.EIGHTK},

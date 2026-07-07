@@ -2,7 +2,7 @@
 Cert manipulation
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -222,8 +222,8 @@ class Secret:
                 self.generate_private_key()
 
         if issuing_ca:
-            csr: CSR = await self.create_csr(ca)
-            self.cert = issuing_ca.sign_csr(csr)
+            csr: CSR = await self.create_csr(common_name, renew=True)
+            self.from_signed_cert(issuing_ca.sign_csr(csr))
         else:
             self.create_selfsigned_cert(expire, ca)
 
@@ -472,10 +472,10 @@ class Secret:
         :raises: ValueError if the certchain is invalid
         '''
 
-        if not with_openssl:
-            self.validate_python_cryptography(root_ca)
+        self.validate_python_cryptography(root_ca)
 
-        self.validate_with_openssl(root_ca)
+        if with_openssl:
+            self.validate_with_openssl(root_ca)
 
     def validate_python_cryptography(self, root_ca: CaSecret) -> None:
         store = Store(load_pem_x509_certificates(root_ca.cert_as_pem()))
@@ -688,7 +688,7 @@ class Secret:
 
         if certchain:
             if isinstance(certchain, bytes):
-                certchain = certchain.encode('utf-8')
+                certchain = certchain.decode('utf-8')
             cert = cert + certchain
 
         # The re.split results in one extra
@@ -1072,6 +1072,8 @@ class Secret:
                             raise RuntimeError(
                                 f'Failure to GET {url}: {resp.status_code}'
                             )
+                        cert_data: str = resp.text
+                        return cert_data
                     raise RuntimeError(
                         f'Failure to GET {url}: {resp.status_code}'
                     )

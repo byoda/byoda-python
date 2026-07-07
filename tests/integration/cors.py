@@ -8,7 +8,7 @@ TODO: fix test case so it doesn't use the proxy when connecting to a pod
 with a custom domain
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license
 '''
 
@@ -18,8 +18,7 @@ import unittest
 from logging import Logger
 
 import httpx
-
-from requests.structures import CaseInsensitiveDict
+import httpx2
 
 from byoda.util.logger import Logger as ByodaLogger
 
@@ -83,7 +82,7 @@ def do_location(testcase, cloud: str, fqdn: str, location: str,
                 api_prefix: str) -> None:
     url: str = f'https://{fqdn}{api_prefix}api/v1/status'
 
-    request_headers = CaseInsensitiveDict()
+    request_headers = httpx2.Headers()
     request_headers['Access-Control-Request-Method'] = 'POST'
     request_headers['Access-Control-Request-Headers'] = 'content-type'
     request_headers['Origin'] = location
@@ -116,5 +115,7 @@ def do_location(testcase, cloud: str, fqdn: str, location: str,
 
 
 if __name__ == '__main__':
-    _LOGGER: Logger = ByodaLogger.getLogger(sys.argv[0], debug=True, json_out=False)
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
     unittest.main()

@@ -1,4 +1,5 @@
 FROM ubuntu:24.04
+COPY --from=ghcr.io/astral-sh/uv:0.9.24 /uv /uvx /usr/local/bin/
 
 LABEL org.opencontainers.image.authors="steven@byoda.org"
 
@@ -21,7 +22,7 @@ RUN mkdir -p \
     byoda-python \
     /opt/byoda/byoda-python
 
-COPY ./Pipfile ./Pipfile.lock /podserver/byoda-python/
+COPY ./pyproject.toml ./uv.lock /podserver/byoda-python/
 
 # BenTo4 is used to mux audio and video files into MPEG-DASH and HLS
 # https://www.bento4.com/
@@ -31,12 +32,10 @@ RUN apt-get update && apt-get install -y \
        ca-certificates \
        build-essential \
        python3 \
-       python3-pip \
        python3-setuptools \
        libssl-dev \
        libffi-dev \
        python3-dev \
-       pipenv \
        libpq-dev \
        libnng1 \
        sqlite3 \
@@ -52,7 +51,7 @@ RUN apt-get update && apt-get install -y \
     && mv Bento4-*-linux/* bento4 \
     && rm -rf Bento4-SDK-1-6-0-640.x86_64-unknown-linux \
     && rm bento4.zip \
-    && cd /podserver/byoda-python && pipenv install --verbose --deploy --ignore-pipfile && pipenv clean \
+    && cd /podserver/byoda-python && uv sync --frozen --no-dev \
     && apt-get --yes remove build-essential \
     && apt-get --yes auto-remove \
     && apt-get -y clean \

@@ -3,7 +3,7 @@ Helper function to set up the Fastapi API, shared by directory, services
 and pod servers and the functional test cases
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -36,7 +36,7 @@ from opentelemetry.metrics import get_meter_provider
 from opentelemetry.metrics import set_meter_provider
 from opentelemetry.metrics import Meter
 
-# Prometheus exporter docs are in <pipenv-dir>/lib/python-3.12/site-packages/opentelemetry/exporter/prometheus/__init__.py  # noqa: E501
+# Prometheus exporter docs are in .venv/lib/python3.12/site-packages/opentelemetry/exporter/prometheus/__init__.py  # noqa: E501
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 
 from prometheus_client import start_http_server
@@ -149,7 +149,7 @@ def update_cors_origins(hosts: str | list[str]) -> None:
     '''
     Updates the starlette CORS middleware to add the provided hosts
     This code is now obsolete with newer versions of starlette/fasapi
-    
+
     :param hosts: list of hosts to add
     '''
 

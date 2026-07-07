@@ -2,7 +2,7 @@
 Proof of Concept moderation server for Bring Your Own Data and Algorithms
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

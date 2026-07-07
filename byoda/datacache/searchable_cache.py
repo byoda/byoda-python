@@ -12,7 +12,7 @@ search. In this module we use the prefix '<list_name>:' so all assets
 are stored in keys starting with that prefix.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

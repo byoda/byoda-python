@@ -2,7 +2,7 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -57,9 +57,9 @@ class NetworkDataSecret(DataSecret):
 
         '''
 
-        common_name: str = f'{self.account_id}.network_data.{self.network}'
+        common_name: str = NetworkDataSecret.create_commonname(self.network)
         await super().create(
-            common_name, expire=expire, key_size=4096, ca=self.ca
+            common_name, expire=expire, ca=self.ca
         )
 
     @override
@@ -79,8 +79,19 @@ class NetworkDataSecret(DataSecret):
         if not network:
             network = self.network
 
-        common_name: str = (
-            f'network.{IdType.NETWORK_DATA.value}.{network}'
-        )
+        common_name: str = NetworkDataSecret.create_commonname(network)
 
         return await super().create_csr(common_name, renew=renew)
+
+    @staticmethod
+    def create_commonname(network: str) -> str:
+        '''
+        Returns the FQDN to use in the common name for the network data secret.
+        '''
+
+        if not isinstance(network, str):
+            raise TypeError(
+                f'Network parameter must be a string, not a {type(network)}'
+            )
+
+        return f'network.{IdType.NETWORK_DATA.value}.{network}'

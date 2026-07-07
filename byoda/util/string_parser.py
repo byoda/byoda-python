@@ -2,7 +2,7 @@
 String parsing utility functions
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -21,20 +21,20 @@ def split_quoted_string(text: str, delimiters: str = ', ') -> set[str]:
         delimiters: Characters to use as delimiters (default: ', ')
 
     Returns:
-        List of split strings with quotes removed from quoted substrings
+        Set of split strings with quotes removed from quoted substrings
 
     Examples:
         >>> split_quoted_string('foo, bar, "hello world", baz')
-        ['foo', 'bar', 'hello world', 'baz']
+        {'foo', 'bar', 'hello world', 'baz'}
 
         >>> split_quoted_string('"test one" test2 "test three"')
-        ['test one', 'test2', 'test three']
+        {'test one', 'test2', 'test three'}
 
         >>> split_quoted_string("'single' and 'double quotes' work")
-        ['single', 'and', 'double quotes', 'work']
+        {'single', 'and', 'double quotes', 'work'}
     '''
     if not text:
-        return []
+        return set()
 
     result: set[str] = set()
     current_token: list[str] = []
