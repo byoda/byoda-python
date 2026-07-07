@@ -86,7 +86,7 @@ class MemberDataSecret(DataSecret):
     @override
     async def create(self, expire: int = 109500) -> None:
         '''
-        Creates an RSA private key and X.509 cert
+        Creates a private key and X.509 cert
 
         :param int expire: days after which the cert should expire
         :returns: (none)
@@ -106,7 +106,7 @@ class MemberDataSecret(DataSecret):
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates a private key and X.509 CSR
 
         :param renew: should any existing private key be used to
         renew an existing certificate

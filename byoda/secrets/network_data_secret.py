@@ -48,7 +48,7 @@ class NetworkDataSecret(DataSecret):
     @override
     async def create(self, expire: int = 1085) -> None:
         '''
-        Creates an RSA private key and X.509 cert
+        Creates a private key and X.509 cert
 
         :param int expire: days after which the cert should expire
         :returns: (none)
@@ -66,7 +66,7 @@ class NetworkDataSecret(DataSecret):
     async def create_csr(self, network: str = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates a private key and X.509 CSR
 
         :param network: the name of the network
         :param renew: should any existing private key be used to

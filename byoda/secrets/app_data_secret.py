@@ -92,7 +92,7 @@ class AppDataSecret(DataSecret):
     async def create_csr(self, fqdn: str, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates a private key and X.509 CSR
 
         :param app_id: identifier for the app
         :param renew: should any existing private key be used to
@@ -103,7 +103,6 @@ class AppDataSecret(DataSecret):
         '''
 
         self.fqdn: str = fqdn
-
 
         common_name: str = AppDataSecret.create_commonname(
             self.app_id, self.service_id, self.network

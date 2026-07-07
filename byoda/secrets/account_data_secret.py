@@ -72,7 +72,7 @@ class AccountDataSecret(DataSecret):
     async def create_csr(self, account_id: UUID = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates a private key and X.509 CSR
 
         :param account_id: identifier for the account to be used in the CSR
         :param renew: should any existing private key be used to
