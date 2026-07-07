@@ -54,7 +54,7 @@ class ServiceDataSecret(DataSecret):
     async def create_csr(self, service_id: int = None, renew: bool = False,
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates a private key and X.509 CSR
 
         :param service_id: identifier for the service
         :param renew: should any existing private key be used to

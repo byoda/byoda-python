@@ -19,7 +19,6 @@ import tempfile
 import unittest
 
 from uuid import UUID
-from copy import copy
 from types import SimpleNamespace
 from logging import Logger
 from random import randint
@@ -35,11 +34,9 @@ from httpx import RequestError
 from cryptography import x509
 from cryptography.fernet import InvalidToken
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.hashes import Hash
 from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datamodel.network import Network
@@ -93,6 +90,7 @@ SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
 SCHEMA_DIR: str = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
 SCHEMA_FILE: str = SCHEMA_DIR + '/service-contract.json'
+RSA_KEY_SIZE = 4096
 
 
 def _selfsigned_secret(common_name: str) -> Secret:
@@ -138,7 +136,7 @@ class _ReviewableCaSecret(CaSecret):
         self.service_id = service_id
         self.accepted_csrs = accepted_csrs or {IdType.ACCOUNT: 30}
         self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+            public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         self.common_name = f'ca.{network}'
         self.create_selfsigned_cert(ca=True)
@@ -163,7 +161,7 @@ def _csr(
     hash_algorithm=hashes.SHA256(),
 ) -> x509.CertificateSigningRequest:
     key = rsa.generate_private_key(
-        public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+        public_exponent=65537, key_size=RSA_KEY_SIZE,
     )
     csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
         x509.Name([
@@ -218,7 +216,7 @@ def _csr(
 
 def _email_san_csr(common_name: str) -> x509.CertificateSigningRequest:
     key = rsa.generate_private_key(
-        public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+        public_exponent=65537, key_size=RSA_KEY_SIZE,
     )
     return x509.CertificateSigningRequestBuilder().subject_name(
         x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
@@ -248,7 +246,7 @@ class _TrackingSecret(Secret):
 class _FakeIssuingCa:
     def __init__(self) -> None:
         self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+            public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         self.common_name = 'fake-ca.test.net'
         self.cert = self._create_ca_cert()
@@ -658,21 +656,23 @@ class TestSecretBase(unittest.IsolatedAsyncioTestCase):
 
 
 class TestDataSecretBase(unittest.IsolatedAsyncioTestCase):
-    async def test_generates_rsa_key_and_data_secret_csr_extensions(
+    async def test_generates_ec_key_and_data_secret_csr_extensions(
         self
     ) -> None:
         secret = DataSecret()
 
         csr = await secret.create_csr('data.test.net')
 
-        self.assertEqual(secret.private_key.key_size, DataSecret.RSA_KEY_SIZE)
+        self.assertIsInstance(secret.private_key, ec.EllipticCurvePrivateKey)
+        self.assertIsInstance(secret.private_key.curve, ec.SECP256R1)
 
         key_usage = csr.extensions.get_extension_for_class(
             x509.KeyUsage
         ).value
         self.assertTrue(key_usage.digital_signature)
         self.assertTrue(key_usage.content_commitment)
-        self.assertTrue(key_usage.key_encipherment)
+        self.assertFalse(key_usage.key_encipherment)
+        self.assertTrue(key_usage.key_agreement)
         self.assertFalse(key_usage.key_cert_sign)
 
         extended_key_usage = csr.extensions.get_extension_for_class(
@@ -717,6 +717,22 @@ class TestDataSecretBase(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(ValueError):
             wrong_target.load_shared_key(source.protected_shared_key)
+
+    def test_load_shared_key_rejects_unsupported_key_format(self) -> None:
+        secret = _selfsigned_data_secret()
+
+        with self.assertRaises(ValueError):
+            secret.load_shared_key(b'old-rsa-oaep-ciphertext')
+
+    def test_create_shared_key_uses_ec_envelope_format(self) -> None:
+        source = _selfsigned_data_secret('source.test.net')
+        target = _selfsigned_data_secret('target.test.net')
+        source.create_shared_key(target)
+
+        self.assertTrue(
+            source.protected_shared_key.startswith(b'BYODA-DATA-KEY-v1\n')
+        )
+        self.assertNotIn(source.shared_key, source.protected_shared_key)
 
     def test_create_shared_key_replaces_existing_key(self) -> None:
         secret = _selfsigned_data_secret()
@@ -1459,7 +1475,7 @@ class TestCaSecretBase(unittest.IsolatedAsyncioTestCase):
             ca.sign_csr(csr, expire=1)
 
         ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+            public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         with self.assertRaises(ValueError):
             ca.sign_csr(csr, expire='tomorrow')
@@ -1649,7 +1665,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'root-ca.pem', 'root-ca.key', storage
         )
         root_ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+            public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         root_ca.common_name = 'test-root-ca'
         root_ca.create_selfsigned_cert(ca=True)
@@ -1691,7 +1707,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             'root-ca.pem', 'root-ca.key', storage
         )
         root_ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=DataSecret.RSA_KEY_SIZE,
+            public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         root_ca.common_name = 'test-root-ca'
         root_ca.create_selfsigned_cert(ca=True)
@@ -2010,98 +2026,19 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             public_bucket='byoda', root_dir=TEST_DIR
         )
 
-        key: rsa.RSAPrivateKey = rsa.generate_private_key(
-           public_exponent=65537,
-           key_size=4096,
-        )
-
-        subject: x509.Name
-        issuer: x509.Name
-        subject = issuer = x509.Name(
-            [
-                x509.NameAttribute(NameOID.COUNTRY_NAME, u"US"),
-                x509.NameAttribute(
-                    NameOID.STATE_OR_PROVINCE_NAME, u"California"
-                ),
-                x509.NameAttribute(NameOID.LOCALITY_NAME, u"Los Gatos"),
-                x509.NameAttribute(NameOID.ORGANIZATION_NAME, u"byoda"),
-                x509.NameAttribute(NameOID.COMMON_NAME, u"byoda.org"),
-            ]
-        )
-
-        cert: x509.Certificate = x509.CertificateBuilder().subject_name(
-            subject
-        ).issuer_name(
-            issuer
-        ).public_key(
-            key.public_key()
-        ).serial_number(
-            x509.random_serial_number()
-        ).not_valid_before(
-            datetime.now(tz=UTC)
-        ).not_valid_after(
-            datetime.now(tz=UTC) + timedelta(days=1)
-        ).add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(u"localhost")]),
-            critical=False,
-        ).sign(key, hashes.SHA256())
-
-        _RSA_SIGN_MAX_MESSAGE_LENGTH = 1024
-        message: bytes = 'ik ben toch niet gek!'.encode('utf-8')
-        chosen_hash = hashes.SHA256()
-        hasher: Hash = hashes.Hash(chosen_hash)
-        message = copy(message)
-        while message:
-            if len(message) > _RSA_SIGN_MAX_MESSAGE_LENGTH:
-                hasher.update(message[:_RSA_SIGN_MAX_MESSAGE_LENGTH])
-                message = message[_RSA_SIGN_MAX_MESSAGE_LENGTH:]
-            else:
-                hasher.update(message)
-                message = None
-        digest: bytes = hasher.finalize()
-        signature: bytes = key.sign(
-            digest,
-            padding.PSS(
-                mgf=padding.MGF1(chosen_hash),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            utils.Prehashed(chosen_hash)
-            )
-
-        cert.public_key().verify(
-            signature,
-            digest,
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            utils.Prehashed(chosen_hash)
-        )
-
         account = Account(get_test_uuid(), network)
         message = 'ik ben toch niet gek!'
 
         member_data_secret = MemberDataSecret(
             get_test_uuid(), ADDRESSBOOK_SERVICE_ID, account
         )
+        member_data_secret.private_key = \
+            member_data_secret.generate_private_key()
+        member_data_secret.common_name = MemberDataSecret.create_common_name(
+            member_data_secret.member_id, ADDRESSBOOK_SERVICE_ID, network
+        )
+        member_data_secret.create_selfsigned_cert()
 
-        member_data_secret.cert_file = 'azure-pod-member-data-cert.pem'
-        member_data_secret.private_key_file = 'azure-pod-member-data.key'
-        shutil.copy(
-            f'tests/collateral/local/{member_data_secret.cert_file}',
-            TEST_DIR
-        )
-        shutil.copy(
-            f'tests/collateral/local/{member_data_secret.private_key_file}',
-            TEST_DIR
-        )
-        filename: str = 'tests/collateral/local/azure-pod-private-key-password'
-        with open(filename) as file_desc:
-            private_key_password: str = file_desc.read().strip()
-
-        await member_data_secret.load(
-            with_private_key=True, password=private_key_password
-        )
         signature = member_data_secret.sign_message(message)
         member_data_secret.verify_message_signature(message, signature)
 

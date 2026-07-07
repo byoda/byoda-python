@@ -6,11 +6,21 @@ Helper functions for API request processing
 :license
 '''
 
+import os
+
 from uuid import UUID
 from typing import TypeVar
 from logging import Logger
 from logging import getLogger
+from urllib.parse import unquote
 from ipaddress import ip_address as IpAddress
+
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.x509.verification import Store
+from cryptography.x509.verification import PolicyBuilder
+from cryptography.x509.verification import VerificationError
+from cryptography.hazmat.primitives import hashes
 
 from fastapi import HTTPException
 
@@ -25,6 +35,7 @@ from byoda.datatypes import IdType
 from byoda.datatypes import AuthSource
 from byoda.datatypes import TlsStatus
 from byoda.datatypes import EntityId
+from byoda.datatypes import ServerType
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.service_secret import ServiceSecret
@@ -38,6 +49,7 @@ from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 from byoda.servers.server import Server
 
 from byoda.util.api_client.api_client import HttpMethod
+from byoda.util.paths import Paths
 
 from byoda.exceptions import ByodaMissingAuthInfo
 
@@ -87,6 +99,7 @@ class RequestAuth:
     - account cert
     - member cert
     - service cert
+    - app cert
 
     The reverse proxy in front of the server must perform TLS handshake to
     verify that the client cert has been signed by a trusted CA and it must
@@ -108,6 +121,7 @@ class RequestAuth:
         proxy_set_header X-Client-SSL-Issuing-CA $ssl_client_i_dn;
         proxy_set_header X-Client-SSL-Subject $ssl_client_s_dn;
         proxy_set_header X-Client-SSL-Verify $ssl_client_verify;
+        proxy_set_header X-Client-SSL-Cert $ssl_client_escaped_cert;
         proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -145,6 +159,7 @@ class RequestAuth:
         self.account_id: UUID | None = None
         self.service_id: int | None = None
         self.member_id: UUID | None = None
+        self.app_id: UUID | None = None
         self.domain: str | None = None
 
         self.id: UUID | None = None
@@ -301,6 +316,12 @@ class RequestAuth:
                 'Authenticating client cert for a service',
                 extra=self.log_extra
             )
+        elif self.id_type == IdType.APP:
+            _LOGGER.debug(
+                'Authenticating client cert for an app',
+                extra=self.log_extra
+            )
+            self.app_id = self.id
         else:
             raise HTTPException(
                 status_code=400,
@@ -361,6 +382,10 @@ class RequestAuth:
                 )
             )
 
+        self._verify_pod_client_certchain(
+            self._get_pod_account_intermediates(), 'account'
+        )
+
     def check_member_cert(self, service_id: int, network: Network) -> None:
         '''
         Checks if the M-TLS client certificate was signed the cert chain
@@ -401,6 +426,11 @@ class RequestAuth:
                 )
             ) from exc
 
+        self._verify_pod_client_certchain(
+            self._get_pod_member_intermediates(service_id),
+            f'member service {service_id}'
+        )
+
     def check_service_cert(self, network: Network) -> None:
         '''
         Checks if the MTLS client certificate was signed the cert chain
@@ -434,8 +464,17 @@ class RequestAuth:
 
             # Service CA secret gets signed by Network Services CA
             networkservices_ca_secret = NetworkServicesCaSecret(network.paths)
-            networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
-        except ValueError as exc:
+            issuer_entity_id: EntityId = (
+                networkservices_ca_secret.review_commonname(self.issuing_ca_cn)
+            )
+            if (
+                issuer_entity_id.id_type != IdType.SERVICE_CA
+                or issuer_entity_id.service_id != self.service_id
+            ):
+                raise ValueError(
+                    f'Incorrect service issuer CA: {self.issuing_ca_cn}'
+                )
+        except (ValueError, PermissionError) as exc:
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -444,6 +483,11 @@ class RequestAuth:
                     f'network {network.name}'
                 )
             ) from exc
+
+        self._verify_pod_client_certchain(
+            self._get_pod_service_intermediates(self.service_id),
+            f'service {self.service_id}'
+        )
 
     def check_app_cert(self, service_id: int, network: Network) -> None:
         '''
@@ -461,21 +505,30 @@ class RequestAuth:
         # the commonname found in the certchain presented by the
         # client
         try:
-            # Member cert gets signed by Service Member CA
+            # App cert gets signed by Service Apps CA
             apps_ca_secret = AppsCaSecret(
                 service_id, network=network
             )
             entity_id: EntityId = apps_ca_secret.review_commonname(
                 self.client_cn
             )
-            self.member_id = entity_id.id
-            self.id = self.member_id
+            self.app_id = entity_id.id
+            self.id = self.app_id
             self.service_id = entity_id.service_id
 
-            # The App CA cert gets signed by the Service App CA
-            apps_ca_secret = AppsCaSecret(service_id, network=network)
-            apps_ca_secret.review_commonname(self.issuing_ca_cn)
-        except ValueError as exc:
+            # The Apps CA cert gets signed by the Service CA
+            service_ca_secret = ServiceCaSecret(service_id, network=network)
+            issuer_entity_id: EntityId = service_ca_secret.review_commonname(
+                self.issuing_ca_cn
+            )
+            if (
+                issuer_entity_id.id_type != IdType.APPS_CA
+                or issuer_entity_id.service_id != int(service_id)
+            ):
+                raise ValueError(
+                    f'Incorrect app issuer CA: {self.issuing_ca_cn}'
+                )
+        except (ValueError, PermissionError) as exc:
             raise HTTPException(
                 status_code=403,
                 detail=(
@@ -484,6 +537,229 @@ class RequestAuth:
                     f'network {network.name}'
                 )
             ) from exc
+
+        self._verify_pod_client_certchain(
+            self._get_pod_app_intermediates(service_id),
+            f'app service {service_id}'
+        )
+
+    def _verify_pod_client_certchain(
+        self, intermediates: list[x509.Certificate] | None, cert_type: str
+    ) -> None:
+        '''
+        Verify the forwarded mTLS leaf certificate against pod-local CA
+        material. Angie/Nginx only forwards the leaf cert, so the expected
+        intermediate chain must come from local pod state.
+        '''
+
+        server: Server = config.server
+        if getattr(server, 'server_type', None) != ServerType.POD:
+            return
+
+        if not self.client_cert:
+            raise HTTPException(
+                status_code=403,
+                detail='Missing forwarded TLS client certificate'
+            )
+
+        if not intermediates:
+            raise HTTPException(
+                status_code=403,
+                detail=f'Missing local CA chain for {cert_type} certificate'
+            )
+
+        network: Network = server.network
+        root_ca = getattr(network, 'root_ca', None)
+        root_cert: x509.Certificate | None = getattr(root_ca, 'cert', None)
+        if not root_cert:
+            raise HTTPException(
+                status_code=403,
+                detail='Missing local network root CA certificate'
+            )
+
+        client_cert: x509.Certificate = self._load_forwarded_client_cert()
+        self._verify_forwarded_cert_headers(client_cert)
+
+        chain: list[x509.Certificate] = self._without_root_cert(
+            intermediates, root_cert
+        )
+
+        try:
+            verifier = (
+                PolicyBuilder()
+                .store(Store([root_cert]))
+                .max_chain_depth(5)
+                .build_client_verifier()
+            )
+            verifier.verify(client_cert, chain)
+        except VerificationError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail=f'Invalid TLS client certificate chain: {exc}'
+            ) from exc
+
+    def _load_forwarded_client_cert(self) -> x509.Certificate:
+        try:
+            cert_pem: bytes = unquote(self.client_cert).encode('utf-8')
+            return x509.load_pem_x509_certificate(cert_pem)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail='Invalid forwarded TLS client certificate'
+            ) from exc
+
+    def _verify_forwarded_cert_headers(
+        self, cert: x509.Certificate
+    ) -> None:
+        subject_cn: str = self._certificate_common_name(cert.subject)
+        issuer_cn: str = self._certificate_common_name(cert.issuer)
+
+        if subject_cn != self.client_cn:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    'Forwarded TLS client certificate subject does not match '
+                    'the forwarded subject DN'
+                )
+            )
+
+        if issuer_cn != self.issuing_ca_cn:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    'Forwarded TLS client certificate issuer does not match '
+                    'the forwarded issuer DN'
+                )
+            )
+
+    @staticmethod
+    def _certificate_common_name(name: x509.Name) -> str:
+        try:
+            return name.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+        except IndexError as exc:
+            raise HTTPException(
+                status_code=403,
+                detail='TLS client certificate is missing a common name'
+            ) from exc
+
+    def _get_pod_account_intermediates(self) -> list[x509.Certificate] | None:
+        account: Account | None = getattr(config.server, 'account', None)
+        secret: Secret | None = getattr(account, 'tls_secret', None)
+        if secret and secret.cert_chain:
+            return secret.cert_chain
+
+        return None
+
+    def _get_pod_member_intermediates(
+        self, service_id: int
+    ) -> list[x509.Certificate] | None:
+        member: Member | None = self._get_pod_membership(service_id)
+        secret: Secret | None = getattr(member, 'tls_secret', None)
+        if secret and secret.cert_chain:
+            return secret.cert_chain
+
+        return None
+
+    def _get_pod_service_intermediates(
+        self, service_id: int | None
+    ) -> list[x509.Certificate] | None:
+        if service_id is None:
+            return None
+
+        member: Member | None = self._get_pod_membership(service_id)
+        service_ca_secret: ServiceCaSecret | None = getattr(
+            member, 'service_ca_certchain', None
+        )
+        if not service_ca_secret or not service_ca_secret.cert:
+            return None
+
+        return [service_ca_secret.cert] + service_ca_secret.cert_chain
+
+    def _get_pod_app_intermediates(
+        self, service_id: int | None
+    ) -> list[x509.Certificate] | None:
+        if service_id is None:
+            return None
+
+        apps_ca_cert: x509.Certificate | None = self._get_pod_apps_ca_cert(
+            service_id
+        )
+        service_chain: list[x509.Certificate] | None = (
+            self._get_pod_service_intermediates(service_id)
+        )
+        if not apps_ca_cert or not service_chain:
+            return None
+
+        return [apps_ca_cert] + service_chain
+
+    def _get_pod_apps_ca_cert(
+        self, service_id: int
+    ) -> x509.Certificate | None:
+        member: Member | None = self._get_pod_membership(service_id)
+        service = getattr(member, 'service', None)
+        apps_ca_secret: AppsCaSecret | None = getattr(
+            service, 'apps_ca', None
+        )
+        if apps_ca_secret and apps_ca_secret.cert:
+            return apps_ca_secret.cert
+
+        return self._load_local_pod_apps_ca_cert(service_id)
+
+    def _load_local_pod_apps_ca_cert(
+        self, service_id: int
+    ) -> x509.Certificate | None:
+        server: Server = config.server
+        network: Network | None = getattr(server, 'network', None)
+        paths: Paths | None = getattr(network, 'paths', None)
+        if not paths:
+            return None
+
+        try:
+            cert_file: str = paths.get(
+                Paths.SERVICE_APPS_CA_CERT_FILE, service_id=int(service_id)
+            )
+        except (KeyError, ValueError):
+            return None
+
+        storage_driver = getattr(server, 'local_storage', None)
+        if not storage_driver:
+            storage_driver = getattr(paths, 'storage_driver', None)
+        if not storage_driver:
+            return None
+
+        dirpath, filename = storage_driver.get_full_path(
+            cert_file, create_dir=False
+        )
+        filepath: str = os.path.join(dirpath, filename)
+        if not os.path.exists(filepath):
+            return None
+
+        with open(filepath, 'rb') as file_desc:
+            certs: list[x509.Certificate] = x509.load_pem_x509_certificates(
+                file_desc.read()
+            )
+        if not certs:
+            return None
+
+        return certs[0]
+
+    @staticmethod
+    def _get_pod_membership(service_id: int) -> Member | None:
+        account: Account | None = getattr(config.server, 'account', None)
+        memberships: dict[int, Member] = (
+            getattr(account, 'memberships', None) or {}
+        )
+        return memberships.get(int(service_id))
+
+    @staticmethod
+    def _without_root_cert(
+        certs: list[x509.Certificate], root_cert: x509.Certificate
+    ) -> list[x509.Certificate]:
+        root_fingerprint: bytes = root_cert.fingerprint(hashes.SHA256())
+        return [
+            cert for cert in certs
+            if cert.fingerprint(hashes.SHA256()) != root_fingerprint
+        ]
 
     @staticmethod
     def get_commonname(dname: str) -> str:
