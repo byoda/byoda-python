@@ -3,7 +3,7 @@ Bring your own data & algorithm backend storage for the server running on
 Google Cloud Platform.
 
 :maintainer : Steven Hessing (steven@byoda.org)
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

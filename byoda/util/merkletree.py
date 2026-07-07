@@ -7,7 +7,7 @@ hash of that file. The sh256 has of the manifest file is available to store
 in the membership db
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

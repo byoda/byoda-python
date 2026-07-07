@@ -8,7 +8,7 @@ Supported environment variables:
     cores in the pod
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -51,7 +51,7 @@ if workers == 0:
 # 3. gevent - Requires gevent >= 0.13
 # 4. tornado - Requires tornado >= 0.2
 # 5. gthread - Python 2 requires the futures package to be installed (or
-# install it via pip install gunicorn[gthread])
+# install it via uv add 'gunicorn[gthread]')
 # 6. uvicorn - uvicorn.workers.UvicornWorker
 #
 # You’ll want to read http://docs.gunicorn.org/en/latest/design.html

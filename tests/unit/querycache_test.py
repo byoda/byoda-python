@@ -1,0 +1,78 @@
+'''
+Test cases for Query ID cache
+
+:maintainer : Steven Hessing <steven@byoda.org>
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
+:license    : GPLv3
+'''
+
+import os
+import sys
+import shutil
+import unittest
+
+from logging import Logger
+from uuid import UUID
+
+from byoda.datamodel.account import Account
+from byoda.datamodel.member import Member
+
+from byoda.datacache.querycache import QueryCache
+
+from byoda.util.logger import Logger as ByodaLogger
+
+from tests.lib.setup import mock_environment_vars
+from tests.lib.setup import setup_network
+from tests.lib.setup import setup_account
+from tests.lib.setup import get_test_uuid
+
+from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
+
+TEST_DIR = '/tmp/byoda-tests/query_cache'
+
+
+class TestAccountManager(unittest.IsolatedAsyncioTestCase):
+    @classmethod
+    async def asyncSetUp(cls) -> None:
+        mock_environment_vars(TEST_DIR)
+        try:
+            shutil.rmtree(TEST_DIR)
+        except FileNotFoundError:
+            pass
+
+        os.makedirs(TEST_DIR)
+
+    @classmethod
+    async def asyncTearDown(self) -> None:
+        pass
+
+    async def test_query_cache(self) -> None:
+        network_data: dict[str, str] = await setup_network(TEST_DIR)
+        pod_account: Account = await setup_account(network_data)
+        member: Member = pod_account.memberships[ADDRESSBOOK_SERVICE_ID]
+
+        cache: QueryCache = await QueryCache.create(member)
+
+        query_id: UUID = get_test_uuid()
+        remote_member_id: UUID = get_test_uuid()
+        self.assertFalse(await cache.exists(query_id))
+        self.assertFalse(await cache.delete(query_id))
+
+        self.assertTrue(await cache.set(query_id, remote_member_id))
+        self.assertTrue(await cache.exists(query_id))
+        self.assertFalse(await cache.set(query_id, remote_member_id))
+
+        self.assertTrue(await cache.delete(query_id))
+        self.assertFalse(await cache.exists(query_id))
+
+        self.assertEqual(await cache.purge(), 0)
+
+        await cache.close()
+
+
+if __name__ == '__main__':
+    _LOGGER: Logger = ByodaLogger.getLogger(
+        sys.argv[0], debug=True, json_out=False
+    )
+
+    unittest.main()

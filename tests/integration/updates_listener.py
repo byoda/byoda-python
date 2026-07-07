@@ -3,7 +3,7 @@ Test cases for byoda.util.updates_listener class and classes derived
 from it
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025
+:copyright  : Copyright 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 

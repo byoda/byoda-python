@@ -2,7 +2,7 @@
 Cert manipulation for data of an account
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
@@ -99,7 +99,7 @@ class MemberDataSecret(DataSecret):
             self.member_id, self.service_id, self.network
         )
         await super().create(
-            common_name, expire=expire, key_size=4096, ca=self.ca
+            common_name, expire=expire, ca=self.ca
         )
 
     @override

@@ -2,7 +2,7 @@
 Test cases for service data API cache
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2023, 2024, 2025, 2024
+:copyright  : Copyright 2023, 2024, 2025, 2026, 2024
 :license    : GPLv3
 '''
 

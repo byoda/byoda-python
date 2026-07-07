@@ -6,7 +6,7 @@ Test the POD Data APIs with depth=1 and remote_member_id != None
 These tests use the BYO.Tube service and the 'Dathes' POD
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license
 '''
 

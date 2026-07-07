@@ -51,11 +51,11 @@ if [[ -n "${CUSTOM_DOMAIN}" && -n "${MANAGE_CUSTOM_DOMAIN_CERT}" ]]; then
         # Certbot will only call Let's Encrypt APIs if cert is due for renewal
         # With the '--standalone' option, certbot will run its own HTTP webserver
         echo "{\"message\": \"Running certbot to renew the certificate for custom domain ${CUSTOM_DOMAIN}\"}"
-        pipenv run certbot --quiet renew --standalone --max-log-backups 3 --logs-dir /var/log/byoda  2>&1 1>>${LOGDIR}/letsencrypt.log
+        uv run --no-sync certbot --quiet renew --standalone --max-log-backups 3 --logs-dir /var/log/byoda  2>&1 1>>${LOGDIR}/letsencrypt.log
     else
         echo "{\"message\": \"Generating a Lets Encrypt certificate for custom domain ${CUSTOM_DOMAIN}\"}"
         # With the '--standalone' option, certbot will run its own HTTP webserver
-        pipenv run certbot --quiet certonly --standalone --max-log-backups 3 --logs-dir /var/log/byoda -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
+        uv run --no-sync certbot --quiet certonly --standalone --max-log-backups 3 --logs-dir /var/log/byoda -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN} 2>&1 1>>${LOGDIR}/letsencrypt.log
     fi
 fi
 
@@ -66,7 +66,7 @@ fi
 
 if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting bootstrap for podserver\"}"
-    pipenv run podserver/bootstrap.py
+    uv run --no-sync podserver/bootstrap.py
 
     if [[ "$?" != "0" ]]; then
         echo "{\"message\": \"Bootstrap failed\"}"
@@ -80,7 +80,7 @@ if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting pod_worker\"}"
     # pod_worker no longer daemonizes itself because of issues between
     # daemon.DaemonContext() and aioschedule
-    nice -20 pipenv run podserver/pod_worker.py \
+    nice -20 uv run --no-sync podserver/pod_worker.py \
         1>${LOGDIR}/worker-stdout.log \
         2>${LOGDIR}/worker-stderr.log &
 
@@ -94,7 +94,7 @@ fi
 
 if [[ -z "${FAILURE}" ]]; then
     echo "{\"message\": \"Starting feed worker\"}"
-    nice -20 pipenv run podserver/feed_worker.py \
+    nice -20 uv run --no-sync podserver/feed_worker.py \
         1>${LOGDIR}/feed-stdout.log \
         2>${LOGDIR}/feed-stderr.log &
 
@@ -116,7 +116,7 @@ if [[ -z "${FAILURE}" ]]; then
     # location of pid file is used by byoda.util.reload.reload_gunicorn
     rm -rf /var/run/podserver.pid
     echo "{\"message\": \"Starting the web application server\"}"
-    pipenv run python3 -m gunicorn \
+    uv run --no-sync python3 -m gunicorn \
         -c gunicorn.conf.py \
         podserver.main:app
     if [[ "$?" != "0" ]]; then

@@ -20,6 +20,6 @@ By setting the 'SHARED_WEBSERVER' environment variable, you stop the pod from ru
 
 If you are already running an angie service on your server -and- it listens to port 80 -and- you want to use a custom domain then you'll have to set the 'MANAGE_CUSTOM_DOMAIN_CERT' to the empty string and create and renew a Let's Encrypt certificate for the FQDN yourself. The startup script uses the following command to generate the cert:
 ```
-pipenv run certbot certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN}
+uv run certbot certonly --standalone -n --agree-tos -m postmaster@${CUSTOM_DOMAIN} -d ${CUSTOM_DOMAIN}
 ```
 You'll need to set the LETSENCRYPT_DIRECTORY variable in the docker-launch.sh script so that the pod can volume mount the directory with the Let's Encrypt cert in it. You should also install a cronjob that runs once a month to renew the cert, if it needs to be renewed.

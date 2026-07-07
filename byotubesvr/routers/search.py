@@ -2,7 +2,7 @@
 API search APIs for both addressbook and byo.tube
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2024
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026, 2024
 :license    : GPLv3
 '''
 

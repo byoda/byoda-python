@@ -4,7 +4,7 @@ DNS software is supported. This class writes to a SQL database
 and PowerDNS reads from the database to answer DNS queries.
 
 :maintainer : Steven Hessing <steven@byoda.org>
-:copyright  : Copyright 2021, 2022, 2023, 2024, 2025
+:copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
 :license    : GPLv3
 '''
 
