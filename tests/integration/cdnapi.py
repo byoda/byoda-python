@@ -18,7 +18,7 @@ from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
-import httpx
+import httpx2 as httpx
 
 from byoda.datamodel.account import Account
 from byoda.datamodel.member import Member

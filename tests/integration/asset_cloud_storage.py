@@ -15,7 +15,7 @@ from logging import Logger
 
 from urllib.parse import urlparse, ParseResult
 
-import httpx
+import httpx2 as httpx
 
 from byoda.util.logger import Logger as ByodaLogger
 

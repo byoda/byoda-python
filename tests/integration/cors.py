@@ -17,8 +17,7 @@ import unittest
 
 from logging import Logger
 
-import httpx
-import httpx2
+import httpx2 as httpx
 
 from byoda.util.logger import Logger as ByodaLogger
 
@@ -82,7 +81,7 @@ def do_location(testcase, cloud: str, fqdn: str, location: str,
                 api_prefix: str) -> None:
     url: str = f'https://{fqdn}{api_prefix}api/v1/status'
 
-    request_headers = httpx2.Headers()
+    request_headers = httpx.Headers()
     request_headers['Access-Control-Request-Method'] = 'POST'
     request_headers['Access-Control-Request-Headers'] = 'content-type'
     request_headers['Origin'] = location

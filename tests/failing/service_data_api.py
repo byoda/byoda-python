@@ -19,7 +19,7 @@ from datetime import datetime
 
 import orjson
 
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from byoda.models.data_api_models import EdgeResponse as Edge
 from byoda.models.data_api_models import Channel

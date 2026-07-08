@@ -21,11 +21,11 @@ from datetime import timedelta
 from urllib.parse import urlparse
 from urllib.parse import ParseResult
 
-from httpx import AsyncClient as AsyncHttpClient
-from httpx import RequestError
-from httpx import TransportError
-from httpx import TimeoutException
-from httpx import Response as HttpResponse
+from httpx2 import AsyncClient as AsyncHttpClient
+from httpx2 import RequestError
+from httpx2 import TransportError
+from httpx2 import TimeoutException
+from httpx2 import Response as HttpResponse
 
 from ssl import SSLCertVerificationError
 

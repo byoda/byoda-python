@@ -13,8 +13,8 @@ from typing import TypeVar
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
-from httpx import AsyncClient as AsyncHttpClient
-from httpx import Client as SyncClient
+from httpx2 import AsyncClient as AsyncHttpClient
+from httpx2 import Client as SyncClient
 
 from ssl import SSLContext
 

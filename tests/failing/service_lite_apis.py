@@ -22,7 +22,7 @@ from datetime import datetime
 
 from dateutil import parser
 
-from httpx import AsyncClient
+from httpx2 import AsyncClient
 
 from fastapi_limiter import FastAPILimiter
 

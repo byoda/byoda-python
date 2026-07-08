@@ -27,19 +27,19 @@ from fastapi import FastAPI
 
 from ssl import SSLCertVerificationError
 
-from httpx import Client as SyncHttpClient
-from httpx import AsyncClient as AsyncHttpClient
-from httpx import Response as HttpResponse
-from httpx import RequestError
-from httpx import TransportError
+from httpx2 import Client as SyncHttpClient
+from httpx2 import AsyncClient as AsyncHttpClient
+from httpx2 import Response as HttpResponse
+from httpx2 import RequestError
+from httpx2 import TransportError
 
 # Imported so that other modules can import these exceptions
-from httpx import HTTPError
-from httpx import ConnectError
-from httpx import ConnectTimeout
-from httpx import NetworkError
-from httpx import TimeoutException
-from httpx import PoolTimeout
+from httpx2 import HTTPError
+from httpx2 import ConnectError
+from httpx2 import ConnectTimeout
+from httpx2 import NetworkError
+from httpx2 import TimeoutException
+from httpx2 import PoolTimeout
 
 from opentelemetry.propagate import inject
 
@@ -369,7 +369,7 @@ class ApiClient:
             except (RequestError, TransportError, SSLCertVerificationError
                     ) as exc:
                 if app:
-                    # No retries for calls from httpx directly to FastAPI APP
+                    # No retries for httpx2 calls directly to FastAPI APP
                     raise
 
                 client.extra['api'] = api
@@ -381,7 +381,7 @@ class ApiClient:
                 # This is raised by httpx when the connection pool
                 # is exhausted
                 if app:
-                    # No retries for calls from httpx directly to FastAPI APP
+                    # No retries for httpx2 calls directly to FastAPI APP
                     raise
 
                 client.extra['api'] = api
@@ -391,7 +391,7 @@ class ApiClient:
                 client.create_session()
             except RuntimeError as exc:
                 if app:
-                    # No retries for calls from httpx directly to FastAPI APP
+                    # No retries for httpx2 calls directly to FastAPI APP
                     raise
 
                 _LOGGER.debug(f'RuntimeError: {exc}', extra=client.extra)
@@ -411,7 +411,7 @@ class ApiClient:
             except Exception as exc:
                 _LOGGER.debug(f'Exception: {exc}', extra=client.extra)
                 if app:
-                    # No retries for calls from httpx directly to FastAPI APP
+                    # No retries for httpx2 calls directly to FastAPI APP
                     raise
 
                 client.create_session()

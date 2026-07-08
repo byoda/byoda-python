@@ -29,7 +29,7 @@ For AWS, create a ~/.aws/credentias file with as contents:
 import os
 import sys
 import yaml
-import httpx
+import httpx2 as httpx
 import shutil
 import unittest
 

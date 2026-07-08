@@ -20,8 +20,8 @@ import unittest
 from uuid import UUID
 from logging import Logger
 
-from httpx import Response
-from httpx import AsyncClient
+from httpx2 import Response
+from httpx2 import AsyncClient
 
 from fastapi import FastAPI
 

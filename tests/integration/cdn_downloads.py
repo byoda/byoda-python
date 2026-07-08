@@ -20,7 +20,7 @@ import unittest
 from logging import Logger
 from uuid import uuid4, UUID
 
-import httpx
+import httpx2 as httpx
 
 from byoda.util.logger import Logger as ByodaLogger
 

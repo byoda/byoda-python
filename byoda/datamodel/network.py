@@ -14,7 +14,7 @@ from typing import LiteralString
 
 import passgen
 
-from httpx import Response
+from httpx2 import Response
 
 from byoda.datatypes import ServerRole
 from byoda.datatypes import CsrSource

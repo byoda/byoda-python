@@ -19,7 +19,7 @@ from logging import Logger
 from yaml import safe_load
 from unittest import IsolatedAsyncioTestCase
 
-import httpx
+import httpx2 as httpx
 
 from anyio import sleep
 

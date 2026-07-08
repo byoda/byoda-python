@@ -28,8 +28,8 @@ from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
 
-from httpx import Response as HttpResponse
-from httpx import RequestError
+from httpx2 import Response as HttpResponse
+from httpx2 import RequestError
 
 from cryptography import x509
 from cryptography.fernet import InvalidToken
