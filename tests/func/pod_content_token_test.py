@@ -21,7 +21,7 @@ from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
-import httpx
+import httpx2 as httpx
 
 from yaml import safe_load as yaml_safe_loader
 from fastapi import FastAPI

@@ -19,7 +19,7 @@ from uuid import UUID
 from datetime import datetime
 from datetime import timezone
 
-import httpx
+import httpx2 as httpx
 
 from fastapi import FastAPI
 

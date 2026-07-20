@@ -18,7 +18,7 @@ from logging import getLogger
 from urllib.parse import urlparse
 from urllib.parse import ParseResult
 
-from httpx import AsyncClient as AsyncHttpClient
+from httpx2 import AsyncClient as AsyncHttpClient
 
 from byoda.datamodel.member import Member
 

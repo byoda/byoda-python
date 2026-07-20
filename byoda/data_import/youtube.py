@@ -3,18 +3,10 @@ Import data from Youtube
 
 
 Takes as input environment variables
-YOUTUBE_CHANNEL_NAME
-YOUTUBE_API_KEY
+YOUTUBE_CHANNEL
 
-This module supports two ways for ingesting YouTube videos:
-- scraping the website. This is limited to the videos shown on the main page
-of a channel. If the YouTube API key environment variable is not set then
-this method will be used.
-- Calling the YouTube Data API. This requires a YouTube Data API key. If the
-YouTube API key environment variable is set then this method will be used.
-
-Instructions to set up YouTube Data API key:
-https://medium.com/mcd-unison/youtube-data-api-v3-in-python-tutorial-with-examples-e829a25d2ebd
+Metadata comes from Scrape.Exchange's filter API. If video media is downloaded,
+the media files are still downloaded directly from YouTube with yt-dlp.
 
 :maintainer : Steven Hessing <steven@byoda.org>
 :copyright  : Copyright 2021, 2022, 2023, 2024, 2025, 2026
@@ -43,13 +35,8 @@ from .youtube_channel import YouTubeChannel
 
 _LOGGER: Logger = getLogger(__name__)
 
-# Minimum number of videos to scrape per channel per run
-MIN_SCRAPE_VIDEOS_PER_CHANNEL: int = 20
-
-
 class YouTube:
     ENVIRON_CHANNEL: str = 'YOUTUBE_CHANNEL'
-    ENVIRON_API_KEY: str = 'YOUTUBE_API_KEY'
     MODERATION_REQUEST_API: str = '/api/v1/moderate/asset'
     MODERATION_CLAIM_URL: str = '/claims/{state}/{asset_id}.json'
     INGEST_INTERVAL_SECONDS: int = 5
@@ -59,9 +46,7 @@ class YouTube:
                  storage_api_key: str | None = None
                  ) -> None:
         '''
-        Constructor. If the 'YOUTUBE_API_KEY environment variable is
-        set then it will use that key to call the YouTube Data API. Otherwise
-        it will scrape the YouTube website.
+        Constructor.
         '''
 
         self.integration_enabled: bool = YouTube.youtube_integration_enabled()
@@ -186,8 +171,7 @@ class YouTube:
         :param moderate_jwt_header: JWT header to use for calling the
         moderation API
         :param moderate_claim_url:
-        :param ingest_interval: interval in seconds between ingesting videos to
-        avoid overloading YouTube API
+        :param ingest_interval: interval in seconds between ingesting videos
         :param custom_domain: the custom domain to use for the storage URL if
         no CDN is used
         :param ValueError: if the storage driver is not specified and we ingest
@@ -206,12 +190,8 @@ class YouTube:
         all_channels: list[YouTubeChannel] = sample(channels, k=len(channels))
         _LOGGER.debug('Found channels to import', extra=log_extra)
 
-        max_videos_per_channel: int = 1
-        if len(all_channels) > 1:
-            max_videos_per_channel: int = max(
-                max_videos/len(all_channels), MIN_SCRAPE_VIDEOS_PER_CHANNEL
-            )
-        log_extra['max_videos_per_channel'] = max_videos_per_channel
+        if max_videos:
+            log_extra['deprecated_max_videos'] = max_videos
         _LOGGER.info('Will import videos for all channels', extra=log_extra)
 
         for channel in all_channels:
@@ -239,7 +219,6 @@ class YouTube:
                     moderate_claim_url=moderate_claim_url,
                     ingest_interval=ingest_interval,
                     custom_domain=custom_domain,
-                    max_videos_per_channel=max_videos_per_channel,
                 )
             except ByodaRuntimeError:
                 pass

@@ -21,7 +21,7 @@ from copy import copy
 from uuid import uuid4
 from uuid import UUID
 
-import httpx
+import httpx2 as httpx
 import unittest
 
 import uvicorn

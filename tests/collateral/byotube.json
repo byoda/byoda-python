@@ -920,10 +920,31 @@
                         "description": "language of the audio track, as a BCP-47 language tag",
                         "type": "string"
                     },
+                    "long_title": {
+                        "description": "full title of the video on the publisher platform",
+                        "type": "string"
+                    },
                     "publisher_channel": {
                         "description": "channel of the asset on the publisher platform",
                         "type": "string",
                         "#properties": ["index"]
+                    },
+                    "channel_url": {
+                        "description": "URL for the publisher channel",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "channel_country": {
+                        "description": "country code associated with the publisher channel",
+                        "type": "string"
+                    },
+                    "channel_is_verified": {
+                        "description": "Whether the publisher channel is verified",
+                        "type": "boolean"
+                    },
+                    "channel_follower_count": {
+                        "description": "The number of followers the publisher channel has",
+                        "type": "integer"
                     },
                     "channel_thumbnail": {
                         "description": "URL for the creator's thumbnail",
@@ -939,6 +960,10 @@
                         "description": "date-time of first publication of the content",
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "availability": {
+                        "description": "availability state of the video on the publisher platform",
+                        "type": "string"
                     },
                     "license": {
                         "description": "license for the asset, ie. 'CC-BY-SA-4.0'",
@@ -1010,6 +1035,53 @@
                         "description": "Whether the asset was at one point a live stream",
                         "type": "boolean"
                     },
+                    "embed_url": {
+                        "description": "URL for embedding the publisher video",
+                        "type": "string",
+                        "format": "uri"
+                    },
+                    "media_type": {
+                        "description": "media type reported by the publisher platform",
+                        "type": "string"
+                    },
+                    "is_tv_film_video": {
+                        "description": "Whether the publisher platform marks the asset as a TV or film video",
+                        "type": "boolean"
+                    },
+                    "embedable": {
+                        "description": "Whether the asset can be embedded",
+                        "type": "boolean"
+                    },
+                    "aspect_ratio": {
+                        "description": "aspect ratio of the video",
+                        "type": "number"
+                    },
+                    "available_country_codes": {
+                        "description": "list of countries where the asset is available",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "heatmaps": {
+                        "description": "engagement heatmap segments for the video",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "subtitles": {
+                        "description": "subtitle tracks as reported by the publisher platform",
+                        "type": "object"
+                    },
+                    "automatic_captions": {
+                        "description": "auto-generated caption tracks as reported by the publisher platform",
+                        "type": "object"
+                    },
+                    "formats": {
+                        "description": "available media formats as reported by the publisher platform",
+                        "type": "object"
+                    },
                     "keywords": {
                         "description": "comma-separated list of keywords",
                         "type": "array",
@@ -1074,6 +1146,14 @@
                     "age_limit": {
                         "description": "The minimum age required to view the asset",
                         "type": "number"
+                    },
+                    "age_restricted": {
+                        "description": "Whether the asset is age restricted",
+                        "type": "boolean"
+                    },
+                    "privacy_status": {
+                        "description": "privacy status of the asset on the publisher platform",
+                        "type": "string"
                     }
                 },
                 "required": ["created_timestamp", "asset_id", "asset_type"]
@@ -1461,6 +1541,48 @@
                     "publisher_platform_views": {
                         "description": "The number of views the channel has on other platforms",
                         "type": "integer"
+                    },
+                    "courses": {
+                        "description": "courses exposed by the publisher platform for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "playlists": {
+                        "description": "playlists exposed by the publisher platform for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "posts": {
+                        "description": "posts exposed by the publisher platform for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "merch": {
+                        "description": "merchandise exposed by the publisher platform for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "channel_links": {
+                        "description": "channel links exposed by the publisher platform",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "video_ids": {
+                        "description": "video IDs exposed by the publisher platform for the channel",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "claims": {
                         "description": "list of claims for the asset",

@@ -1,6 +1,6 @@
 import unittest
 
-import httpx
+import httpx2 as httpx
 
 from starlette.middleware import Middleware
 from starlette_context import plugins

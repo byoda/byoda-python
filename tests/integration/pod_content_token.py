@@ -21,7 +21,7 @@ from logging import Logger
 from datetime import datetime
 from datetime import timezone, timedelta
 
-import httpx
+import httpx2 as httpx
 
 from fastapi import FastAPI
 
