@@ -17,7 +17,7 @@ import argparse
 from uuid import uuid4
 from logging import Logger
 
-import httpx
+import httpx2 as httpx
 
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service

@@ -57,6 +57,7 @@ from tests.lib.defines import ADDRESSBOOK_SERVICE_ID
 from podserver.codegen.pydantic_service_4294929430_1 import asset
 
 TEST_DIR: str = '/tmp/byoda-tests/podserver'
+APP: FastAPI
 
 
 class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
@@ -76,7 +77,7 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
         )
 
         global APP
-        APP: FastAPI = setup_api(
+        APP = setup_api(
             'Byoda test pod', 'server for testing pod APIs',
             'v0.0.1', [
                 AccountRouter, MemberRouter, AuthTokenRouter,

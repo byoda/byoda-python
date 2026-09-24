@@ -378,7 +378,7 @@ class ApiClient:
                 )
                 raise ByodaRuntimeError(f'Error connecting to {api}')
             except PoolTimeout as exc:
-                # This is raised by httpx when the connection pool
+                # This is raised by httpx2 when the connection pool
                 # is exhausted
                 if app:
                     # No retries for httpx2 calls directly to FastAPI APP

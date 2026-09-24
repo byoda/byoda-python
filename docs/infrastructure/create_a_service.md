@@ -4,7 +4,7 @@ There are 4 phases/steps to set up a service
 
 ## 1: Install required software
 
-Install angie as reverse proxy as per the [instructions of F5/Angie](https://docs.angie.com/angie/admin-guide/installing-angie/installing-angie-open-source/)
+Install angie as reverse proxy as per the [instructions of Angie](https://docs.angie.com/angie/admin-guide/installing-angie/installing-angie-open-source/)
 
 Then install the angie.conf file
 
@@ -13,7 +13,7 @@ sudo cp docs/files/angie-service.conf /etc/angie/angie.conf
 sudo angie -s reload
 ```
 
-Services typically need to store data about their members. With Byoda, services are not allowed to persist data (with just a very few exceptions) about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
+Services typically need to store data about their members. With Byoda, services are not allowed to persist data (with just a few exceptions) about their members but are allowed to cache that data. The reference implementation of the service server uses Redis to temporarily store information as Redis can automatically remove expired data.
 
 To install Redis, first install docker as per the [Docker instructions](https://docs.docker.com/engine/install/ubuntu/) and then launch the redis container.
 

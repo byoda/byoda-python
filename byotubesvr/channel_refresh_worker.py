@@ -19,8 +19,8 @@ from datetime import datetime
 from anyio import run
 from anyio import sleep
 
-from httpx import ConnectError
-from httpx import HTTPError
+from httpx2 import ConnectError
+from httpx2 import HTTPError
 
 from prometheus_client import start_http_server
 from prometheus_client import Counter

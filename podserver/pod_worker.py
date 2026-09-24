@@ -213,7 +213,7 @@ async def setup_worker(argv: list[str]) -> PodServer:
         os.umask(0x0077)
 
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         argv[0], json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'WARNING'), logfile=LOGFILE
     )

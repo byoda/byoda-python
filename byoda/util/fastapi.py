@@ -36,7 +36,7 @@ from opentelemetry.metrics import get_meter_provider
 from opentelemetry.metrics import set_meter_provider
 from opentelemetry.metrics import Meter
 
-# Prometheus exporter docs are in .venv/lib/python3.12/site-packages/opentelemetry/exporter/prometheus/__init__.py  # noqa: E501
+# Prometheus exporter docs are in .venv/lib/python3.14/site-packages/opentelemetry/exporter/prometheus/__init__.py  # noqa: E501
 from opentelemetry.exporter.prometheus import PrometheusMetricReader
 
 from prometheus_client import start_http_server
