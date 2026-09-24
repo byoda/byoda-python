@@ -77,7 +77,7 @@ async def main(argv) -> None:
 
     program_name: str = os.path.basename(argv[0]).rstrip('.py')
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         program_name, json_out=True, debug=config.debug,
         loglevel=data.get('worker_loglevel', 'ERROR'), logfile=LOGFILE
     )

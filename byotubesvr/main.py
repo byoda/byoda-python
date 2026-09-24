@@ -65,7 +65,7 @@ from byotubesvr.routers import support as SupportRouter
 from byotubesvr.routers import proxy as ProxyRouter
 from byotubesvr.routers import settings as SettingsRouter
 
-_LOGGER = None
+_LOGGER: Logger | None = None
 
 
 @asynccontextmanager
@@ -82,7 +82,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     config.debug = debug
 
     global _LOGGER
-    _LOGGER: Logger = ByodaLogger.getLogger(
+    _LOGGER = ByodaLogger.getLogger(
         sys.argv[0], debug=debug, verbose=verbose,
         logfile=svc_config['svcserver'].get('logfile')
     )

@@ -168,14 +168,15 @@ scp ~/.byoda/network-${BYODA_DOMAIN} ${DIRSERVER}:${BYODA_HOME}/network-${BYODA_
 
 This is the public server that exposes the APIs
 
-Byoda code requires Python 3.12, ie. for Ubuntu:
-```
+Byoda code requires Python 3.14 and the 'uv' tool, ie. for Ubuntu:
+
+```bash
 sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt-get -y install python3.12
+sudo apt-get -y install python3.14
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-or run a distribution (like Ubuntu 24.04 or later) that includes Python 3.12.
 
+or run a distribution that includes Python 3.14.
 
 Install the Python dependencies:
 
@@ -184,7 +185,7 @@ uv sync --frozen
 ```
 
 Clone the repo:
-```
+```bash
 BYODA_HOME=/opt/byoda
 sudo mkdir ${BYODA_HOME}
 sudo chown -R $USER:$USER ${BYODA_HOME}
@@ -192,8 +193,10 @@ git clone https://github.com/byoda/byoda-python
 cd byoda-python
 cp config-sample.yml config.yml
 ```
+
 Edit the config.yml, including the connection string for your Postgres server and run the directory server in a container
-```
+
+```bash
 docker run -d   --name byoda-directory \
     --restart=unless-stopped \
     -p 8000:8000 \
@@ -206,16 +209,16 @@ docker run -d   --name byoda-directory \
     byoda/byoda-directory:latest
 ```
 
-
-
 We install angie as reverse proxy in for the directory server:
-```
+
+```bash
 sudo apt install angie
 sudo rm -f /etc/angie/conf.d/default.conf
 sudo cp ${BYODA_HOME}/byoda-python/docs/files/dirserver-angie-virtualserver.conf /etc/angie/conf.d/default.conf
 
 sed -i "s|{{ BYODA_HOME }}|${BYODA_HOME}|g" /etc/angie/conf.d/default.conf
 sed -i "s|{{ BYODA_DIR }}|${BYODA_DIR}|g" /etc/angie/conf.d/default.conf
+sed -i "s|{{ BYODA_DOMAIN }}|${BYODA_DOMAIN}|g" /etc/angie/conf.d/default.conf
 ```
 Now angie is installed we can set the file permissions to user 'www-data'
 

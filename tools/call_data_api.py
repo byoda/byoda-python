@@ -22,7 +22,7 @@ import argparse
 from uuid import UUID
 from uuid import uuid4
 
-import httpx
+import httpx2 as httpx
 
 from byoda.datamodel.network import Network
 
@@ -283,7 +283,7 @@ async def main(argv: list[str]) -> None:
                 print(text)
             else:
                 print(f'Result: {text}')
-        except httpx.JSONDecodeError as exc:
+        except json.JSONDecodeError as exc:
             _LOGGER.error(f'Failed to parse data: {exc} - {resp.text}')
             raise
     else:
