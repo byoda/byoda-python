@@ -10,7 +10,7 @@
         "description": "This is the dummy service used by test cases",
         "properties": {
             "member": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read"]
                     }
@@ -29,7 +29,7 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": [
                             "read",

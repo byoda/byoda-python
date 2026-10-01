@@ -6,7 +6,7 @@
         "description": "A simple network to maintain contacts",
         "properties": {
             "member": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update"]
                     }
@@ -18,7 +18,7 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": ["persist"]
                             },
@@ -33,10 +33,10 @@
                     "supported_schema_version": {
                         "description": "DEPRECATED: The newest version of the schema supported by the pod",
                         "type": "string",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "schema_versions": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": ["persist"]
                             },
@@ -59,7 +59,7 @@
                 "required": ["joined", "member_id"]
             },
             "person": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete"]
                     },
@@ -88,7 +88,7 @@
                     "email": {
                         "format": "idn-email",
                         "type": "string",
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": [
                                     {
@@ -116,7 +116,7 @@
                 "required": ["given_name", "family_name", "email"]
             },
             "network_links": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -127,7 +127,7 @@
                 }
             },
             "network_invites": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -141,7 +141,7 @@
                 }
             },
             "network_links_inbound": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -158,7 +158,7 @@
                 }
             },
             "incoming_claims": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -169,7 +169,7 @@
                 }
             },
             "verified_claims": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -180,7 +180,7 @@
                 }
             },
             "channels": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -194,7 +194,7 @@
                 }
             },
             "asset_links": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -209,7 +209,7 @@
                 }
             },
             "asset_reactions_received": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -224,7 +224,7 @@
                 }
             },
             "datalogs": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
                     }
@@ -235,31 +235,31 @@
                 }
             },
             "incoming_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
-                "#properties": [["cache_only", "3d"]],
+                "x-byoda-properties": [["cache_only", "3d"]],
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
                 }
             },
             "feed_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
-                "#properties": ["cache_only:1w"],
+                "x-byoda-properties": ["cache_only:1w"],
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
                 }
             },
             "public_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -273,7 +273,7 @@
                 }
             },
             "service_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append", "subscribe"]
                     },
@@ -287,7 +287,7 @@
                 }
             },
             "apps": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append", "subscribe"]
                     }
@@ -298,7 +298,7 @@
                 }
             },
             "network_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "update", "append", "subscribe"]
                     },
@@ -320,7 +320,7 @@
                 }
             },
             "restricted_content_keys": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append", "subscribe"]
                     }
@@ -331,7 +331,7 @@
                 }
             },
             "twitter_medias": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -348,7 +348,7 @@
                 }
             },
             "tweets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append", "subscribe"]
                     },
@@ -385,7 +385,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "What relation you have with the other member",
                         "type": "string"
                     },
@@ -420,7 +420,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "The relation the other member claims to have with you",
                         "type": "string"
                     },
@@ -455,7 +455,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "The relation the other member has with you",
                         "type": "string"
                     },
@@ -466,13 +466,13 @@
                     "signature": {
                         "description": "DEPRECATED: The text of the invitation provded by the other member",
                         "type": "string",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "signature_expiration": {
                         "description": "DEPRECATED: The expiration date/time for the certificate used to generate the signature",
                         "format": "date-time",
                         "type": "string",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "claims": {
                         "description": "list of claims for the asset",
@@ -485,7 +485,7 @@
                 "required": ["created_timestamp", "member_id", "relation"]
             },
             "messages": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -592,7 +592,7 @@
                         "type": "string"
                     },
                     "asset_id": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "The UUID of the asset",
                         "type": "string",
                         "format": "uuid"
@@ -603,14 +603,14 @@
                         "format": "uri"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "What relation you have with asset, such as read, liked, etc.",
                         "type": "string"
                     },
                     "signature": {
                         "description": "the digital signature using our data cert of the concatenation of member_id, asset_id, asset_url, and relation",
                         "type": "string",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "bookmark": {
                         "description": "Bookmark for the asset where to resume consumption of the asset",
@@ -631,13 +631,13 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The UUID of the member that reacted to our asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "asset_id": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The UUID of our asset",
                         "type": "string",
                         "format":  "uuid"
@@ -648,13 +648,13 @@
                         "format": "uri"
                     },
                     "asset_class": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The UUID of our asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "relation": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "What relation the other member has with our asset, for example liked",
                         "type": "string"
                     },
@@ -712,7 +712,7 @@
                         "description": "The UUID of the message",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "sender_id": {
                         "description": "The UUID of the member that sent the message",
@@ -783,29 +783,29 @@
                         "description": "time the log entry was created",
                         "format": "date-time",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_addr": {
                         "description": "The remote IP address performing the request",
                         "format": "ipv4",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_id": {
                         "description": "The ID of the client originating the log entry",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_id_type": {
                         "description": "The type of ID used to authenticate, ie. member, service or account",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "origin_member_id": {
                         "description": "The UUID of the member that originated the recurise query",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "origin_timestamp": {
                         "description": "The time the query was created by the origin member of the recursive query",
@@ -828,12 +828,12 @@
                     "operation": {
                         "description": "What operation that was requested by the client",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "object": {
                         "description": "name of the object in the Data API query",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_filters": {
                         "description": "the filters specified in the Data API query",
@@ -842,23 +842,23 @@
                     "query_depth": {
                         "description": "the depth specified the Data API query",
                         "type": "integer",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_relations": {
                         "description": "the relations specified in the Data API query",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_remote_member_id": {
                         "description": "The member that was specified in the append request to proxy to",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "source": {
                         "description": "The source of the log entry, ie. the client, a Data API query, etc.",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "message": {
                         "description": "Additional information about the request",
@@ -878,7 +878,7 @@
                         "description": "The UUID of the annotation",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "key": {
                         "description": "The key for the annotation",
@@ -888,7 +888,7 @@
                         "description": "The ID of the public_asset that this annotation is for",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     }
                 }
             },
@@ -903,7 +903,7 @@
                         "description": "The UUID of the video chapter",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "start": {
                         "description": "The start of the chapter, as an offset in seconds from the start of the video",
@@ -930,7 +930,7 @@
                         "description": "The UUID of the video thumbnail",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "url": {
                         "description": "The URL of the thumbnail",
@@ -980,7 +980,7 @@
                         "description": "The UUID of the claim, unique to the signer of the claim",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "claims": {
                         "description": "The claims that are validated by the issuer",
@@ -998,7 +998,7 @@
                         "description": "(obsolete, replaced by issuer_id field)",
                         "type": "string",
                         "format": "uuid",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "issuer_type": {
                         "description": "what type of entity issued this claim",
@@ -1010,12 +1010,12 @@
                         "type": "string"
                     },
                     "keyfield": {
-                        "#properties": ["index"],
+                        "x-byoda-properties": ["index"],
                         "description": "name of the field used to identify the object, ie. 'asset_id'. The field must be of type 'UUID'",
                         "type": "string"
                     },
                     "keyfield_id": {
-                        "#properties": ["index"],
+                        "x-byoda-properties": ["index"],
                         "description": "The UUID of the keyfield of the claim",
                         "type": "string",
                         "format": "uuid"
@@ -1091,7 +1091,7 @@
                             "description": "The UUID of the asset",
                             "type": "string",
                             "format": "uuid",
-                            "#properties": ["primary_key", "index", "counter"]
+                            "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -1134,7 +1134,7 @@
                     "creator": {
                         "description": "creator of the asset",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "creator_thumbnail": {
                         "description": "URL for the creator's thumbnail",
@@ -1167,14 +1167,14 @@
                         }
                     },
                     "publisher": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "the publisher of the asset",
                         "type": "string"
                     },
                     "publisher_asset_id": {
                         "description": "Identifier of the asset set by the publisher",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "title": {
                         "description": "title of the asset",
@@ -1223,7 +1223,7 @@
                         "format": "uuid"
                     },
                     "root_asset_id": {
-                        "#properties": ["counter", "index"],
+                        "x-byoda-properties": ["counter", "index"],
                         "description": "ID of asset that is the root of the thread",
                         "type": "string",
                         "format": "uuid"
@@ -1233,7 +1233,7 @@
                         "type": "string"
                     },
                     "response_to_asset_id": {
-                        "#properties": ["counter", "index"],
+                        "x-byoda-properties": ["counter", "index"],
                         "description": "ID of asset that this asset is a response to",
                         "type": "string",
                         "format": "uuid"
@@ -1248,7 +1248,7 @@
                         "items": {
                             "type": "string"
                         },
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "screen_orientation_horizontal": {
                         "description": "Whether content is optimized for consumption on a screen with horizontal orietation",
@@ -1258,7 +1258,7 @@
                 "required": ["created_timestamp", "asset_id", "asset_type"]
             },
             "twitter_account": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete"]
                     },
@@ -1280,7 +1280,7 @@
                         "type": "string"
                     },
                     "name": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": [
                                     {
@@ -1329,7 +1329,7 @@
                         "type": "integer"
                     },
                     "handle": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": [
                                     {
@@ -1431,7 +1431,7 @@
                     "creator": {
                         "description": "creator of the asset",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "description": {
                         "description": "information about the channel",
@@ -1486,25 +1486,25 @@
                     "name": {
                         "description": "DEPRECATED: use 'creator'",
                         "type": "string",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "creator_thumbnail": {
                         "description": "DEPRECATED: use 'creator_thumbnails'",
                         "type": "string",
                         "format": "iri",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "channel_thumbnail_url": {
                         "description": "DEPRECATED: use 'channel_thumbnails'",
                         "type": "string",
                         "format": "uri",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     },
                     "channel_banner_url": {
                         "description": "DEPRECATED: use 'channel_banners'",
                         "type": "string",
                         "format": "uri",
-                        "#obsolete": true
+                        "x-byoda-obsolete": true
                     }
                 }
             },

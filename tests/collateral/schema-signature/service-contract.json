@@ -6,7 +6,7 @@
         "description": "This is the default service of each network, storing only private data",
         "properties": {
             "member": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": ["read"]
                 },
                 "properties": {
@@ -23,7 +23,7 @@
                 "type": "object"
             },
             "person": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": ["read","update","delete","append"]
                 },
                 "properties": {
