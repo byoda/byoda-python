@@ -6,7 +6,7 @@
         "description": "The schema for the byotube service",
         "properties": {
             "member": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update"]
                     }
@@ -18,7 +18,7 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": ["persist"]
                             },
@@ -31,7 +31,7 @@
                         "type": "string"
                     },
                     "schema_versions": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "service": {
                                 "permissions": ["persist"]
                             },
@@ -54,7 +54,7 @@
                 "required": ["joined", "member_id"]
             },
             "settings": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "subscribe"]
                     }
@@ -75,7 +75,7 @@
                         "type": "boolean"
                     },
                     "email_address": {
-                        "#accesscontrol": {
+                        "x-byoda-accesscontrol": {
                             "member": {
                                 "permissions": ["read", "update", "delete", "subscribe"]
                             },
@@ -90,7 +90,7 @@
                 }
             },
             "network_links": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -101,7 +101,7 @@
                 }
             },
             "network_invites": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -115,7 +115,7 @@
                 }
             },
             "network_links_inbound": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -132,7 +132,7 @@
                 }
             },
             "datalogs": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append"]
                     }
@@ -143,7 +143,7 @@
                 }
             },
             "restricted_content_keys": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "delete", "append", "subscribe"]
                     }
@@ -154,7 +154,7 @@
                 }
             },
             "channels": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -168,7 +168,7 @@
                 }
             },
             "asset_reactions": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -180,7 +180,7 @@
                 }
             },
             "asset_reactions_received": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -197,7 +197,7 @@
                 }
             },
             "messages": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -214,7 +214,7 @@
                 }
             },
             "private_messages": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -225,31 +225,31 @@
                 }
             },
             "incoming_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
-                "#properties": [["cache_only", "3d"]],
+                "x-byoda-properties": [["cache_only", "3d"]],
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
                 }
             },
             "feed_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
                 },
-                "#properties": ["cache_only:1w"],
+                "x-byoda-properties": ["cache_only:1w"],
                 "type": "array",
                 "items": {
                     "$ref": "#/schemas/asset"
                 }
             },
             "public_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -263,7 +263,7 @@
                 }
             },
             "network_assets": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     },
@@ -279,7 +279,7 @@
                 }
             },
             "financial_transaction_receipts": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -290,7 +290,7 @@
                 }
             },
             "burst_point_attestations_received": {
-                "#accesscontrol": {
+                "x-byoda-accesscontrol": {
                     "member": {
                         "permissions": ["read", "update", "delete", "append", "subscribe"]
                     }
@@ -321,7 +321,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "What relation you have with the other member",
                         "type": "string"
                     },
@@ -356,7 +356,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "The relation the other member claims to have with you",
                         "type": "string"
                     },
@@ -391,7 +391,7 @@
                         "format": "uuid"
                     },
                     "relation": {
-                        "#properties": ["counter"],
+                        "x-byoda-properties": ["counter"],
                         "description": "The relation the other member has with you",
                         "type": "string"
                     },
@@ -417,13 +417,13 @@
                         "type": "string"
                     },
                     "member_id": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The UUID of the member that reacted to our asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "asset_id": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The UUID of our asset",
                         "type": "string",
                         "format":  "uuid"
@@ -434,13 +434,13 @@
                         "format": "uri"
                     },
                     "asset_class": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "The type of asset",
                         "type": "string",
                         "format":  "uuid"
                     },
                     "relation": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "What relation the other member has with our asset, for example liked",
                         "type": "string"
                     },
@@ -498,18 +498,18 @@
                         "description": "The UUID of the message",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "sender_id": {
                         "description": "The UUID of the member that sent the message",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "creator": {
                         "description": "creator of the message",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "creator_thumbnail": {
                         "description": "URL for the creator's thumbnail",
@@ -520,18 +520,18 @@
                         "description": "The UUID of the thread that the message belongs to",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "in_response_to_id": {
                         "description": "The UUID of the message that this message is a response to",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "subject": {
                         "description": "The subject of the message",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "contents": {
                         "description": "The contents of the message",
@@ -592,29 +592,29 @@
                         "description": "time the log entry was created",
                         "format": "date-time",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_addr": {
                         "description": "The remote IP address performing the request",
                         "format": "ipv4",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_id": {
                         "description": "The ID of the client originating the log entry",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "remote_id_type": {
                         "description": "The type of ID used to authenticate, ie. member, service or account",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "origin_member_id": {
                         "description": "The UUID of the member that originated the recurise query",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "origin_timestamp": {
                         "description": "The time the query was created by the origin member of the recursive query",
@@ -637,12 +637,12 @@
                     "operation": {
                         "description": "What operation that was requested by the client",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "object": {
                         "description": "name of the object in the Data API query",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_filters": {
                         "description": "the filters specified in the Data API query",
@@ -651,23 +651,23 @@
                     "query_depth": {
                         "description": "the depth specified the Data API query",
                         "type": "integer",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_relations": {
                         "description": "the relations specified in the Data API query",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "query_remote_member_id": {
                         "description": "The member that was specified in the append request to proxy to",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "source": {
                         "description": "The source of the log entry, ie. the client, a Data API query, etc.",
                         "type": "string",
-                        "#properties": ["index", "counter"]
+                        "x-byoda-properties": ["index", "counter"]
                     },
                     "message": {
                         "description": "Additional information about the request",
@@ -687,7 +687,7 @@
                         "description": "The UUID of the video chapter",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "start": {
                         "description": "The start of the chapter, as an offset in seconds from the start of the video",
@@ -714,7 +714,7 @@
                         "description": "The UUID of the video thumbnail",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "url": {
                         "description": "The URL of the thumbnail",
@@ -764,7 +764,7 @@
                         "description": "The UUID of the claim, unique to the signer of the claim",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "claims": {
                         "description": "The claims that are validated by the issuer",
@@ -788,12 +788,12 @@
                         "type": "string"
                     },
                     "keyfield": {
-                        "#properties": ["index"],
+                        "x-byoda-properties": ["index"],
                         "description": "name of the field used to identify the object, ie. 'asset_id'. The field must be of type 'UUID'",
                         "type": "string"
                     },
                     "keyfield_id": {
-                        "#properties": ["index"],
+                        "x-byoda-properties": ["index"],
                         "description": "The UUID of the keyfield of the claim",
                         "type": "string",
                         "format": "uuid"
@@ -869,7 +869,7 @@
                         "description": "The UUID of the asset",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "asset_type": {
                         "description": "type of asset, ie. a tweet, a message, a video, etc.",
@@ -927,7 +927,7 @@
                     "publisher_channel": {
                         "description": "channel of the asset on the publisher platform",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "channel_url": {
                         "description": "URL for the publisher channel",
@@ -990,14 +990,14 @@
                         }
                     },
                     "publisher": {
-                        "#properties": ["index", "counter"],
+                        "x-byoda-properties": ["index", "counter"],
                         "description": "the publisher of the asset",
                         "type": "string"
                     },
                     "publisher_asset_id": {
                         "description": "Identifier of the asset set by the publisher",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "publisher_views": {
                         "description": "The number of views the asset has had on the publisher platform",
@@ -1122,7 +1122,7 @@
                     "publisher_channel_id": {
                         "description": "Identifier of the channel on the publisher platform",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "ingest_status": {
                         "description": "status of the ingest process",
@@ -1168,7 +1168,7 @@
                         "description": "The UUID of the video caption",
                         "type": "string",
                         "format": "uuid",
-                        "#properties": ["primary_key", "index", "counter"]
+                        "x-byoda-properties": ["primary_key", "index", "counter"]
                     },
                     "language_code": {
                         "description": "The language of the caption track, as a BCP-47 language tag",
@@ -1445,7 +1445,7 @@
                     "channel": {
                         "description": "name of the channel",
                         "type": "string",
-                        "#properties": ["index"]
+                        "x-byoda-properties": ["index"]
                     },
                     "title": {
                         "description": "title of the channel",

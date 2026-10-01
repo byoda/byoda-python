@@ -43,8 +43,11 @@ MARKER_NETWORK_LINKS: str = 'network_links'
 # The data class where logs for REST Data API calls are stored
 MARKER_DATA_LOGS: str = 'datalogs'
 
+# Property used to mark a data class as obsolete
+MARKER_OBSOLETE: str = 'x-byoda-obsolete'
+
 # The property used to specify access controls for data classes
-MARKER_ACCESS_CONTROL: str = '#accesscontrol'
+MARKER_ACCESS_CONTROL: str = 'x-byoda-accesscontrol'
 
 # How many records should a Data query return by default
 DEFAULT_QUERY_SIZE: int = 40

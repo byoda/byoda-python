@@ -33,6 +33,7 @@ from byoda.datatypes import RightsEntityType
 from byoda.datatypes import DataOperationType
 from byoda.datatypes import DataType
 from byoda.datatypes import MARKER_ACCESS_CONTROL
+from byoda.datatypes import MARKER_OBSOLETE
 from byoda.storage.pubsub import PubSub
 
 from byoda import config
@@ -65,7 +66,7 @@ PYTHON_SCALAR_TYPE_MAP: dict[DataType, str] = {
     DataType.UUID: 'UUID',
 }
 
-MARKER_PROPERTIES: str = '#properties'
+MARKER_PROPERTIES: str = 'x-byoda-properties'
 
 SECONDS_PER_UNIT: dict[str, int] = {
     's': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800
@@ -298,7 +299,7 @@ class SchemaDataItem:
                 class_name, schema_data, schema, classes=classes, with_pubsub=with_pubsub
             )
         else:
-            if schema_data.get('#obsolete', False) == True:
+            if schema_data.get(MARKER_OBSOLETE, False) == True:
                 return
 
             item = SchemaDataScalar(class_name, schema_data, schema)
