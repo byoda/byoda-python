@@ -24,11 +24,18 @@ from pydantic import Base64Str
 from pydantic import Field
 from pydantic import FieldValidationInfo
 from pydantic.functional_validators import AfterValidator
+from pydantic.functional_validators import BeforeValidator
 from pydantic import BaseModel as PydanticBaseModel
 
 from byoda.datatypes import IdType
 from byoda.datatypes import Currency
-from byoda.datatypes import DataFilterType
+from byoda.datatypes import DataFilterType, FlatDataFilterType
+from byoda.datamodel.filter_expression import (
+    validate_filter_structure,
+    validate_single_filter,
+    validate_required_single_filter,
+    validate_counter_filter,
+)
 from byoda.datatypes import MonetizationType
 
 from byoda.limits import MAX_FIELD_NAME_LENGTH
@@ -38,6 +45,19 @@ from byoda.limits import MAX_RELATIONS_QUERY_LEN
 
 _LOGGER: Logger = getLogger(__name__)
 TRACER: Tracer = get_tracer(__name__)
+
+ReadFilter = Annotated[
+    DataFilterType, BeforeValidator(validate_filter_structure)
+]
+SingleFilter = Annotated[
+    FlatDataFilterType, BeforeValidator(validate_single_filter)
+]
+RequiredSingleFilter = Annotated[
+    FlatDataFilterType, BeforeValidator(validate_required_single_filter)
+]
+CounterFilterInput = Annotated[
+    FlatDataFilterType, BeforeValidator(validate_counter_filter)
+]
 
 DEFAULT_PAGE_LENGTH: int = 20
 
@@ -97,7 +117,8 @@ def check_relations(v: str) -> FieldValidationInfo:
 
 
 def check_signature_format_version(v: int) -> FieldValidationInfo:
-    assert v == 1
+    if v is not None and v not in (1, 2):
+        raise ValueError('Unsupported signature format version')
     return v
 
 
@@ -120,7 +141,7 @@ class QueryModel(BaseModel):
         description='query id, required for queries with depth > 0'
     )
 
-    filter: DataFilterType | None = Field(
+    filter: ReadFilter | None = Field(
         default=None,
         description='filter to apply to the results of the query'
     )
@@ -199,7 +220,7 @@ class ProxyQueryModel(BaseModel):
         description='query id, required for queries with depth > 0'
     )
 
-    filter: DataFilterType | None = Field(
+    filter: ReadFilter | None = Field(
         default=None,
         description='filter to apply to the results of the query'
     )
@@ -267,7 +288,7 @@ class MutateModel(BaseModel, Generic[TypeX]):
 
 
 class UpdateModel(BaseModel, Generic[TypeX]):
-    filter: DataFilterType = Field(
+    filter: RequiredSingleFilter = Field(
         description='filter to select what data to update'
     )
     query_id: UUID | None = None
@@ -277,7 +298,7 @@ class UpdateModel(BaseModel, Generic[TypeX]):
 
 
 class DeleteModel(BaseModel):
-    filter: DataFilterType = Field(
+    filter: RequiredSingleFilter = Field(
         description='filter to select what data to delete'
     )
     query_id: UUID | None = None
@@ -286,7 +307,7 @@ class DeleteModel(BaseModel):
 
 
 class CounterModel(BaseModel):
-    filter: DataFilterType | None = Field(
+    filter: CounterFilterInput | None = Field(
         default=None,
         description='filter to select what data to receive counters for'
     )
@@ -302,7 +323,7 @@ class CounterModel(BaseModel):
 
 
 class UpdatesModel(BaseModel):
-    filter: DataFilterType | None = Field(
+    filter: SingleFilter | None = Field(
         default=None,
         description='filter to select what data to receive counters for'
     )
@@ -352,7 +373,7 @@ class UpdatesResponseModel(BaseModel):
         default=0,
         description='The number of hops the update response has traveled'
     )
-    filter: DataFilterType | None = Field(
+    filter: SingleFilter | None = Field(
         default=None,
         description='The filter from the original Updates API request'
     )

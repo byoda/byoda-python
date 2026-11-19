@@ -901,35 +901,21 @@ class ArraySqlTable(SqlTable):
 
         placeholders: dict[str, str] = {}
 
-        where_clause: str | None = None
-        if data_filters and data_filters.filters:
-            where_data: dict[str, object]
-            where_clause, where_data = self.sql_where_clause(
-                data_filters, self.sql_store.get_named_placeholder
-            )
-            stmt += where_clause
-            placeholders |= where_data
-
-        if meta_filters and meta_filters.filters:
-            meta_where_clause: str
-            meta_where_data: dict[str, object]
-            meta_where_clause, meta_where_data = self.sql_where_clause(
-                meta_filters, self.sql_store.get_named_placeholder
-            )
-
-            if where_clause:
-                # Non-meta data filter was also supplied so we don't want to
-                # include 'WHERE' clause for both regular filter and
-                # meta-filter
-                meta_where_clause = meta_where_clause.lstrip('WHERE') + 'AND '
-
-            stmt += meta_where_clause
-            placeholders |= meta_where_data
+        expressions = []
+        for filters, namespace in ((data_filters, 'df'), (meta_filters, 'mf')):
+            if filters:
+                expression, values = filters.sql_expression(
+                    self.sql_store.get_named_placeholder, namespace=namespace
+                )
+                expressions.append(f'({expression})')
+                placeholders.update(values)
+        if expressions:
+            stmt += 'WHERE ' + ' AND '.join(expressions)
 
         if after:
             try:
                 stmt = await self._add_cursor_to_query(
-                    stmt, placeholders, after, data_filters
+                    stmt, placeholders, after, bool(expressions)
                 )
             except FileNotFoundError:
                 # Cursor was not found in the table
@@ -969,8 +955,7 @@ class ArraySqlTable(SqlTable):
 
     async def _add_cursor_to_query(self, stmt: str,
                                    placeholders: dict[str, object], after: str,
-                                   data_filters: DataFilterSet
-                                   ) -> str:
+                                   has_where: bool) -> str:
         '''
         Adds to SQL query to return rows after the specified cursor. Updates
         provided 'placeholders' dict with value for the 'rowid' meta-column
@@ -978,12 +963,12 @@ class ArraySqlTable(SqlTable):
         :param stmt: SQL statement to add the cursor to
         :param placeholders: placeholders for the SQL statement
         :param after: cursor to return rows after
-        :param data_filters: filters to apply to the SQL query
+        :param has_where: whether the statement already has a WHERE clause
         :returns: the updated SQL statement
         '''
 
         cursor_stmt: str = stmt
-        if data_filters and data_filters.filters:
+        if has_where:
             cursor_stmt += ' AND '
         else:
             cursor_stmt += 'WHERE '
@@ -1000,7 +985,7 @@ class ArraySqlTable(SqlTable):
 
         updated_stmt: str = stmt
         if rows:
-            if data_filters and data_filters.filters:
+            if has_where:
                 updated_stmt += ' AND '
             else:
                 updated_stmt += 'WHERE '
@@ -1087,6 +1072,10 @@ class ArraySqlTable(SqlTable):
         :returns: the number of rows mutated to the table
         '''
 
+        if data_filters is None:
+            raise ValueError('This operation requires one comparison')
+        data_filters.require_single()
+
         stmt: str = f'UPDATE {self.storage_table_name} SET '
         values: dict[str, object] = {}
 
@@ -1124,6 +1113,10 @@ class ArraySqlTable(SqlTable):
         '''
         Deletes one or more records based on the provided filters
         '''
+
+        if data_filters is None:
+            raise ValueError('This operation requires one comparison')
+        data_filters.require_single()
 
         stmt: str = f'DELETE FROM {self.storage_table_name} '
         values: dict[str, object] = {}

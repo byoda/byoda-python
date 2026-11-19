@@ -8,6 +8,7 @@ pods
 '''
 
 import base64
+import orjson
 
 from uuid import UUID
 from copy import copy
@@ -34,6 +35,8 @@ from byoda.datatypes import NetworkLink
 from byoda.datatypes import DATA_API_URL
 
 from byoda.datamodel.dataclass import SchemaDataItem
+from byoda.datamodel.filter_expression import validate_filter_structure
+from byoda.datamodel.filter_expression import LOGICAL_OPERATORS
 
 from byoda.models.data_api_models import QueryModel
 from byoda.models.data_api_models import QueryResponseModel
@@ -427,7 +430,7 @@ class DataProxy:
                                filters: dict[str, str] | None,
                                timestamp: datetime,
                                origin_member_id: UUID, origin_signature: str,
-                               signature_format_version: int) -> None:
+                               signature_format_version: int | None) -> None:
         '''
         Verifies the signature of the recursive request
 
@@ -445,13 +448,22 @@ class DataProxy:
 
         network: Network = config.server.network
 
-        if signature_format_version != 1:
+        # Requests signed before format negotiation omitted this field.
+        signature_format_version = (
+            1 if signature_format_version is None else signature_format_version
+        )
+        if signature_format_version not in (1, 2):
             raise NotImplementedError(
                 f'Signature format {signature_format_version} not supported'
             )
 
         plaintext: str = DataProxy._create_plaintext(
-            service_id, relations, filters, timestamp, origin_member_id
+            service_id,
+            relations,
+            filters,
+            timestamp,
+            origin_member_id,
+            signature_format_version=signature_format_version,
         )
         secret: MemberDataSecret = await MemberDataSecret.download(
             origin_member_id, service_id, network.name
@@ -464,7 +476,24 @@ class DataProxy:
     @staticmethod
     def _create_plaintext(service_id: int, relations: list[str] | None,
                           filters: dict[str, str] | None, timestamp: datetime,
-                          origin_member_id: UUID | str) -> str:
+                          origin_member_id: UUID | str,
+                          signature_format_version: int = 1) -> str:
+
+        validate_filter_structure(filters)
+        if signature_format_version == 2:
+            envelope = {
+                'signature_format_version': 2,
+                'service_id': service_id,
+                'relations': relations,
+                'timestamp': timestamp,
+                'origin_member_id': origin_member_id,
+                'filters': filters,
+            }
+            return orjson.dumps(envelope, option=orjson.OPT_SORT_KEYS).decode()
+        if signature_format_version != 1:
+            raise ValueError('Unsupported signature format version')
+        if filters and next(iter(filters)) in LOGICAL_OPERATORS:
+            raise ValueError('Nested filters require signature format 2')
 
         plaintext: str = f'{service_id}'
 
@@ -489,7 +518,8 @@ class DataProxy:
                          filters: dict[str, str] | None,
                          timestamp: datetime, origin_member_id: UUID | str,
                          member_data_secret: MemberDataSecret = None,
-                         log_data: dict[str, any] = {}) -> str:
+                         log_data: dict[str, any] = {},
+                         signature_format_version: int = 1) -> str:
         '''
         Creates a signature for a recurisve request. This function returns
         the signature as a base64 encoded string so it can be included in
@@ -500,7 +530,12 @@ class DataProxy:
             'Creating signaturefor recursive request', extra=log_data
         )
         plaintext: str = DataProxy._create_plaintext(
-            service_id, relations, filters, timestamp, origin_member_id
+            service_id,
+            relations,
+            filters,
+            timestamp,
+            origin_member_id,
+            signature_format_version=signature_format_version,
         )
 
         if not member_data_secret:

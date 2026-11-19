@@ -43,6 +43,12 @@ from opentelemetry.sdk.trace import Tracer
 from byoda.datamodel.dataclass import SchemaDataArray
 from byoda.datamodel.dataclass import SchemaDataObject
 from byoda.datamodel.datafilter import DataFilterSet
+from byoda.datamodel.filter_expression import (
+    has_logical_groups,
+    validate_counter_filter,
+    validate_filter_structure,
+    validate_single_filter,
+)
 
 from byoda.datamodel.table import Table
 from byoda.datamodel.table import ResultData
@@ -447,6 +453,8 @@ class MemberData(dict):
         :raises: ValueError
         '''
 
+        validate_filter_structure(data_filter)
+
         _LOGGER.debug('Got REST GET Data API query', extra=log_data)
 
         server: PodServer = config.server
@@ -631,11 +639,14 @@ class MemberData(dict):
             # Our membership submitted the query so let's
             # add needed data and sign the request
             query.origin_member_id = member.member_id
-            query.signature_format_version = 1
+            query.signature_format_version = (
+                2 if has_logical_groups(query.filter) else 1
+            )
 
             query.origin_signature = proxy.create_signature(
                 member.service_id, query.relations, query.filter,
-                query.timestamp, query.origin_member_id, log_data=log_data
+                query.timestamp, query.origin_member_id, log_data=log_data,
+                signature_format_version=query.signature_format_version
             )
 
         all_data: list[dict[str, any]] = await proxy.proxy_query_request(
@@ -673,6 +684,8 @@ class MemberData(dict):
         :param updates_model: the request we received
         :returns: None
         '''
+
+        validate_single_filter(updates_filter)
 
         remote_addr: str = websocket.client.host
         log_data: dict[str, any] = {
@@ -773,6 +786,16 @@ class MemberData(dict):
         :param updates_model: the request we received
         :returns: None
         '''
+
+        validate_counter_filter(counter_filter)
+        counter_filter = (
+            {
+                field: next(iter(condition.values()))
+                for field, condition in counter_filter.items()
+            }
+            if counter_filter
+            else None
+        )
 
         remote_addr: str = websocket.client.host
         log_data: dict[str, any] = {
@@ -1133,6 +1156,8 @@ class MemberData(dict):
         :raises: ValueError
         '''
 
+        validate_single_filter(data_filter, required=True)
+
         if not data_filter:
             raise ValueError(
                 'Must specify one or more filters to select content for '
@@ -1153,7 +1178,9 @@ class MemberData(dict):
         schema: Schema = member.schema
         data_class: SchemaDataArray = schema.data_classes[class_name]
 
-        data_filter_set: DataFilterSet = DataFilterSet(data_filter)
+        data_filter_set: DataFilterSet = DataFilterSet(
+            data_filter, data_class=data_class
+        )
 
         if not origin_id:
             origin_id = auth.id
@@ -1193,6 +1220,8 @@ class MemberData(dict):
         :returns: the number of objects updated
         :raises: ValueError
         '''
+
+        data_filter_set.require_single()
 
         member_id: UUID = member.member_id
         service_id: int = member.service_id
@@ -1280,6 +1309,8 @@ class MemberData(dict):
         :returns: number of objects deleted
         '''
 
+        validate_single_filter(data_filter, required=True)
+
         _LOGGER.debug('Got Rest Data Delete API invocation', extra=log_data)
 
         if not data_filter:
@@ -1331,6 +1362,8 @@ class MemberData(dict):
         :returns: number of objects deleted
         '''
 
+        data_filter.require_single()
+
         _LOGGER.debug('Deleting data for data_class', extra=log_data)
 
         member_id: UUID = member.member_id
@@ -1379,11 +1412,14 @@ class MemberData(dict):
             if not field.is_counter:
                 continue
 
-            counter_data_filter: str | None = getattr(filter, field.name, None)
-            filter_value: str | None = getattr(
-                counter_data_filter, 'eq', None
+            comparisons = data_filter.filters.get(field.name, [])
+            comparison = comparisons[0] if comparisons else None
+            filter_value = (
+                comparison.value
+                if comparison and comparison.operator == 'eq'
+                else None
             )
-            if counter_data_filter and filter_value:
+            if filter_value is not None:
                 _LOGGER.debug(
                     'Filtering on counter field', extra=log_data | {
                         'field': field.name, 'value': filter_value
