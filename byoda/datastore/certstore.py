@@ -14,7 +14,11 @@ from ipaddress import ip_address as IpAddress
 
 from cryptography import x509
 
+from fastapi import HTTPException
+
 from byoda.datatypes import IdType
+
+from byoda.exceptions import ByodaCaExpiredError
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.secret import CertChain
@@ -86,7 +90,7 @@ class CertStore:
             )
 
         # TODO: add check on whether the UUID is already in use
-        certchain: CertChain = cert_auth.sign_csr(csr, 365*3)
+        certchain: CertChain = cert_auth.sign_csr(csr)
 
         new_id_type: str = entity_id.id_type.value.strip('-')
         _LOGGER.info(
@@ -94,3 +98,35 @@ class CertStore:
             f'received from IP {str(remote_addr)}'
         )
         return certchain
+
+    def sign_for_api(self, csr: str, id_type: IdType,
+                     remote_addr: IpAddress) -> CertChain:
+        '''
+        Signs a CSR received through an API, translating the reasons for
+        not signing it into HTTP errors that tell the client what is wrong
+
+        :param csr: the Certificate Signing Request
+        :param id_type: what entity is the CSR for, client, service or member
+        :param remote_addr: the originating IP address for the CSR
+        :returns: the signed certificate and its certchain
+        :raises: HTTPException
+        '''
+
+        try:
+            return self.sign(csr, id_type, remote_addr)
+        except ByodaCaExpiredError as exc:
+            _LOGGER.error(f'Can not sign CSR from {remote_addr}: {exc}')
+            raise HTTPException(
+                status_code=503,
+                detail='The CA for signing this CSR has expired'
+            )
+        except PermissionError as exc:
+            _LOGGER.debug(f'CSR from {remote_addr} not permitted: {exc}')
+            raise HTTPException(
+                status_code=403, detail=f'CSR not permitted: {exc}'
+            )
+        except (ValueError, KeyError, NotImplementedError) as exc:
+            _LOGGER.debug(f'CSR from {remote_addr} rejected: {exc}')
+            raise HTTPException(
+                status_code=400, detail=f'CSR rejected: {exc}'
+            )

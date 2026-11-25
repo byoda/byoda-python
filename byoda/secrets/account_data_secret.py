@@ -12,9 +12,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -35,10 +32,6 @@ class AccountDataSecret(DataSecret):
     '''
 
     __slots__: list[str] = ['account_id', 'account', 'network']
-
-    # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     @override
     def __init__(self, account: str = 'pod', account_id: UUID = None,

@@ -11,9 +11,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from byoda.util.paths import Paths
 
@@ -31,12 +28,8 @@ Network = TypeVar('Network')
 class NetworkServicesCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-    # When should the Network Services CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
-
     # CSRs that we are willing to sign and what we set for their expiration
-    _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 15 * 365}
+    _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 4 * 365}
 
     # The longest path under network services CA is:
     #   -> service_ca -> members_ca
@@ -72,7 +65,7 @@ class NetworkServicesCaSecret(CaSecret):
     @override
     async def create_csr(self, renew: bool = False) -> CSR:
         '''
-        Creates an RSA private key and X.509 CertificateSigningRequest
+        Creates an EC P-256 private key and X.509 CertificateSigningRequest
 
         :param renew: should any existing private key be used to
         renew an existing certificate

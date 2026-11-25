@@ -150,7 +150,7 @@ async def post_account(request: Request, csr: CertSigningRequestModel,
 
     certstore = CertStore(network.accounts_ca)
 
-    certchain: CertChain = certstore.sign(
+    certchain: CertChain = certstore.sign_for_api(
         csr.csr, IdType.ACCOUNT, request.client.host
     )
 

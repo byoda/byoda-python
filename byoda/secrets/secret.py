@@ -88,9 +88,10 @@ class Secret:
         'extended_key_usage'
     ]
 
-    # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
+    # How long before the expiration of the cert we want to renew it
+    # and how long before the expiration renewal is needed
+    RENEW_WANTED: timedelta = timedelta(days=180)
+    RENEW_NEEDED: timedelta = timedelta(days=30)
 
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
                 'digital_signature': True,
@@ -228,12 +229,13 @@ class Secret:
             self.create_selfsigned_cert(expire, ca)
 
     def create_selfsigned_cert(self,
-                               expire: int | datetime | timedelta = 10950,
+                               expire: int | datetime | timedelta | None,
                                ca: bool = False,
                                pathlen: int | None = None) -> None:
         '''
-        Create a self_signed certificate. Self-signed certs have
-        a expiration of 30 years by default
+        Create a self_signed certificate. There is no default lifetime:
+        the caller decides, ie. NetworkRootCaSecret.LIFETIME_DAYS for
+        the root CA of a network
 
         :param expire: number of days after which the cert should expire,
         either as int or timedelta or the date when the cert should expire
@@ -248,22 +250,22 @@ class Secret:
         issuer: x509.Name
         subject = issuer = self._generate_cert_name()
 
-        if expire:
-            if isinstance(expire, int):
-                expiration: datetime = datetime.now(tz=UTC) + timedelta(
-                    days=expire
-                )
-            elif isinstance(expire, datetime):
-                expiration = expire
-            elif isinstance(expire, timedelta):
-                expiration: datetime = datetime.now(tz=UTC) + expire
-            else:
-                raise ValueError(
-                    'expire must be an int, datetime or timedelta, not: '
-                    f'{type(expire)}'
-                )
+        if expire is None:
+            raise ValueError('expire is required for self-signed certificates')
+
+        if isinstance(expire, int):
+            expiration: datetime = datetime.now(tz=UTC) + timedelta(
+                days=expire
+            )
+        elif isinstance(expire, datetime):
+            expiration = expire
+        elif isinstance(expire, timedelta):
+            expiration: datetime = datetime.now(tz=UTC) + expire
         else:
-            expiration: datetime = datetime.now(tz=UTC) + timedelta(days=3650)
+            raise ValueError(
+                'expire must be an int, datetime or timedelta, not: '
+                f'{type(expire)}'
+            )
 
         self.is_root_cert = True
         cert_builder: x509.CertificateBuilder = x509.CertificateBuilder(
@@ -310,7 +312,7 @@ class Secret:
     async def create_csr(self, common_name: str, sans: str | list[str] = [],
                          renew: bool = False) -> CSR:
         '''
-        Creates an RSA private key and a CSR. After calling this function,
+        Creates an EC P-256 private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
         generate the signed certificate
 
@@ -428,8 +430,8 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
 
-    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365
-                                ) -> None:
+    async def get_csr_signature(self, csr: CSR, issuing_ca,
+                                expire: int | None = None) -> None:
         '''
         Gets the cert signed and adds the signed cert to the secret
 
@@ -536,6 +538,31 @@ class Secret:
             f'cert {cert_file} and root CA {ca_file}'
         )
 
+    def review_expiration(self) -> None:
+        '''
+        Logs a warning if the cert must be renewed soon and an info
+        message if the cert should be renewed. The time left is computed
+        against the current time so this works for long-running servers
+
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        # TODO: add logic to recreate the signed cert
+        time_left: timedelta = \
+            self.cert.not_valid_after_utc - datetime.now(tz=UTC)
+
+        if time_left < self.RENEW_NEEDED:
+            _LOGGER.warning(
+                f'Certificate {self.cert_file} expires in '
+                f'{time_left.days} days, renewal is needed'
+            )
+        elif time_left < self.RENEW_WANTED:
+            _LOGGER.info(
+                f'Certificate {self.cert_file} expires in '
+                f'{time_left.days} days, renewal is wanted'
+            )
+
     async def cert_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
@@ -605,18 +632,7 @@ class Secret:
 
         if with_private_key:
             # Only croak about expiration of cert if we own the private key
-            if self.cert.not_valid_after_utc < self.RENEW_WANTED:
-                # TODO: add logic to recreate the signed cert
-                if self.cert.not_valid_after_utc < self.RENEW_NEEDED:
-                    _LOGGER.warning(
-                        f'Certificate {self.cert_file} expires in 30 days: '
-                        f'{self.RENEW_NEEDED}'
-                    )
-                else:
-                    _LOGGER.info(
-                        f'Certificate {self.cert_file} expires in 90 days: '
-                        f'{self.RENEW_WANTED}'
-                    )
+            self.review_expiration()
 
         self.common_name = None
         for rdns in self.cert.subject.rdns:

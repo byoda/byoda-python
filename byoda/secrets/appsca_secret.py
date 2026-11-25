@@ -11,9 +11,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography import x509
 from cryptography.x509 import CertificateSigningRequest
@@ -31,9 +28,6 @@ Network = TypeVar('Network')
 
 
 class AppsCaSecret(CaSecret):
-    # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=1080)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=1800)
 
     # CSRs that we are willing to sign
     _ACCEPTED_CSRS: dict[IdType, int] = {IdType.APP: 365, IdType.APP_DATA: 365}
@@ -87,7 +81,7 @@ class AppsCaSecret(CaSecret):
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates an EC P-256 private key and X.509 CSR
 
         :param renew: should any existing private key be used to
         renew an existing certificate

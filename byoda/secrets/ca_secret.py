@@ -11,17 +11,22 @@ import os
 from copy import deepcopy
 from typing import override
 from logging import Logger
+import logging
+
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
 from datetime import timedelta
 
 from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 from byoda.datatypes import CsrSource
+
+from byoda.exceptions import ByodaCaExpiredError
 
 from byoda.storage.filestorage import FileStorage
 
@@ -39,9 +44,10 @@ CSR = x509.CertificateSigningRequest
 class CaSecret(Secret):
     __slots__: list[str] = []
 
-    # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
+    # How long before the expiration of a CA cert we want to renew it
+    # and how long before the expiration renewal is needed
+    RENEW_WANTED: timedelta = timedelta(days=365)
+    RENEW_NEEDED: timedelta = timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {}
@@ -49,11 +55,9 @@ class CaSecret(Secret):
     # Maximum length of path in CA hierarchy under us.
     _PATHLEN: int | None = 1
 
-    VALID_SIGNATURE_ALGORITHMS: set[str] = {
-        'sha256WithRSAEncryption',
-        'ed25519',
-        'ecdsa-with-SHA256'
-    }
+    # We only sign CSRs for EC keys on curve P-256
+    VALID_SIGNATURE_ALGORITHMS: set[str] = {'ecdsa-with-SHA256'}
+    VALID_CURVE: str = 'secp256r1'
 
     VALID_SIGNATURE_HASHES: set[str] = {'sha256'}
 
@@ -93,7 +97,8 @@ class CaSecret(Secret):
     Properties:
     - cert                 : instance of cryptography.x509
     - key                  : instance of
-                             cryptography.hazmat.primitives.asymmetric.rsa
+                             cryptography.hazmat.primitives.asymmetric.ec
+                             EllipticCurvePrivateKey on curve SECP256R1
     - password             : string protecting the private key
     - shared_key           : unprotected shared secret used by Fernet
     - protected_shared_key : protected shared secret used by Fernet
@@ -127,6 +132,34 @@ class CaSecret(Secret):
         # CSRs
         self.accepted_csrs: dict[IdType, int] = self._ACCEPTED_CSRS
 
+    @staticmethod
+    def review_csr_crypto(csr: CSR) -> None:
+        '''
+        Checks the cryptography of the CSR: its signature must be valid,
+        its key must be EC P-256 and it must be signed with ECDSA/SHA256.
+        These checks apply to every CSR we sign, regardless of whether
+        the policy for the common name of the CSR is applied
+
+        :raises: ValueError
+        '''
+
+        if not csr.is_signature_valid:
+            raise ValueError('CSR with invalid signature')
+
+        public_key = csr.public_key()
+        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
+                or public_key.curve.name != CaSecret.VALID_CURVE):
+            raise ValueError('CSR public key must be EC P-256')
+
+        sign_algo: str = csr.signature_algorithm_oid._name
+        if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
+            raise ValueError(f'Invalid algorithm: {sign_algo}')
+
+        if csr.signature_hash_algorithm:
+            hash_algo: str = csr.signature_hash_algorithm.name
+            if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
+                raise ValueError(f'Invalid algorithm: {hash_algo}')
+
     @override
     def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
@@ -145,17 +178,7 @@ class CaSecret(Secret):
         if not self.ca:
             raise ValueError('Only CAs review CSRs')
 
-        if not csr.is_signature_valid:
-            raise ValueError('CSR with invalid signature')
-
-        sign_algo: str = csr.signature_algorithm_oid._name
-        if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
-            raise ValueError(f'Invalid algorithm: {sign_algo}')
-
-        if csr.signature_hash_algorithm:
-            hash_algo: str = csr.signature_hash_algorithm.name
-            if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
-                raise ValueError(f'Invalid algorithm: {hash_algo}')
+        CaSecret.review_csr_crypto(csr)
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names
@@ -297,6 +320,32 @@ class CaSecret(Secret):
 
         return entity_id
 
+    def _cap_expiration(self, csr: CSR, expiration: datetime) -> datetime:
+        '''
+        A cert must not outlive the CA that signs it, so the requested
+        expiration is capped at the expiration of our own cert
+
+        :raises: ByodaCaExpiredError if our own cert has already expired
+        '''
+
+        issuer_expiry: datetime = self.cert.not_valid_after_utc
+        if issuer_expiry <= datetime.now(tz=UTC):
+            raise ByodaCaExpiredError(
+                f'Issuing CA {self.common_name} expired at {issuer_expiry}',
+                loglevel=logging.ERROR
+            )
+
+        if expiration > issuer_expiry:
+            subject: str = csr.subject.rfc4514_string()
+            _LOGGER.warning(
+                f'Capping expiration of cert for {subject} from '
+                f'{expiration} to {issuer_expiry}, the expiration of '
+                f'issuing CA {self.common_name}'
+            )
+            expiration = issuer_expiry
+
+        return expiration
+
     def sign_csr(self, csr: CSR, expire: int | timedelta | datetime = None
                  ) -> CertChain:
         '''
@@ -315,6 +364,9 @@ class CaSecret(Secret):
             raise KeyError('Private key not loaded')
 
         if expire:
+            # With an explicit expiration, the policy for the common name
+            # is not applied but the cryptography of the CSR is checked
+            CaSecret.review_csr_crypto(csr)
             if isinstance(expire, int):
                 expiration: datetime = datetime.now(tz=UTC) + timedelta(
                     days=expire
@@ -343,6 +395,8 @@ class CaSecret(Secret):
 
             expiration: datetime = \
                 datetime.now(tz=UTC) + timedelta(days=expiration_days)
+
+        expiration = self._cap_expiration(csr, expiration)
 
         try:
             ca_extension: x509.Extension[x509.BasicConstraints] = \

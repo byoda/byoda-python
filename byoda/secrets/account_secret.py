@@ -12,9 +12,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -39,9 +36,6 @@ class AccountSecret(Secret):
     __slots__: list[str] = [
         'account_id', 'account', 'network', 'paths_account_id'
     ]
-    # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     @override
     def __init__(self, account: str = 'pod', account_id: UUID = None,
@@ -78,7 +72,7 @@ class AccountSecret(Secret):
     async def create_csr(self, account_id: UUID = None, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates an EC P-256 private key and X.509 CSR
 
         :param account_id: identifier for the account to be used in the CSR
         :param renew: should any existing private key be used to

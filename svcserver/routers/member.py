@@ -151,7 +151,7 @@ async def post_member(request: Request, csr: CertSigningRequestModel,
     # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(service.members_ca)
 
-    certchain: CertChain = certstore.sign(
+    certchain: CertChain = certstore.sign_for_api(
         csr.csr, IdType.MEMBER, request.client.host
     )
 
