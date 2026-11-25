@@ -30,6 +30,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+from fastapi import HTTPException
+
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
@@ -37,6 +39,8 @@ from byoda.datastore.certstore import CertStore
 
 from byoda.datatypes import IdType
 from byoda.datatypes import ServerRole
+
+from byoda.exceptions import ByodaCaExpiredError
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.ca_secret import CaSecret
@@ -207,7 +211,7 @@ class TestIssuerCap(unittest.IsolatedAsyncioTestCase):
             SERVICE_ID, network_namespace(self.network)
         )
         csr = await service_ca.create_csr()
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ByodaCaExpiredError):
             short_ca.sign_csr(csr)
 
 
@@ -314,11 +318,11 @@ class TestEcOnly(unittest.IsolatedAsyncioTestCase):
 
     async def test_rejects_rsa_csr(self) -> None:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        self.assert_rejected(key, 'Invalid algorithm')
+        self.assert_rejected(key, 'EC P-256')
 
     async def test_rejects_ed25519_csr(self) -> None:
         self.assert_rejected(
-            ed25519.Ed25519PrivateKey.generate(), 'Invalid algorithm'
+            ed25519.Ed25519PrivateKey.generate(), 'EC P-256'
         )
 
     async def test_rejects_p384_csr(self) -> None:
@@ -402,6 +406,57 @@ class TestRenewalThresholds(unittest.IsolatedAsyncioTestCase):
         with patch('byoda.secrets.secret.datetime', FutureDatetime):
             with self.assertLogs(SECRET_LOGGER, 'WARNING'):
                 member.review_expiration()
+
+
+class TestSignForApi(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.network: Network = await make_network()
+
+    async def test_rejected_csr_is_http_400_with_reason(self) -> None:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        csr = service_ca_csr_with_key(key)
+        pem: str = csr.public_bytes(serialization.Encoding.PEM).decode()
+
+        with self.assertRaises(HTTPException) as ctx:
+            CertStore(self.network.services_ca).sign_for_api(
+                pem, IdType.SERVICE_CA, LOCALHOST
+            )
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn('EC P-256', ctx.exception.detail)
+
+    async def test_expired_ca_is_http_503(self) -> None:
+        short_ca = await sign_short_services_ca(
+            self.network, timedelta(seconds=1)
+        )
+        await asyncio.sleep(1.5)
+
+        service_ca = ServiceCaSecret(
+            SERVICE_ID, network_namespace(self.network)
+        )
+        csr = await service_ca.create_csr()
+
+        with self.assertRaises(HTTPException) as ctx:
+            CertStore(short_ca).sign_for_api(
+                service_ca.csr_as_pem(csr), IdType.SERVICE_CA, LOCALHOST
+            )
+
+        self.assertEqual(ctx.exception.status_code, 503)
+
+    async def test_valid_csr_is_signed(self) -> None:
+        service_ca = ServiceCaSecret(
+            SERVICE_ID, network_namespace(self.network)
+        )
+        csr = await service_ca.create_csr()
+
+        certchain = CertStore(self.network.services_ca).sign_for_api(
+            service_ca.csr_as_pem(csr), IdType.SERVICE_CA, LOCALHOST
+        )
+        service_ca.from_signed_cert(certchain)
+
+        self.assertAlmostEqual(
+            lifetime_days(service_ca), SERVICE_CA_DAYS, delta=1
+        )
 
 
 if __name__ == '__main__':

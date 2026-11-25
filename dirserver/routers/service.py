@@ -253,7 +253,7 @@ async def post_service(request: Request, csr: CertSigningRequestModel,
     # The Network Services CA signs the CSRs for Service CAs
     certstore = CertStore(network.services_ca)
 
-    certchain = certstore.sign(
+    certchain = certstore.sign_for_api(
         csr.csr, IdType.SERVICE_CA, request.client.host
     )
 

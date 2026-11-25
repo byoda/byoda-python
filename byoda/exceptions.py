@@ -32,6 +32,12 @@ class ByodaValueError(ByodaException, ValueError):
         super().__init__(message, loglevel, extra=extra)
 
 
+class ByodaCaExpiredError(ByodaValueError):
+    '''
+    The cert of the CA that should sign a CSR has expired
+    '''
+
+
 class ByodaRuntimeError(ByodaException, RuntimeError):
     def __init__(self, message, loglevel=logging.DEBUG,
                  extra: dict[str, any] = {}) -> None:

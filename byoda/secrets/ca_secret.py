@@ -11,6 +11,8 @@ import os
 from copy import deepcopy
 from typing import override
 from logging import Logger
+import logging
+
 from logging import getLogger
 from datetime import UTC
 from datetime import datetime
@@ -23,6 +25,8 @@ from cryptography.hazmat.primitives import hashes
 from byoda.datatypes import EntityId
 from byoda.datatypes import IdType
 from byoda.datatypes import CsrSource
+
+from byoda.exceptions import ByodaCaExpiredError
 
 from byoda.storage.filestorage import FileStorage
 
@@ -149,6 +153,11 @@ class CaSecret(Secret):
         if not csr.is_signature_valid:
             raise ValueError('CSR with invalid signature')
 
+        public_key = csr.public_key()
+        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
+                or public_key.curve.name != CaSecret.VALID_CURVE):
+            raise ValueError('CSR public key must be EC P-256')
+
         sign_algo: str = csr.signature_algorithm_oid._name
         if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
             raise ValueError(f'Invalid algorithm: {sign_algo}')
@@ -157,11 +166,6 @@ class CaSecret(Secret):
             hash_algo: str = csr.signature_hash_algorithm.name
             if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
                 raise ValueError(f'Invalid algorithm: {hash_algo}')
-
-        public_key = csr.public_key()
-        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
-                or public_key.curve.name != CaSecret.VALID_CURVE):
-            raise ValueError('CSR public key must be EC P-256')
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names
@@ -308,19 +312,21 @@ class CaSecret(Secret):
         A cert must not outlive the CA that signs it, so the requested
         expiration is capped at the expiration of our own cert
 
-        :raises: ValueError if our own cert has already expired
+        :raises: ByodaCaExpiredError if our own cert has already expired
         '''
 
         issuer_expiry: datetime = self.cert.not_valid_after_utc
         if issuer_expiry <= datetime.now(tz=UTC):
-            raise ValueError(
-                f'Issuing CA {self.common_name} expired at {issuer_expiry}'
+            raise ByodaCaExpiredError(
+                f'Issuing CA {self.common_name} expired at {issuer_expiry}',
+                loglevel=logging.ERROR
             )
 
         if expiration > issuer_expiry:
+            subject: str = csr.subject.rfc4514_string()
             _LOGGER.warning(
-                f'Capping expiration of cert for {csr.subject.rfc4514_string()}'
-                f' from {expiration} to {issuer_expiry}, the expiration of '
+                f'Capping expiration of cert for {subject} from '
+                f'{expiration} to {issuer_expiry}, the expiration of '
                 f'issuing CA {self.common_name}'
             )
             expiration = issuer_expiry
