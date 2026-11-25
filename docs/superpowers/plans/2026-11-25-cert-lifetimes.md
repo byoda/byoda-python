@@ -62,11 +62,13 @@ CAs sign only EC P-256 keys.
 4. A long-running server (the directory server runs for months) must
    compute renewal warnings against the current time, not the time the
    module was imported. Covered by `test_thresholds_use_current_time` in
-   Task 4.
-5. `Network.create` run a second time, on a directory where the network
-   already exists (the reset runbook may be re-run). It must load the
-   existing secrets rather than mint new ones with different lifetimes.
-   Covered by `test_network_create_is_idempotent` in Task 2.
+   Task 4, which moves "now" forward with a patch.
+
+Not covered, and out of scope: running `Network.create` a second time on an
+existing directory. Today that fails, for two reasons. It reloads the root
+CA key with the caller's password, but the key was saved under a random
+one. And it refuses to re-create existing intermediate CAs. The reset
+creates the network once, into an empty directory.
 
 ---
 
@@ -100,8 +102,9 @@ CAs sign only EC P-256 keys.
       `network.root_ca.sign_csr(csr, expire=30)`, giving a services CA
       `short_ca` that expires in 30 days.
     - Sign a `ServiceCaSecret(1234, SimpleNamespace(name=NETWORK,
-      paths=network.paths))` CSR with `short_ca.sign_csr(csr)`. The table
-      would give 4 years.
+      paths=copy(network.paths)))` CSR with `short_ca.sign_csr(csr)`. The
+      table would give 4 years. Pass a copy, because `ServiceCaSecret`
+      overwrites `paths.service_id` on the object it's given.
     - Assert `service_ca.cert.not_valid_after_utc ==
       short_ca.cert.not_valid_after_utc`.
     - Wrap the signing in `self.assertLogs('byoda.secrets.ca_secret',
@@ -174,11 +177,23 @@ CAs sign only EC P-256 keys.
     ca: bool = False, ...)`: `expire` becomes required, the 3650-day
     fallback is removed, and the docstring matches.
 - Modify: `byoda/secrets/network_data_secret.py` and
-  `byoda/secrets/member_data_secret.py`: `create(self) -> None` with no
-  `expire` parameter, and `super().create(common_name, ca=self.ca)`.
-- Modify: `tests/unit/secret_test.py`. Every `create_selfsigned_cert(...)`
-  call passes `expire=10950` (lines 100, 108, 142, 1671, 1713, 2040).
-  `auth_test.py:102` (`root_ca.create()`) needs no change.
+  `byoda/secrets/member_data_secret.py`:
+  - `create(self, expire: int | None = None) -> None`. The 1085 and 109500
+    defaults are removed, and `expire` is passed through to
+    `super().create`.
+  - Production never self-signs these. Only tests that set
+    `is_root_cert = True` do, and they must now pass `expire`.
+- Modify: `byoda/secrets/secret.py`, in `create_selfsigned_cert`: when
+  `expire` is `None`, raise
+  `ValueError('expire is required for self-signed certificates')`.
+- Modify: `tests/unit/secret_test.py`:
+  - Every `create_selfsigned_cert(...)` call passes `expire=10950`
+    (lines 100, 108, 142, 1671, 1713, 2040).
+  - `secret.create()` at lines 940 and 1225 becomes
+    `secret.create(expire=365)`.
+  - `auth_test.py:102` (`root_ca.create()`) needs no change.
+- Keep the explicit `review_csr` at `network.py:266`. It now duplicates the
+  review inside `sign_csr`, but it is harmless.
 - Test: `tests/unit/cert_lifetimes_test.py`
 
 **Interfaces:**
@@ -207,12 +222,10 @@ CAs sign only EC P-256 keys.
     - a `ServiceCaSecret` CSR signed by `network.services_ca` gives 1460;
     - an `AccountSecret(account_id=uuid4(), network=network)` CSR signed by
       `network.accounts_ca` gives 365;
-    - a `MemberSecret` CSR signed by `service.members_ca` gives 365.
-  - `test_network_create_is_idempotent`:
-    - Call `Network.create(NETWORK, TEST_DIR, 'byoda')` a second time on
-      the same directory.
-    - Assert that the root CA's and the services CA's `fingerprint()` are
-      unchanged.
+    - a `MemberSecret(uuid4(), service.service_id, paths=network.paths,
+      network_name=NETWORK)` CSR signed by `service.members_ca` gives 365.
+      The member must use the addressbook service's id, because the
+      members CA rejects CNs for other services.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -220,8 +233,6 @@ CAs sign only EC P-256 keys.
 
   Expected: FAIL, because today the intermediates are 365 days, the service
   CA is 5475 days, and `CertStore` gives 1095 days.
-  `test_network_create_is_idempotent` may already pass. That's fine: it
-  guards the change.
 
 - [ ] **Step 3: Implement the edits listed under Files**
 
@@ -246,8 +257,10 @@ CAs sign only EC P-256 keys.
 **Files:**
 - Modify: `byoda/secrets/ca_secret.py`:
   - `VALID_SIGNATURE_ALGORITHMS = {'ecdsa-with-SHA256'}`.
-  - `review_csr` rejects a CSR whose public key is not an
-    `ec.EllipticCurvePublicKey` with `curve.name == 'secp256r1'`.
+  - After the signature-algorithm check, `review_csr` rejects a CSR whose
+    public key is not an `ec.EllipticCurvePublicKey` with
+    `curve.name == 'secp256r1'`. It raises
+    `ValueError('CSR public key must be EC P-256')`.
   - The class docstring and parameter docs say EC, not RSA.
 - Modify docstrings that say "Creates an RSA private key" in:
   - `byoda/secrets/secret.py` (`create_csr`)
@@ -273,11 +286,15 @@ CAs sign only EC P-256 keys.
     - Build a CSR for a valid service CA common name (`service-ca.service-ca-1234.test.net`),
       signed with an RSA-2048 key, using `x509.CertificateSigningRequestBuilder`
       with a matching DNS SAN.
-    - Assert `ValueError` from both `network.services_ca.review_csr(csr)`
-      and `CertStore(network.services_ca).sign(pem, IdType.SERVICE_CA,
+    - Assert `assertRaisesRegex(ValueError, 'Invalid algorithm')` from both
+      `network.services_ca.review_csr(csr)` and
+      `CertStore(network.services_ca).sign(pem, IdType.SERVICE_CA,
       ip_address('127.0.0.1'))`.
   - `test_rejects_ed25519_csr`: the same, with an Ed25519 key.
-  - `test_rejects_p384_csr`: the same, with `ec.SECP384R1()`.
+  - `test_rejects_p384_csr` and `test_rejects_p521_csr`: the same, with
+    `ec.SECP384R1()` and `ec.SECP521R1()`, asserting with the regex
+    `'EC P-256'`. These CSRs carry an `ecdsa-with-SHA256` signature, so they
+    pass the algorithm check and reach the new public-key check.
   - `test_all_generated_keys_are_p256`:
     - Create a network and a service the same way as `test_network_create`
       and `test_service_create_secrets` in Task 2.
@@ -319,7 +336,9 @@ CAs sign only EC P-256 keys.
 - Modify: `byoda/secrets/ca_secret.py`: `RENEW_WANTED = timedelta(days=365)`
   and `RENEW_NEEDED = timedelta(days=90)`.
 - Delete the `RENEW_WANTED` and `RENEW_NEEDED` overrides in these files, so
-  each class inherits from `Secret` or `CaSecret`:
+  each class inherits from `Secret` or `CaSecret`. For the root CA, this
+  replaces "never warn" with the generic 365/90-day CA thresholds. That is
+  harmless for a 100-year certificate.
   - `account_data_secret.py`, `account_secret.py`, `data_secret.py`
   - `membersca_secret.py`, `networkservicesca_secret.py`,
     `networkaccountsca_secret.py`
@@ -337,7 +356,9 @@ CAs sign only EC P-256 keys.
 
 - [ ] **Step 1: Write the failing tests**
 
-  Add class `TestRenewalThresholds`:
+  Add class `TestRenewalThresholds`. All `assertLogs` and `assertNoLogs`
+  calls use the logger `'byoda.secrets.secret'`, which is where
+  `review_expiration` logs.
   - `test_leaf_needed_warns`: a member cert signed with `expire=20` days
     logs a WARNING from `review_expiration()`.
   - `test_leaf_wanted_info`: `expire=100` logs INFO, not WARNING.
@@ -345,16 +366,18 @@ CAs sign only EC P-256 keys.
     logs a WARNING.
   - `test_ca_quiet_when_fresh`: `network.services_ca` logs nothing. Use
     `assertNoLogs`.
-  - `test_thresholds_use_current_time`: assert that
-    `isinstance(AppsCaSecret.RENEW_NEEDED, timedelta)`, and that
-    `AppsCaSecret.RENEW_WANTED > AppsCaSecret.RENEW_NEEDED`.
+  - `test_thresholds_use_current_time`:
+    - Take a fresh 365-day member cert.
+    - Patch `byoda.secrets.secret.datetime` with a `datetime` subclass whose
+      `now(tz=None)` returns the real now plus 340 days.
+    - Assert that `review_expiration()` logs a WARNING. That only happens if
+      "now" is read at call time.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
   Run: `uv run --no-sync python -m unittest tests.unit.cert_lifetimes_test.TestRenewalThresholds -v`
 
-  Expected: FAIL with `AttributeError: review_expiration`, and the type
-  assertion fails.
+  Expected: FAIL with `AttributeError: review_expiration`.
 
 - [ ] **Step 3: Implement the edits listed under Files**
 
