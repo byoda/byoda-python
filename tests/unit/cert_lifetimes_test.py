@@ -18,8 +18,15 @@ from copy import copy
 from uuid import uuid4
 from datetime import timedelta
 from types import SimpleNamespace
+from ipaddress import ip_address
 
 from byoda.datamodel.network import Network
+from byoda.datamodel.service import Service
+
+from byoda.datastore.certstore import CertStore
+
+from byoda.datatypes import IdType
+from byoda.datatypes import ServerRole
 
 from byoda.secrets.secret import Secret
 from byoda.secrets.ca_secret import CaSecret
@@ -27,6 +34,7 @@ from byoda.secrets.networkservicesca_secret import NetworkServicesCaSecret
 from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.member_secret import MemberSecret
+from byoda.secrets.account_secret import AccountSecret
 
 from byoda.util.logger import Logger as ByodaLogger
 
@@ -35,6 +43,17 @@ NETWORK: str = 'test.net'
 SERVICE_ID: int = 1234
 
 CA_LOGGER: str = 'byoda.secrets.ca_secret'
+
+SCHEMA_FILE: str = 'addressbook.json'
+
+# Lifetimes in days, from the design for the byoda.net reset
+ROOT_CA_DAYS: int = 100 * 365
+NETWORK_INTERMEDIATE_DAYS: int = 5 * 365
+SERVICE_CA_DAYS: int = 4 * 365
+SERVICE_SUB_CA_DAYS: int = 3 * 365
+END_ENTITY_DAYS: int = 365
+
+LOCALHOST = ip_address('127.0.0.1')
 
 
 def lifetime_days(secret: Secret) -> float:
@@ -63,6 +82,24 @@ def network_namespace(network: Network) -> SimpleNamespace:
     '''
 
     return SimpleNamespace(name=NETWORK, paths=copy(network.paths))
+
+
+async def make_service(network: Network) -> Service:
+    '''
+    Creates the secrets of the addressbook service, signing the service CA
+    locally with the network services CA
+    '''
+
+    shutil.copy(f'tests/collateral/{SCHEMA_FILE}', f'{TEST_DIR}/{SCHEMA_FILE}')
+
+    # Allows loading of a service contract without network signature
+    network.roles = [ServerRole.Pod]
+
+    service = Service(network=network)
+    await service.examine_servicecontract(SCHEMA_FILE)
+    await service.create_secrets(network.services_ca, local=True)
+
+    return service
 
 
 async def sign_short_services_ca(network: Network,
@@ -160,6 +197,71 @@ class TestIssuerCap(unittest.IsolatedAsyncioTestCase):
         csr = await service_ca.create_csr()
         with self.assertRaises(ValueError):
             short_ca.sign_csr(csr)
+
+
+class TestCreatedLifetimes(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.network: Network = await make_network()
+
+    def assertLifetime(self, secret: Secret, days: int) -> None:
+        self.assertAlmostEqual(
+            lifetime_days(secret), days, delta=1,
+            msg=f'{type(secret).__name__} has wrong lifetime'
+        )
+
+    async def test_network_create(self) -> None:
+        self.assertLifetime(self.network.root_ca, ROOT_CA_DAYS)
+        self.assertLifetime(
+            self.network.accounts_ca, NETWORK_INTERMEDIATE_DAYS
+        )
+        self.assertLifetime(
+            self.network.services_ca, NETWORK_INTERMEDIATE_DAYS
+        )
+        self.assertLifetime(
+            self.network.data_secret, NETWORK_INTERMEDIATE_DAYS
+        )
+
+    async def test_service_create_secrets(self) -> None:
+        service: Service = await make_service(self.network)
+
+        self.assertLifetime(service.service_ca, SERVICE_CA_DAYS)
+        self.assertLifetime(service.members_ca, SERVICE_SUB_CA_DAYS)
+        self.assertLifetime(service.apps_ca, SERVICE_SUB_CA_DAYS)
+        self.assertLifetime(service.tls_secret, END_ENTITY_DAYS)
+        self.assertLifetime(service.data_secret, END_ENTITY_DAYS)
+
+    async def test_certstore_sign(self) -> None:
+        service: Service = await make_service(self.network)
+
+        cases: list[tuple[CaSecret, Secret, IdType, int]] = [
+            (
+                self.network.services_ca,
+                ServiceCaSecret(SERVICE_ID, network_namespace(self.network)),
+                IdType.SERVICE_CA, SERVICE_CA_DAYS
+            ),
+            (
+                self.network.accounts_ca,
+                AccountSecret(
+                    account_id=uuid4(), network=network_namespace(self.network)
+                ),
+                IdType.ACCOUNT, END_ENTITY_DAYS
+            ),
+            (
+                service.members_ca,
+                MemberSecret(
+                    uuid4(), service.service_id,
+                    paths=copy(self.network.paths), network_name=NETWORK
+                ),
+                IdType.MEMBER, END_ENTITY_DAYS
+            ),
+        ]
+        for ca, secret, id_type, days in cases:
+            csr = await secret.create_csr()
+            certchain = CertStore(ca).sign(
+                secret.csr_as_pem(csr), id_type, LOCALHOST
+            )
+            secret.from_signed_cert(certchain)
+            self.assertLifetime(secret, days)
 
 
 if __name__ == '__main__':

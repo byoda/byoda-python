@@ -86,7 +86,7 @@ class CertStore:
             )
 
         # TODO: add check on whether the UUID is already in use
-        certchain: CertChain = cert_auth.sign_csr(csr, 365*3)
+        certchain: CertChain = cert_auth.sign_csr(csr)
 
         new_id_type: str = entity_id.id_type.value.strip('-')
         _LOGGER.info(

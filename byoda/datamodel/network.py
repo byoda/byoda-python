@@ -185,7 +185,7 @@ class Network:
                         'Private key exists but no renew flag was set'
                     )
             else:
-                await root_ca.create(expire=100*365)
+                await root_ca.create()
                 root_ca_password: LiteralString = passgen.passgen(length=48)
                 await root_ca.save(password=root_ca_password)
                 _LOGGER.info(
@@ -264,7 +264,7 @@ class Network:
 
         csr: CSR = await secret.create_csr()
         issuing_ca.review_csr(csr, source=CsrSource.LOCAL)
-        certchain = issuing_ca.sign_csr(csr, expire=365)
+        certchain = issuing_ca.sign_csr(csr)
         secret.from_signed_cert(certchain)
         await secret.save(password=password, overwrite=True)
 

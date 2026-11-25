@@ -132,7 +132,7 @@ async def main(argv) -> None:
             f'This tool does not support signing {entity_id.id_type} CSRs'
         )
 
-    cert_chain: CertChain = secret.sign_csr(csr, 730)
+    cert_chain: CertChain = secret.sign_csr(csr)
     cert_filepath: str = \
         f'{args.out_dir}/{entity_id.id_type.value}{entity_id.id}.pem'
 

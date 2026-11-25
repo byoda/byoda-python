@@ -41,10 +41,13 @@ class NetworkRootCaSecret(CaSecret):
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
-        IdType.ACCOUNTS_CA: 2 * 365,
-        IdType.SERVICES_CA: 16 * 365,
-        IdType.NETWORK_DATA: 2 * 365
+        IdType.ACCOUNTS_CA: 5 * 365,
+        IdType.SERVICES_CA: 5 * 365,
+        IdType.NETWORK_DATA: 5 * 365
     }
+
+    # Lifetime of the self-signed root CA cert, in days
+    LIFETIME_DAYS: int = 100 * 365
 
     # The longest path under root CA is:
     #   -> services_ca -> service_ca -> members_ca
@@ -92,7 +95,7 @@ class NetworkRootCaSecret(CaSecret):
         self.accepted_csrs = NetworkRootCaSecret._ACCEPTED_CSRS
 
     @override
-    async def create(self, expire: int = 10950) -> None:
+    async def create(self, expire: int = LIFETIME_DAYS) -> None:
         '''
         Creates an RSA private key and X.509 cert
 

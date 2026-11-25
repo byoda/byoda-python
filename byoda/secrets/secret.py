@@ -228,12 +228,13 @@ class Secret:
             self.create_selfsigned_cert(expire, ca)
 
     def create_selfsigned_cert(self,
-                               expire: int | datetime | timedelta = 10950,
+                               expire: int | datetime | timedelta | None,
                                ca: bool = False,
                                pathlen: int | None = None) -> None:
         '''
-        Create a self_signed certificate. Self-signed certs have
-        a expiration of 30 years by default
+        Create a self_signed certificate. There is no default lifetime:
+        the caller decides, ie. NetworkRootCaSecret.LIFETIME_DAYS for
+        the root CA of a network
 
         :param expire: number of days after which the cert should expire,
         either as int or timedelta or the date when the cert should expire
@@ -248,22 +249,22 @@ class Secret:
         issuer: x509.Name
         subject = issuer = self._generate_cert_name()
 
-        if expire:
-            if isinstance(expire, int):
-                expiration: datetime = datetime.now(tz=UTC) + timedelta(
-                    days=expire
-                )
-            elif isinstance(expire, datetime):
-                expiration = expire
-            elif isinstance(expire, timedelta):
-                expiration: datetime = datetime.now(tz=UTC) + expire
-            else:
-                raise ValueError(
-                    'expire must be an int, datetime or timedelta, not: '
-                    f'{type(expire)}'
-                )
+        if expire is None:
+            raise ValueError('expire is required for self-signed certificates')
+
+        if isinstance(expire, int):
+            expiration: datetime = datetime.now(tz=UTC) + timedelta(
+                days=expire
+            )
+        elif isinstance(expire, datetime):
+            expiration = expire
+        elif isinstance(expire, timedelta):
+            expiration: datetime = datetime.now(tz=UTC) + expire
         else:
-            expiration: datetime = datetime.now(tz=UTC) + timedelta(days=3650)
+            raise ValueError(
+                'expire must be an int, datetime or timedelta, not: '
+                f'{type(expire)}'
+            )
 
         self.is_root_cert = True
         cert_builder: x509.CertificateBuilder = x509.CertificateBuilder(
@@ -428,8 +429,8 @@ class Secret:
         '''
         return csr.public_bytes(serialization.Encoding.PEM).decode('utf-8')
 
-    async def get_csr_signature(self, csr: CSR, issuing_ca, expire: int = 365
-                                ) -> None:
+    async def get_csr_signature(self, csr: CSR, issuing_ca,
+                                expire: int | None = None) -> None:
         '''
         Gets the cert signed and adds the signed cert to the secret
 

@@ -84,11 +84,12 @@ class MemberDataSecret(DataSecret):
         self.id_type: IdType = IdType.MEMBER_DATA
 
     @override
-    async def create(self, expire: int = 109500) -> None:
+    async def create(self, expire: int | None = None) -> None:
         '''
         Creates a private key and X.509 cert
 
-        :param int expire: days after which the cert should expire
+        :param int expire: days after which the cert should expire, only
+        used for self-signed certs in tests
         :returns: (none)
         :raises: ValueError if the Secret instance already
                             has a private key or cert

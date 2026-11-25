@@ -38,10 +38,10 @@ class ServiceCaSecret(CaSecret):
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
-            IdType.MEMBERS_CA: 5 * 365,
-            IdType.APPS_CA: 5 * 365,
-            IdType.SERVICE: 2 * 365,
-            IdType.SERVICE_DATA: 5 * 365,
+            IdType.MEMBERS_CA: 3 * 365,
+            IdType.APPS_CA: 3 * 365,
+            IdType.SERVICE: 365,
+            IdType.SERVICE_DATA: 365,
     }
 
     # The longest path under service CA is: -> members_ca

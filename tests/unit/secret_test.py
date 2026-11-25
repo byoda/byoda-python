@@ -97,7 +97,7 @@ def _selfsigned_secret(common_name: str) -> Secret:
     secret = Secret()
     secret.private_key = secret.generate_private_key()
     secret.common_name = common_name
-    secret.create_selfsigned_cert()
+    secret.create_selfsigned_cert(expire=10950)
     return secret
 
 
@@ -105,7 +105,7 @@ def _selfsigned_data_secret(common_name: str = 'data.test.net') -> DataSecret:
     secret = DataSecret()
     secret.private_key = secret.generate_private_key()
     secret.common_name = common_name
-    secret.create_selfsigned_cert()
+    secret.create_selfsigned_cert(expire=10950)
     return secret
 
 
@@ -139,7 +139,7 @@ class _ReviewableCaSecret(CaSecret):
             public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         self.common_name = f'ca.{network}'
-        self.create_selfsigned_cert(ca=True)
+        self.create_selfsigned_cert(expire=10950, ca=True)
         self.is_root_cert = is_root_cert
 
     def review_commonname(self, commonname: str) -> str:
@@ -937,7 +937,7 @@ class TestNetworkDataSecretBase(unittest.IsolatedAsyncioTestCase):
         secret = NetworkDataSecret(paths)
         secret.is_root_cert = True
 
-        await secret.create()
+        await secret.create(expire=365)
 
         self.assertEqual(
             secret.common_name,
@@ -1222,7 +1222,7 @@ class TestMemberDataSecretBase(unittest.IsolatedAsyncioTestCase):
         secret = MemberDataSecret(member_id, SERVICE_ID)
         secret.is_root_cert = True
 
-        await secret.create()
+        await secret.create(expire=365)
         self.assertEqual(
             secret.common_name,
             MemberDataSecret.create_common_name(
@@ -1668,7 +1668,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         root_ca.common_name = 'test-root-ca'
-        root_ca.create_selfsigned_cert(ca=True)
+        root_ca.create_selfsigned_cert(expire=10950, ca=True)
         await root_ca.save()
 
         services_ca: CaSecret = CaSecret(
@@ -1710,7 +1710,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
             public_exponent=65537, key_size=RSA_KEY_SIZE,
         )
         root_ca.common_name = 'test-root-ca'
-        root_ca.create_selfsigned_cert(ca=True)
+        root_ca.create_selfsigned_cert(expire=10950, ca=True)
         await root_ca.save()
 
         services_ca: CaSecret = CaSecret(
@@ -2037,7 +2037,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         member_data_secret.common_name = MemberDataSecret.create_common_name(
             member_data_secret.member_id, ADDRESSBOOK_SERVICE_ID, network
         )
-        member_data_secret.create_selfsigned_cert()
+        member_data_secret.create_selfsigned_cert(expire=10950)
 
         signature = member_data_secret.sign_message(message)
         member_data_secret.verify_message_signature(message, signature)

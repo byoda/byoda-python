@@ -36,7 +36,7 @@ class NetworkServicesCaSecret(CaSecret):
     RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
-    _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 15 * 365}
+    _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 4 * 365}
 
     # The longest path under network services CA is:
     #   -> service_ca -> members_ca
