@@ -132,6 +132,34 @@ class CaSecret(Secret):
         # CSRs
         self.accepted_csrs: dict[IdType, int] = self._ACCEPTED_CSRS
 
+    @staticmethod
+    def review_csr_crypto(csr: CSR) -> None:
+        '''
+        Checks the cryptography of the CSR: its signature must be valid,
+        its key must be EC P-256 and it must be signed with ECDSA/SHA256.
+        These checks apply to every CSR we sign, regardless of whether
+        the policy for the common name of the CSR is applied
+
+        :raises: ValueError
+        '''
+
+        if not csr.is_signature_valid:
+            raise ValueError('CSR with invalid signature')
+
+        public_key = csr.public_key()
+        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
+                or public_key.curve.name != CaSecret.VALID_CURVE):
+            raise ValueError('CSR public key must be EC P-256')
+
+        sign_algo: str = csr.signature_algorithm_oid._name
+        if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
+            raise ValueError(f'Invalid algorithm: {sign_algo}')
+
+        if csr.signature_hash_algorithm:
+            hash_algo: str = csr.signature_hash_algorithm.name
+            if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
+                raise ValueError(f'Invalid algorithm: {hash_algo}')
+
     @override
     def review_csr(self, csr: CSR, source: CsrSource = None) -> str:
         '''
@@ -150,22 +178,7 @@ class CaSecret(Secret):
         if not self.ca:
             raise ValueError('Only CAs review CSRs')
 
-        if not csr.is_signature_valid:
-            raise ValueError('CSR with invalid signature')
-
-        public_key = csr.public_key()
-        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
-                or public_key.curve.name != CaSecret.VALID_CURVE):
-            raise ValueError('CSR public key must be EC P-256')
-
-        sign_algo: str = csr.signature_algorithm_oid._name
-        if sign_algo not in CaSecret.VALID_SIGNATURE_ALGORITHMS:
-            raise ValueError(f'Invalid algorithm: {sign_algo}')
-
-        if csr.signature_hash_algorithm:
-            hash_algo: str = csr.signature_hash_algorithm.name
-            if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
-                raise ValueError(f'Invalid algorithm: {hash_algo}')
+        CaSecret.review_csr_crypto(csr)
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names
@@ -351,6 +364,9 @@ class CaSecret(Secret):
             raise KeyError('Private key not loaded')
 
         if expire:
+            # With an explicit expiration, the policy for the common name
+            # is not applied but the cryptography of the CSR is checked
+            CaSecret.review_csr_crypto(csr)
             if isinstance(expire, int):
                 expiration: datetime = datetime.now(tz=UTC) + timedelta(
                     days=expire

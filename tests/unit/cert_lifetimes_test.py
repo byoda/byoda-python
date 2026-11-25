@@ -325,6 +325,30 @@ class TestEcOnly(unittest.IsolatedAsyncioTestCase):
             ed25519.Ed25519PrivateKey.generate(), 'EC P-256'
         )
 
+    async def test_explicit_expire_still_checks_key(self) -> None:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        csr = service_ca_csr_with_key(key)
+
+        with self.assertRaisesRegex(ValueError, 'EC P-256'):
+            self.network.services_ca.sign_csr(csr, expire=30)
+
+    async def test_explicit_expire_skips_name_policy(self) -> None:
+        # The services CA only signs service CA CSRs; with an explicit
+        # expire= the name policy is not applied, so a test can mint a
+        # cert that the CA would normally refuse
+        member = MemberSecret(
+            uuid4(), SERVICE_ID, paths=copy(self.network.paths),
+            network_name=NETWORK
+        )
+        csr = await member.create_csr()
+        with self.assertRaises(PermissionError):
+            self.network.services_ca.sign_csr(csr)
+
+        member.from_signed_cert(
+            self.network.services_ca.sign_csr(csr, expire=30)
+        )
+        self.assertAlmostEqual(lifetime_days(member), 30, delta=1)
+
     async def test_rejects_p384_csr(self) -> None:
         self.assert_rejected(
             ec.generate_private_key(ec.SECP384R1()), 'EC P-256'
