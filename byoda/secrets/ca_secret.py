@@ -297,6 +297,30 @@ class CaSecret(Secret):
 
         return entity_id
 
+    def _cap_expiration(self, csr: CSR, expiration: datetime) -> datetime:
+        '''
+        A cert must not outlive the CA that signs it, so the requested
+        expiration is capped at the expiration of our own cert
+
+        :raises: ValueError if our own cert has already expired
+        '''
+
+        issuer_expiry: datetime = self.cert.not_valid_after_utc
+        if issuer_expiry <= datetime.now(tz=UTC):
+            raise ValueError(
+                f'Issuing CA {self.common_name} expired at {issuer_expiry}'
+            )
+
+        if expiration > issuer_expiry:
+            _LOGGER.warning(
+                f'Capping expiration of cert for {csr.subject.rfc4514_string()}'
+                f' from {expiration} to {issuer_expiry}, the expiration of '
+                f'issuing CA {self.common_name}'
+            )
+            expiration = issuer_expiry
+
+        return expiration
+
     def sign_csr(self, csr: CSR, expire: int | timedelta | datetime = None
                  ) -> CertChain:
         '''
@@ -343,6 +367,8 @@ class CaSecret(Secret):
 
             expiration: datetime = \
                 datetime.now(tz=UTC) + timedelta(days=expiration_days)
+
+        expiration = self._cap_expiration(csr, expiration)
 
         try:
             ca_extension: x509.Extension[x509.BasicConstraints] = \
