@@ -11,6 +11,7 @@ Non-specific data types
 from enum import Enum
 from uuid import UUID
 from typing import Self
+from typing_extensions import TypeAliasType
 from datetime import datetime
 from datetime import time
 from datetime import date
@@ -68,7 +69,14 @@ NetworkLink: namedtuple = namedtuple(
 AnyScalarType = \
     str | bytes | int | float | bool | UUID | datetime | date | time
 
-DataFilterType = dict[str, dict[str, AnyScalarType]]
+FlatDataFilterType = dict[str, dict[str, AnyScalarType]]
+DataFilterType = TypeAliasType(
+    'DataFilterType',
+    dict[
+        str,
+        dict[str, AnyScalarType] | list['DataFilterType'] | 'DataFilterType'
+    ],
+)
 
 DataDictType = dict[str, object]
 

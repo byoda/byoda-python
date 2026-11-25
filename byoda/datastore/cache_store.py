@@ -340,11 +340,28 @@ class CacheStore:
                     else:
                         filter_items[field] = {'eq': stale_data[field]}
 
+                # Reads use an explicit expression. Cache maintenance uses
+                # the cached cursor as its one-row mutation selector.
+                predicates = [
+                    {field: condition}
+                    for field, condition in filter_items.items()
+                ]
+                query_filter = (
+                    predicates[0] if len(predicates) == 1
+                    else {'$and': predicates}
+                )
+                stale_cursor = Table.get_cursor_hash(
+                    stale_data, origin_id, required_fields
+                )
+                local_filter = DataFilterSet(
+                    {'cursor': {'eq': stale_cursor}}, is_meta_filter=True
+                )
+
                 try:
                     resp: HttpResponse = await DataApiClient.call(
                         service_id, origin_class_name, DataRequestType.QUERY,
                         secret=tls_secret, network=network.name,
-                        member_id=origin_id, depth=0, data_filter=filter_items
+                        member_id=origin_id, depth=0, data_filter=query_filter
                     )
 
                     if not resp or resp.status_code != 200:
@@ -373,11 +390,8 @@ class CacheStore:
                         f'{origin_id_type.value}{origin_id}'
                     )
 
-                    data_filter: DataFilterSet = DataFilterSet(
-                        filter_items, data_class=data_class
-                    )
                     await MemberData.delete_data(
-                        server, member, data_class, data_filter
+                        server, member, data_class, local_filter
                     )
 
                     continue
@@ -388,7 +402,7 @@ class CacheStore:
                         'odd, deleting stale item'
                     )
                     await MemberData.delete_data(
-                        server, member, data_class, data_filter
+                        server, member, data_class, local_filter
                     )
                     continue
 
@@ -397,15 +411,11 @@ class CacheStore:
                 cursor: str = Table.get_cursor_hash(
                     renewed_data, origin_id, required_fields
                 )
-                data_filter_set = DataFilterSet(
-                    filter_items, data_class=data_class
-                )
-
                 result: int = await self.mutate(
                     member_id, data_class.name, renewed_data, cursor,
                     origin_id=origin_id, origin_id_type=origin_id_type,
                     origin_class_name=origin_class_name,
-                    data_filter_set=data_filter_set
+                    data_filter_set=local_filter
                 )
 
                 return result

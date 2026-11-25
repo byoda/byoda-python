@@ -432,8 +432,10 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         title: str = all_data['edges'][0]['node']['title']
         data_filter: DataFilterType = {
-            'asset_id': {'eq': asset_id},
-            'title': {'eq': title}
+            '$and': [
+                {'asset_id': {'eq': asset_id}},
+                {'title': {'eq': title}},
+            ]
         }
 
         filter_batch = await call_data_api(

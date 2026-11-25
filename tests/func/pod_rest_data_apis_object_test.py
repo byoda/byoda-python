@@ -127,9 +127,9 @@ class TestRestDataApis(unittest.IsolatedAsyncioTestCase):
 
         delete_filter_str = str(delete_filter)
         comp_str: str = (
-            "created_timestamp at '2023-10-29 05:15:39.495695+00:00' "
+            "(created_timestamp at '2023-10-29 05:15:39.495695+00:00' "
             "and asset_id eq 'aaaaaaaa-8fd6-4673-afa1-d3129e61faf3' "
-            "and asset_type eq 'video'"
+            "and asset_type eq 'video')"
         )
         self.assertEqual(delete_filter_str, comp_str)
         self.assertTrue(isinstance(delete_filter, DataFilterSet))
