@@ -29,7 +29,6 @@ Network = TypeVar('Network', bound='Network')
 class ServiceCaSecret(CaSecret):
     __slots__: list[str] = ['service_id', 'network']
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
             IdType.MEMBERS_CA: 3 * 365,
@@ -94,7 +93,8 @@ class ServiceCaSecret(CaSecret):
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an EC P-256 private key and X.509 CSR for the Service issuing CA
+        Creates an EC P-256 private key and X.509 CSR for the Service
+        issuing CA
 
         :param renew: should any existing private key be used to
         renew an existing certificate

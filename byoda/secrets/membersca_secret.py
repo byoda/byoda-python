@@ -30,7 +30,6 @@ Network = TypeVar('Network')
 class MembersCaSecret(CaSecret):
     __slots__: list[str] = ['network', 'service_id']
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.MEMBER: 365,

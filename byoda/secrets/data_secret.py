@@ -78,7 +78,6 @@ class DataSecret(Secret):
         'shared_key', 'protected_shared_key', 'fernet'
     ]
 
-
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
                 'digital_signature': True,
                 'content_commitment': True,

@@ -28,7 +28,6 @@ Network = TypeVar('Network')
 class NetworkServicesCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 4 * 365}
 

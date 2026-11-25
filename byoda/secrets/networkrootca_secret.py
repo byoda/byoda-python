@@ -32,7 +32,6 @@ _LOGGER: Logger = getLogger(__name__)
 class NetworkRootCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.ACCOUNTS_CA: 5 * 365,
@@ -119,7 +118,6 @@ class NetworkRootCaSecret(CaSecret):
         :returns: the common name with the network domain stripped off
         :raises: ValueError if the commonname is not valid for this class
         '''
-
 
         # Checks on commonname type and the network postfix
         entity_id: str = super().review_commonname(

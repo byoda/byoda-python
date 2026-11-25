@@ -33,7 +33,6 @@ class AccountDataSecret(DataSecret):
 
     __slots__: list[str] = ['account_id', 'account', 'network']
 
-
     @override
     def __init__(self, account: str = 'pod', account_id: UUID = None,
                  network: Network = None) -> None:

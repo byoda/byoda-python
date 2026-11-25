@@ -26,7 +26,6 @@ _LOGGER: Logger = getLogger(__name__)
 class NetworkAccountsCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {
         IdType.ACCOUNT: 365,
