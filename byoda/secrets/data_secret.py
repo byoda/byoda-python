@@ -18,9 +18,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography import x509
 from cryptography.exceptions import InvalidTag
@@ -81,9 +78,6 @@ class DataSecret(Secret):
         'shared_key', 'protected_shared_key', 'fernet'
     ]
 
-    # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
 
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
                 'digital_signature': True,

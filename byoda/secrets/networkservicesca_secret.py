@@ -11,9 +11,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from byoda.util.paths import Paths
 
@@ -31,9 +28,6 @@ Network = TypeVar('Network')
 class NetworkServicesCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-    # When should the Network Services CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {IdType.SERVICE_CA: 4 * 365}

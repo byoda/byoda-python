@@ -15,7 +15,9 @@ import asyncio
 import unittest
 
 from copy import copy
+from unittest.mock import patch
 from uuid import uuid4
+from datetime import datetime
 from datetime import timedelta
 from types import SimpleNamespace
 from ipaddress import ip_address
@@ -43,6 +45,7 @@ from byoda.secrets.serviceca_secret import ServiceCaSecret
 from byoda.secrets.membersca_secret import MembersCaSecret
 from byoda.secrets.member_secret import MemberSecret
 from byoda.secrets.account_secret import AccountSecret
+from byoda.secrets.appsca_secret import AppsCaSecret
 
 from byoda.util.logger import Logger as ByodaLogger
 
@@ -51,6 +54,7 @@ NETWORK: str = 'test.net'
 SERVICE_ID: int = 1234
 
 CA_LOGGER: str = 'byoda.secrets.ca_secret'
+SECRET_LOGGER: str = 'byoda.secrets.secret'
 
 SCHEMA_FILE: str = 'addressbook.json'
 
@@ -341,6 +345,63 @@ class TestEcOnly(unittest.IsolatedAsyncioTestCase):
                 secret.cert.public_key().curve.name, 'secp256r1',
                 msg=f'{type(secret).__name__} is not EC P-256'
             )
+
+
+class TestRenewalThresholds(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.network: Network = await make_network()
+        self.service: Service = await make_service(self.network)
+
+    async def make_member(self, expire: int | None = None) -> MemberSecret:
+        member = MemberSecret(
+            uuid4(), self.service.service_id,
+            paths=copy(self.network.paths), network_name=NETWORK
+        )
+        csr = await member.create_csr()
+        member.from_signed_cert(
+            self.service.members_ca.sign_csr(csr, expire=expire)
+        )
+        return member
+
+    async def test_leaf_needed_warns(self) -> None:
+        member: MemberSecret = await self.make_member(expire=20)
+        with self.assertLogs(SECRET_LOGGER, 'WARNING'):
+            member.review_expiration()
+
+    async def test_leaf_wanted_info(self) -> None:
+        member: MemberSecret = await self.make_member(expire=100)
+        with self.assertLogs(SECRET_LOGGER, 'INFO') as logs:
+            member.review_expiration()
+
+        levels: set[str] = {record.levelname for record in logs.records}
+        self.assertEqual(levels, {'INFO'})
+
+    async def test_apps_ca_needed_warns(self) -> None:
+        apps_ca = AppsCaSecret(
+            self.service.service_id, network_namespace(self.network)
+        )
+        csr = await apps_ca.create_csr()
+        apps_ca.from_signed_cert(
+            self.service.service_ca.sign_csr(csr, expire=60)
+        )
+        with self.assertLogs(SECRET_LOGGER, 'WARNING'):
+            apps_ca.review_expiration()
+
+    async def test_ca_quiet_when_fresh(self) -> None:
+        with self.assertNoLogs(SECRET_LOGGER, 'INFO'):
+            self.network.services_ca.review_expiration()
+
+    async def test_thresholds_use_current_time(self) -> None:
+        member: MemberSecret = await self.make_member()
+
+        class FutureDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None) -> datetime:
+                return datetime.now(tz=tz) + timedelta(days=340)
+
+        with patch('byoda.secrets.secret.datetime', FutureDatetime):
+            with self.assertLogs(SECRET_LOGGER, 'WARNING'):
+                member.review_expiration()
 
 
 if __name__ == '__main__':

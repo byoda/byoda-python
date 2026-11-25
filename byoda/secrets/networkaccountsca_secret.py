@@ -10,9 +10,6 @@ from copy import copy
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from byoda.util.paths import Paths
 
@@ -29,9 +26,6 @@ _LOGGER: Logger = getLogger(__name__)
 class NetworkAccountsCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-    # When should the Network Accounts CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {

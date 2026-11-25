@@ -10,9 +10,6 @@ from typing import TypeVar
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography.x509 import CertificateSigningRequest
 
@@ -32,9 +29,6 @@ Network = TypeVar('Network', bound='Network')
 class ServiceCaSecret(CaSecret):
     __slots__: list[str] = ['service_id', 'network']
 
-    # When should the Network Services CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {

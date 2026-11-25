@@ -40,9 +40,10 @@ CSR = x509.CertificateSigningRequest
 class CaSecret(Secret):
     __slots__: list[str] = []
 
-    # When should a CA secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=180)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
+    # How long before the expiration of a CA cert we want to renew it
+    # and how long before the expiration renewal is needed
+    RENEW_WANTED: timedelta = timedelta(days=365)
+    RENEW_NEEDED: timedelta = timedelta(days=90)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {}

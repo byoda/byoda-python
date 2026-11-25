@@ -11,9 +11,6 @@ from copy import copy
 from typing import override
 from logging import Logger
 from logging import getLogger
-from datetime import UTC
-from datetime import datetime
-from datetime import timedelta
 
 from cryptography.hazmat.primitives import serialization
 
@@ -35,9 +32,6 @@ _LOGGER: Logger = getLogger(__name__)
 class NetworkRootCaSecret(CaSecret):
     __slots__: list[str] = ['network']
 
-    # The Network Root CA secret should never renew
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=100 * 365)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=100 * 365)
 
     # CSRs that we are willing to sign and what we set for their expiration
     _ACCEPTED_CSRS: dict[IdType, int] = {

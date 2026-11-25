@@ -88,9 +88,10 @@ class Secret:
         'extended_key_usage'
     ]
 
-    # When should the secret be renewed
-    RENEW_WANTED: datetime = datetime.now(tz=UTC) + timedelta(days=90)
-    RENEW_NEEDED: datetime = datetime.now(tz=UTC) + timedelta(days=30)
+    # How long before the expiration of the cert we want to renew it
+    # and how long before the expiration renewal is needed
+    RENEW_WANTED: timedelta = timedelta(days=180)
+    RENEW_NEEDED: timedelta = timedelta(days=30)
 
     _KEY_USAGE_CONSTRAINTS: dict[str, bool] = {
                 'digital_signature': True,
@@ -537,6 +538,31 @@ class Secret:
             f'cert {cert_file} and root CA {ca_file}'
         )
 
+    def review_expiration(self) -> None:
+        '''
+        Logs a warning if the cert must be renewed soon and an info
+        message if the cert should be renewed. The time left is computed
+        against the current time so this works for long-running servers
+
+        :returns: (none)
+        :raises: (none)
+        '''
+
+        # TODO: add logic to recreate the signed cert
+        time_left: timedelta = \
+            self.cert.not_valid_after_utc - datetime.now(tz=UTC)
+
+        if time_left < self.RENEW_NEEDED:
+            _LOGGER.warning(
+                f'Certificate {self.cert_file} expires in '
+                f'{time_left.days} days, renewal is needed'
+            )
+        elif time_left < self.RENEW_WANTED:
+            _LOGGER.info(
+                f'Certificate {self.cert_file} expires in '
+                f'{time_left.days} days, renewal is wanted'
+            )
+
     async def cert_file_exists(self) -> bool:
         '''
         Checks whether the file with the cert of the secret exists
@@ -606,18 +632,7 @@ class Secret:
 
         if with_private_key:
             # Only croak about expiration of cert if we own the private key
-            if self.cert.not_valid_after_utc < self.RENEW_WANTED:
-                # TODO: add logic to recreate the signed cert
-                if self.cert.not_valid_after_utc < self.RENEW_NEEDED:
-                    _LOGGER.warning(
-                        f'Certificate {self.cert_file} expires in 30 days: '
-                        f'{self.RENEW_NEEDED}'
-                    )
-                else:
-                    _LOGGER.info(
-                        f'Certificate {self.cert_file} expires in 90 days: '
-                        f'{self.RENEW_WANTED}'
-                    )
+            self.review_expiration()
 
         self.common_name = None
         for rdns in self.cert.subject.rdns:
