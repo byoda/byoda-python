@@ -99,7 +99,7 @@ class MemberSecret(Secret):
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR
+        Creates an EC P-256 private key and X.509 CSR
 
         :param member_id: identifier of the member for the service
         :param renew: if True, renew the secret using the existing private key

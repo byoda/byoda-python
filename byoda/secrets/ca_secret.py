@@ -17,6 +17,7 @@ from datetime import datetime
 from datetime import timedelta
 
 from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
 
 from byoda.datatypes import EntityId
@@ -49,11 +50,9 @@ class CaSecret(Secret):
     # Maximum length of path in CA hierarchy under us.
     _PATHLEN: int | None = 1
 
-    VALID_SIGNATURE_ALGORITHMS: set[str] = {
-        'sha256WithRSAEncryption',
-        'ed25519',
-        'ecdsa-with-SHA256'
-    }
+    # We only sign CSRs for EC keys on curve P-256
+    VALID_SIGNATURE_ALGORITHMS: set[str] = {'ecdsa-with-SHA256'}
+    VALID_CURVE: str = 'secp256r1'
 
     VALID_SIGNATURE_HASHES: set[str] = {'sha256'}
 
@@ -93,7 +92,8 @@ class CaSecret(Secret):
     Properties:
     - cert                 : instance of cryptography.x509
     - key                  : instance of
-                             cryptography.hazmat.primitives.asymmetric.rsa
+                             cryptography.hazmat.primitives.asymmetric.ec
+                             EllipticCurvePrivateKey on curve SECP256R1
     - password             : string protecting the private key
     - shared_key           : unprotected shared secret used by Fernet
     - protected_shared_key : protected shared secret used by Fernet
@@ -156,6 +156,11 @@ class CaSecret(Secret):
             hash_algo: str = csr.signature_hash_algorithm.name
             if hash_algo not in CaSecret.VALID_SIGNATURE_HASHES:
                 raise ValueError(f'Invalid algorithm: {hash_algo}')
+
+        public_key = csr.public_key()
+        if (not isinstance(public_key, ec.EllipticCurvePublicKey)
+                or public_key.curve.name != CaSecret.VALID_CURVE):
+            raise ValueError('CSR public key must be EC P-256')
 
         # We start parsing the Subject of the CSR, which
         # consists of a list of 'Relative' Distinguished Names

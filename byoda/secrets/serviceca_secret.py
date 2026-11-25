@@ -100,7 +100,7 @@ class ServiceCaSecret(CaSecret):
     async def create_csr(self, renew: bool = False
                          ) -> CertificateSigningRequest:
         '''
-        Creates an RSA private key and X.509 CSR for the Service issuing CA
+        Creates an EC P-256 private key and X.509 CSR for the Service issuing CA
 
         :param renew: should any existing private key be used to
         renew an existing certificate

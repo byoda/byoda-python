@@ -35,7 +35,6 @@ from cryptography import x509
 from cryptography.fernet import InvalidToken
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes
 
@@ -90,7 +89,6 @@ SERVICE_ID = 12345678
 SCHEMA_VERSION = 1
 SCHEMA_DIR: str = f'/network-{NETWORK}/services/service-{SERVICE_ID}'
 SCHEMA_FILE: str = SCHEMA_DIR + '/service-contract.json'
-RSA_KEY_SIZE = 4096
 
 
 def _selfsigned_secret(common_name: str) -> Secret:
@@ -135,9 +133,7 @@ class _ReviewableCaSecret(CaSecret):
         self.network = network
         self.service_id = service_id
         self.accepted_csrs = accepted_csrs or {IdType.ACCOUNT: 30}
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=RSA_KEY_SIZE,
-        )
+        self.private_key = ec.generate_private_key(ec.SECP256R1())
         self.common_name = f'ca.{network}'
         self.create_selfsigned_cert(expire=10950, ca=True)
         self.is_root_cert = is_root_cert
@@ -160,9 +156,7 @@ def _csr(
     basic_constraints: x509.BasicConstraints | None = None,
     hash_algorithm=hashes.SHA256(),
 ) -> x509.CertificateSigningRequest:
-    key = rsa.generate_private_key(
-        public_exponent=65537, key_size=RSA_KEY_SIZE,
-    )
+    key = ec.generate_private_key(ec.SECP256R1())
     csr_builder = x509.CertificateSigningRequestBuilder().subject_name(
         x509.Name([
             x509.NameAttribute(NameOID.COUNTRY_NAME, u'SW'),
@@ -215,9 +209,7 @@ def _csr(
 
 
 def _email_san_csr(common_name: str) -> x509.CertificateSigningRequest:
-    key = rsa.generate_private_key(
-        public_exponent=65537, key_size=RSA_KEY_SIZE,
-    )
+    key = ec.generate_private_key(ec.SECP256R1())
     return x509.CertificateSigningRequestBuilder().subject_name(
         x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
     ).add_extension(
@@ -245,9 +237,7 @@ class _TrackingSecret(Secret):
 
 class _FakeIssuingCa:
     def __init__(self) -> None:
-        self.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=RSA_KEY_SIZE,
-        )
+        self.private_key = ec.generate_private_key(ec.SECP256R1())
         self.common_name = 'fake-ca.test.net'
         self.cert = self._create_ca_cert()
         self.csr: x509.CertificateSigningRequest | None = None
@@ -1474,9 +1464,7 @@ class TestCaSecretBase(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(KeyError):
             ca.sign_csr(csr, expire=1)
 
-        ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=RSA_KEY_SIZE,
-        )
+        ca.private_key = ec.generate_private_key(ec.SECP256R1())
         with self.assertRaises(ValueError):
             ca.sign_csr(csr, expire='tomorrow')
 
@@ -1664,9 +1652,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         root_ca: CaSecret = CaSecret(
             'root-ca.pem', 'root-ca.key', storage
         )
-        root_ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=RSA_KEY_SIZE,
-        )
+        root_ca.private_key = ec.generate_private_key(ec.SECP256R1())
         root_ca.common_name = 'test-root-ca'
         root_ca.create_selfsigned_cert(expire=10950, ca=True)
         await root_ca.save()
@@ -1706,9 +1692,7 @@ class TestAccountManager(unittest.IsolatedAsyncioTestCase):
         root_ca: CaSecret = CaSecret(
             'root-ca.pem', 'root-ca.key', storage
         )
-        root_ca.private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=RSA_KEY_SIZE,
-        )
+        root_ca.private_key = ec.generate_private_key(ec.SECP256R1())
         root_ca.common_name = 'test-root-ca'
         root_ca.create_selfsigned_cert(expire=10950, ca=True)
         await root_ca.save()

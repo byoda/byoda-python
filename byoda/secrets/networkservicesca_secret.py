@@ -72,7 +72,7 @@ class NetworkServicesCaSecret(CaSecret):
     @override
     async def create_csr(self, renew: bool = False) -> CSR:
         '''
-        Creates an RSA private key and X.509 CertificateSigningRequest
+        Creates an EC P-256 private key and X.509 CertificateSigningRequest
 
         :param renew: should any existing private key be used to
         renew an existing certificate

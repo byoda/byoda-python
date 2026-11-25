@@ -311,7 +311,7 @@ class Secret:
     async def create_csr(self, common_name: str, sans: str | list[str] = [],
                          renew: bool = False) -> CSR:
         '''
-        Creates an RSA private key and a CSR. After calling this function,
+        Creates an EC P-256 private key and a CSR. After calling this function,
         you can call Secret.get_csr_signature(issuing_ca) afterwards to
         generate the signed certificate
 

@@ -97,7 +97,7 @@ class NetworkRootCaSecret(CaSecret):
     @override
     async def create(self, expire: int = LIFETIME_DAYS) -> None:
         '''
-        Creates an RSA private key and X.509 cert
+        Creates an EC P-256 private key and X.509 cert
 
         :param int expire: days after which the cert should expire
         :returns: (none)

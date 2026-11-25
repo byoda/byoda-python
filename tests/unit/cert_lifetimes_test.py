@@ -20,6 +20,14 @@ from datetime import timedelta
 from types import SimpleNamespace
 from ipaddress import ip_address
 
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import ed25519
+
 from byoda.datamodel.network import Network
 from byoda.datamodel.service import Service
 
@@ -262,6 +270,77 @@ class TestCreatedLifetimes(unittest.IsolatedAsyncioTestCase):
             )
             secret.from_signed_cert(certchain)
             self.assertLifetime(secret, days)
+
+
+def service_ca_csr_with_key(private_key) -> x509.CertificateSigningRequest:
+    '''
+    Builds a CSR for a valid service CA common name, signed with the
+    provided private key
+    '''
+
+    common_name: str = f'service-ca.service-ca-{SERVICE_ID}.{NETWORK}'
+    algorithm = None
+    if not isinstance(private_key, ed25519.Ed25519PrivateKey):
+        algorithm = hashes.SHA256()
+
+    return x509.CertificateSigningRequestBuilder().subject_name(
+        x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
+    ).add_extension(
+        x509.SubjectAlternativeName([x509.DNSName(common_name)]),
+        critical=False
+    ).add_extension(
+        x509.BasicConstraints(ca=True, path_length=None), critical=True
+    ).sign(private_key, algorithm)
+
+
+class TestEcOnly(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self) -> None:
+        self.network: Network = await make_network()
+
+    def assert_rejected(self, private_key, regex: str) -> None:
+        csr = service_ca_csr_with_key(private_key)
+        services_ca = self.network.services_ca
+
+        with self.assertRaisesRegex(ValueError, regex):
+            services_ca.review_csr(csr)
+
+        pem: str = csr.public_bytes(serialization.Encoding.PEM).decode()
+        with self.assertRaisesRegex(ValueError, regex):
+            CertStore(services_ca).sign(pem, IdType.SERVICE_CA, LOCALHOST)
+
+    async def test_rejects_rsa_csr(self) -> None:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        self.assert_rejected(key, 'Invalid algorithm')
+
+    async def test_rejects_ed25519_csr(self) -> None:
+        self.assert_rejected(
+            ed25519.Ed25519PrivateKey.generate(), 'Invalid algorithm'
+        )
+
+    async def test_rejects_p384_csr(self) -> None:
+        self.assert_rejected(
+            ec.generate_private_key(ec.SECP384R1()), 'EC P-256'
+        )
+
+    async def test_rejects_p521_csr(self) -> None:
+        self.assert_rejected(
+            ec.generate_private_key(ec.SECP521R1()), 'EC P-256'
+        )
+
+    async def test_all_generated_keys_are_p256(self) -> None:
+        service: Service = await make_service(self.network)
+
+        secrets: list[Secret] = [
+            self.network.root_ca, self.network.accounts_ca,
+            self.network.services_ca, self.network.data_secret,
+            service.service_ca, service.members_ca, service.apps_ca,
+            service.tls_secret, service.data_secret,
+        ]
+        for secret in secrets:
+            self.assertEqual(
+                secret.cert.public_key().curve.name, 'secp256r1',
+                msg=f'{type(secret).__name__} is not EC P-256'
+            )
 
 
 if __name__ == '__main__':
