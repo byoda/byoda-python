@@ -25,7 +25,9 @@ import orjson
 
 from fastapi import FastAPI
 
+from ssl import SSLContext
 from ssl import SSLCertVerificationError
+from ssl import create_default_context
 
 from httpx2 import Client as SyncHttpClient
 from httpx2 import AsyncClient as AsyncHttpClient
@@ -57,6 +59,26 @@ from byoda.exceptions import ByodaRuntimeError
 from byoda import config
 
 _LOGGER: Logger = getLogger(__name__)
+
+
+def create_ssl_context(ca_filepath: str | None,
+                       cert: tuple[str, str] | None) -> SSLContext:
+    '''
+    Creates the SSL context for an HTTP client. httpx2 only presents a
+    client cert if it is loaded in the SSLContext passed as 'verify'
+
+    :param ca_filepath: CA cert to verify the server cert with. If None,
+    the CAs of the system are used
+    :param cert: tuple of the client cert file and its unencrypted key file
+    :returns: SSLContext that verifies the server cert
+    :raises: ssl.SSLError, OSError if the CA or client cert can't be loaded
+    '''
+
+    ctx: SSLContext = create_default_context(cafile=ca_filepath)
+    if cert:
+        ctx.load_cert_chain(*cert)
+
+    return ctx
 
 Server = TypeVar('Server')
 Network = TypeVar('Network')
@@ -224,7 +246,8 @@ class ApiClient:
                     'Can not use FastAPI app for HTTP calls in non-debug mode'
                 )
             self.session = AsyncHttpClient(
-                app=app, cert=self.cert, verify=self.ca_filepath
+                app=app,
+                verify=create_ssl_context(self.ca_filepath, self.cert)
             )
             return
 
@@ -251,7 +274,8 @@ class ApiClient:
         )
 
         self.session: AsyncHttpClient = AsyncHttpClient(
-            timeout=self.timeout, verify=self.ca_filepath, cert=self.cert,
+            timeout=self.timeout,
+            verify=create_ssl_context(self.ca_filepath, self.cert),
             http2=False
         )
 
@@ -548,7 +572,8 @@ class ApiClient:
             cert = (cert_filepath, key_filepath)
 
         client = SyncHttpClient(
-            timeout=timeout, verify=ca_filepath,cert=cert, http2=True
+            timeout=timeout, verify=create_ssl_context(ca_filepath, cert),
+            http2=False
         )
         config.sync_client_pools[pool] = client
 
